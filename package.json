@@ -1,0 +1,44 @@
+{
+  "name": "tiny-rabbit-discord",
+  "version": "2.0.1",
+  "description": "",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "start-pm2": "pm2 start src/index.ts --name TinyRabbit_Discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
+    "cloc": "bun run src/utils/cloc.ts",
+    "cloc-o1": "bun run src/utils/cloc-o1.ts",
+    "add-commands": "bun run src/deploy-commands.ts",
+    "stop": "pm2 stop TinyRabbit_Discord",
+    "restart": "pm2 restart TinyRabbit_Discord --time"
+  },
+  "type": "module",
+  "author": "Hasiradoo",
+  "license": "ISC",
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.55",
+    "@supabase/supabase-js": "^2.45.4",
+    "bunny-log": "^0.1.8",
+    "busboy": "^1.6.0",
+    "chalk": "^5.3.0",
+    "discord-rpc": "^4.0.1",
+    "discord.js": "^14.16.2",
+    "fs-extra": "^11.2.0",
+    "glob": "^10.4.5",
+    "jimp": "^0.22.12",
+    "js-cookie": "^3.0.5",
+    "js-levenshtein": "^1.1.6",
+    "lru-cache": "^11.0.1",
+    "node-cron": "^3.0.3",
+    "node-schedule": "^2.1.1",
+    "openai": "^4.62.0",
+    "tiny-rabbit-discord": "file:",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.8.2",
+    "@types/bun": "latest",
+    "@types/node": "^20.16.5",
+    "@types/node-schedule": "^2.1.7",
+    "rimraf": "^5.0.10"
+  }
+}
