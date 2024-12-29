@@ -91,6 +91,28 @@ npm install
 
 2. Create a `.env` file with your Discord bot token and other required variables.
 
+```bash
+Discord Bot Configuration
+BOT_TOKEN=your_bot_token # Your Discord bot token
+BOT_CLIENT_ID=your_client_id # Your Discord application client ID
+BOT_CLIENT_SECRET=your_client_secret # Your Discord application client secret
+
+Server Configuration
+GUILD_ID=your_guild_id # Your Discord server ID
+
+OpenAI Configuration (maybe soon)
+OPENAI_API_KEY=your_openai_key # OpenAI API key for AI features
+OPENAI_SECRET=your_openai_secret # OpenAI secret key
+
+Database Configuration
+
+SUPABASE_URL=your_supabase_url # Supabase project URL
+SUPABASE_KEY=your_supabase_key # Supabase project API key
+
+Server Settings
+PORT=5000 # Port for web server (if applicable)
+```
+
 3. Run the bot:
 
 ```bash
