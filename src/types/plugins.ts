@@ -128,10 +128,17 @@ type PluginTypes = {
 	connectSocial: ConnectSocial
 }
 
-type Plugins = PluginTypes[keyof PluginTypes]
+type Plugins = PluginTypes[keyof PluginTypes] | 'moderation'
 
 type DefaultConfigs = {
 	[K in keyof PluginTypes]: PluginTypes[K]
+} & {
+	moderation: {
+		enabled: boolean
+		watch_roles: string[]
+		ban_interval: number
+		delete_message_days: number
+	}
 }
 
 type PluginResponse<T> = T & { id: string }

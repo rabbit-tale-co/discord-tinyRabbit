@@ -1,4 +1,4 @@
-import type { Message } from 'discord.js'
+import type * as Discord from 'discord.js'
 import { getPluginConfig } from '../api/plugins'
 import { assignXP } from '../services/experienceService'
 import { bunnyLog } from 'bunny-log'
@@ -6,30 +6,37 @@ import { manageSlowmode } from '../services/slowmode'
 
 /**
  * Event handler for message creation.
- * @param {Message} message - The message object from Discord.
+ * @param {Discord.Message} message - The message object from Discord.
  * @returns {Promise<void>} A promise that resolves when the message is handled.
  */
-async function messageHandler(message: Message): Promise<void> {
-	// Ignoruj wiadomości od botów
+async function messageHandler(message: Discord.Message): Promise<void> {
+	// Ignore messages from bots
 	if (message.author.bot) return
 
+	// Ignore messages in DMs
+	if (!message.guild) return // TODO: add error handling
+
+	// Ignore messages in threads
+	if (message.channel.isThread()) return
+
 	try {
+		// Manage slowmode
 		await manageSlowmode(message)
 
-		// Pobierz konfigurację pluginu 'levels' dla tej gildii w kontekście danego bota
+		// Get the plugin config for the 'levels' plugin for this guild in the context of the given bot
 		const config = await getPluginConfig(
 			message.client.user.id,
 			message.guild.id,
 			'levels'
 		)
 
-		// Sprawdź, czy plugin 'levels' jest włączony
+		// Check if the 'levels' plugin is enabled
 		if (!config.enabled) return
 
-		// Przypisz XP na podstawie wiadomości, jeśli plugin jest włączony
+		// Assign XP based on the message, if the plugin is enabled
 		await assignXP(message)
 	} catch (error) {
-		// Loguj błędy, które mogą wystąpić podczas obsługi wiadomości
+		// Log any errors that may occur during message handling
 		bunnyLog.error('Error handling message:', error)
 	}
 }

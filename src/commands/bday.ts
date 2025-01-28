@@ -1,9 +1,4 @@
-import type {
-	CommandInteractionOptionResolver,
-	Client,
-	TextChannel,
-	ChatInputCommandInteraction,
-} from 'discord.js'
+import type * as Discord from 'discord.js'
 import { saveBirthday, getUsersWithBirthday } from '../api/bday'
 import cron from 'node-cron'
 import { getPluginConfig } from '../api/plugins'
@@ -12,21 +7,29 @@ import { replacePlaceholders } from '../utils/replacePlaceholders'
 import { handleError, handleSuccess } from '../utils/errorHandlers'
 
 async function handleBdayCommand(
-	interaction: ChatInputCommandInteraction
+	interaction: Discord.ChatInputCommandInteraction
 ): Promise<void> {
-	const options = interaction.options as CommandInteractionOptionResolver
+	// Get the options from the interaction
+	const options =
+		interaction.options as Discord.CommandInteractionOptionResolver
+
+	// Get the day, month, and year from the options
 	const day = options.getInteger('day', true)
 	const month = options.getInteger('month', true)
 	const year = options.getInteger('year', true)
+
+	// Get the user ID and guild ID
 	const user_id = interaction.user.id
 	const guild_id = interaction.guildId as string
 
+	// Get the plugin config
 	const config = await getPluginConfig(
 		interaction.client.user.id,
 		guild_id,
 		'birthday'
 	)
 
+	// Check if the plugin is enabled
 	if (!config?.enabled) {
 		await handleError(
 			interaction,
@@ -36,10 +39,11 @@ async function handleBdayCommand(
 		return
 	}
 
+	// Get the current year and the minimum year
 	const current_year = new Date().getFullYear()
 	const min_year = current_year - 100
 
-	// Walidacja daty
+	// Validate the date
 	if (!isValidDate(day, month, year, min_year, current_year)) {
 		await handleError(
 			interaction,
@@ -49,18 +53,21 @@ async function handleBdayCommand(
 		return
 	}
 
-	// Zapis urodzin w bazie danych
+	// Save the birthday in the database
 	await saveBirthday(interaction.client.user.id, guild_id, user_id, {
 		day,
 		month,
 		year,
 	})
+
+	// Send a success message
 	await handleSuccess(
 		interaction,
 		`Birthday saved successfully.\n(${day}.${month}.${year})`
 	)
 }
 
+// Validate the date
 const isValidDate = (
 	day: number,
 	month: number,
@@ -68,10 +75,13 @@ const isValidDate = (
 	min_year: number,
 	current_year: number
 ): boolean => {
-	// Sprawdzenie, czy data jest poprawna
+	// Check if the date is valid
 	if (year < min_year || year > current_year) return false
 
+	// Create a date object
 	const date = new Date(year, month - 1, day)
+
+	// Check if the date is valid
 	return (
 		date.getFullYear() === year &&
 		date.getMonth() === month - 1 &&
@@ -79,17 +89,28 @@ const isValidDate = (
 	)
 }
 
-async function sendBirthdayMessage(bot: Client) {
+/**
+ * Send birthday messages to users with birthdays today
+ * @param bot - The Discord client
+ */
+async function sendBirthdayMessage(bot: Discord.Client) {
+	// Get the current date
 	const today = new Date()
 	const day = today.getDate()
-	const month = today.getMonth() + 1 // Miesiące w JavaScript są zero-based
+	const month = today.getMonth() + 1 // Months in JavaScript are zero-based
 
 	for (const guild of bot.guilds.cache.values()) {
 		try {
 			const guild_id = guild.id
 
-			// Pobranie konfiguracji pluginu 'birthday'
-			const config = await getPluginConfig(bot.user.id, guild_id, 'birthday')
+			// Get the plugin config
+			const config = await getPluginConfig(
+				bot.user?.id as Discord.ClientUser['id'],
+				guild_id,
+				'birthday'
+			)
+
+			// Check if the plugin is enabled
 			if (!config?.enabled) {
 				// bunnyLog.warn(
 				// 	`Birthday plugin is disabled for guild ${guild.name} (${guild_id}).`
@@ -97,16 +118,19 @@ async function sendBirthdayMessage(bot: Client) {
 				continue
 			}
 
+			// Get the channel ID
 			const channel_id = config.channel_id
 			if (!channel_id) continue
 
-			// Pobranie użytkowników, którzy mają dzisiaj urodziny
+			// Get the users with birthdays today
 			const birthday_users = await getUsersWithBirthday(
-				bot.user.id,
+				bot.user?.id as Discord.ClientUser['id'],
 				guild_id,
 				day,
 				month
 			)
+
+			// Check if there are no users with birthdays today
 			if (!birthday_users || birthday_users.length === 0) {
 				// bunnyLog.warn(
 				// 	`No users with birthdays today in guild ${guild.name} (${guild_id}).`
@@ -114,8 +138,8 @@ async function sendBirthdayMessage(bot: Client) {
 				continue
 			}
 
-			// Pobranie kanału
-			const channel = bot.channels.cache.get(channel_id) as TextChannel
+			// Get the channel
+			const channel = bot.channels.cache.get(channel_id) as Discord.TextChannel
 			if (!channel) {
 				// bunnyLog.warn(
 				// 	`Birthday channel not found for guild ${guild.name} (${guild_id}).`
@@ -123,7 +147,7 @@ async function sendBirthdayMessage(bot: Client) {
 				continue
 			}
 
-			// Przygotowanie i wysłanie wiadomości z życzeniami
+			// Prepare and send the birthday messages
 			const birthday_messages = await Promise.all(
 				birthday_users.map(async (user) => {
 					// Fetch the user data from the guild to get the username
@@ -133,26 +157,28 @@ async function sendBirthdayMessage(bot: Client) {
 						username: member.user.username,
 					}
 					// Replace placeholders in the message with user and guild info
-					return replacePlaceholders(config.message, userData, guild)
+					return replacePlaceholders(
+						config.message as Discord.Snowflake, // FIXME: find better way to type this?
+						userData,
+						guild
+					)
 				})
 			)
 
+			// Send the birthday messages
 			await channel.send(birthday_messages.join('\n'))
-
-			// bunnyLog.api(
-			// 	`Sent birthday messages to ${birthday_users.length} users in guild ${guild.name} (${guild_id})`
-			// )
 		} catch (error) {
-			// bunnyLog.error(
-			// 	`Failed to send birthday messages in guild ${guild.name} (${guild.id}): ${error.message}`
-			// )
+			// Log the error
+			bunnyLog.error(
+				`Failed to send birthday messages in guild ${guild.name} (${guild.id}): ${error.message}`
+			)
 		}
 	}
 }
 
-function scheduleBirthdayCheck(bot: Client) {
+function scheduleBirthdayCheck(bot: Discord.Client) {
 	cron.schedule(
-		'45 11 * * *', // Uruchom codziennie o 12:00 UTC - 2h
+		'0 12 * * *', // Run daily at 12:00 UTC - 2h
 		() => {
 			sendBirthdayMessage(bot)
 		},

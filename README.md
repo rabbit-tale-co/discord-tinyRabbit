@@ -1,101 +1,149 @@
-# Tiny Rabbit Discord Bot
+# Discord Bot
 
-Tiny Rabbit is a versatile Discord bot designed to enhance your server with various features including XP tracking, role management, and more.
+A feature-rich Discord bot built with Discord.js, offering extensive functionality including XP system, birthday notifications, ticket management, temporary voice channels, and more.
 
-## Features
+## Core Features
 
--  XP Tracking: Track and display user experience points (XP) and levels.
--  Role Management: Automatically assign roles based on user levels.
--  Leaderboards: Display global and server-specific leaderboards.
--  Customizable Configuration: Easily configure the bot for your server.
+### Level & XP System
+- Track user activity and engagement with XP rewards
+- Global and server-specific leaderboards
+- Customizable XP rates and level-up notifications
+- Level-based role rewards
+- Commands: `/level`, `/rank`, `/leaderboard`, `/set_level`
 
-## Getting Started
+### Birthday System
+- Set and manage birthdays with `/bday`
+- Automatic birthday announcements in configured channels
+- Birthday role assignments
+- Birthday calendar and upcoming notifications
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+### Ticket System
+- Create and manage support tickets
+- Customizable ticket categories
+- Ticket transcripts and logging
+- Staff management features (claim, transfer, close)
+- Configurable auto-close and archive settings
 
-### Prerequisites
+### Temporary Voice Channels
+- Create temporary voice channels with custom durations
+- Auto-deletion when empty or expired
+- User limit and permission management
+- Duration presets and extensions
 
-Ensure you have the following installed:
+### Starboard
+- Highlight popular messages automatically
+- Customizable star threshold
+- Support for multiple reaction types
+- Cross-channel star tracking
 
--  [Node.js](https://nodejs.org/) (version 14.x or higher)
--  [Bun](https://bun.sh/) (for running the server)
--  A Discord bot token ([how to create a Discord bot](https://discordpy.readthedocs.io/en/stable/discord.html))
--  Firebase project ([how to create a Firebase project](https://firebase.google.com/docs/web/setup))
+### Social Media Integration
+- Link Discord accounts with:
+  - Minecraft
+  - YouTube
+  - Twitter
+  - TikTok
+  - Twitch
+- Automatic role assignment for verified accounts
+- Social media feed notifications
 
-### Installation
+### Welcome System
+- Customizable welcome/goodbye messages
+- Support for text and embed formats
+- Auto-role assignment
+- Member counting and statistics
 
-1. Clone the repository:
+### Auto-Moderation System
+- Automatic banning of users with specific roles
+- Configurable detection roles and ban intervals
+- Message purge options
+- Audit logging of automatic bans
+- Commands: `/moderation config`
 
-   ```sh
-   git clone https://github.com/your-username/tinyRabbit.git
-   cd tinyRabbit
-   ```
+## Technical Features
 
-2. Install dependencies:
+### Database Integration
+- Supabase backend for reliable data storage
+- Efficient caching system
+- Data persistence across restarts
 
-   ```sh
-   bun install
-   ```
+### Performance
+- Optimized for large servers
+- Rate limiting protection
+- Load balancing capabilities
 
-3. Create a `.env` file in the root directory and add your configuration details:
+### Security
+- Permission-based command access
+- API key encryption
+- Rate limit protection
+- Audit logging
 
-   ```plaintext
-   BOT_TOKEN = 'your_bot_token'
-   BOT_CLIENT_SECRET = 'your_client_secret'
-   CLIENT_TOKEN = 'your_client_token'
+### Role-based auto-ban system with configurable intervals
 
-   FIREBASE_API_KEY=your_api_key
-   FIREBASE_AUTH_DOMAIN=your_auth_domain
-   FIREBASE_PROJECT_ID=your_project_id
-   FIREBASE_STORAGE_BUCKET=your_storage_bucket
-   FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-   FIREBASE_APP_ID=your_app_id
-   FIREBASE_MEASUREMENT_ID=your_measurement_id
+## Database Schema
 
-   BOT_TOKEN=your_bot_token
+### Core Tables
+- `user_levels` - XP and level tracking
+- `user_bdays` - Birthday information
+- `user_socials` - Linked social accounts
+- `plugins` - Plugin configurations
+- `tickets` - Ticket management
+- `starboards` - Starboard entries
+- `temp_voice_channels` - Temporary voice channels
 
-   PORT=3000
-   ```
+## Setup & Configuration
 
-### Usage
+1. Install dependencies:
 
-1. Start the bot:
-
-   ```sh
-   bun run src/index.js
-   ```
-
-2. The bot should now be running and listening for commands in your Discord server.
-
-### Project Structure
-
-```plaintext
-tinyRabbit/
-├── assets/
-├── src/
-│   ├── commands/
-│   │   ├── config.js
-│   │   └── xp.js
-│   ├── db/
-│   │   └── firebase.js
-│   ├── events/
-│   │   ├── onMessage.js
-│   │   ├── onInteraction.js
-│   ├── services/
-│   │   ├── canvasService.js
-│   │   ├── configService.js
-│   │   ├── embedService.js
-│   │   ├── experienceService.js
-│   │   ├── leaderboardService.js
-│   │   ├── messageContextService.js
-│   │   ├── presenceService.js
-│   │   ├── roleService.js
-│   │   └── userService.js
-│   ├── utils/
-│   │   ├── colorThief.js
-│   │   ├── formatter.js
-│   │   ├── leaderboard.js
-│   │   └── xpUtils.js
-│   └──  index.js
-└── .env
+```bash
+npm install
 ```
+
+2. Create a `.env` file with your Discord bot token and other required variables.
+
+```bash
+Discord Bot Configuration
+BOT_TOKEN=your_bot_token # Your Discord bot token
+BOT_CLIENT_ID=your_client_id # Your Discord application client ID
+BOT_CLIENT_SECRET=your_client_secret # Your Discord application client secret
+
+Server Configuration
+GUILD_ID=your_guild_id # Your Discord server ID
+
+OpenAI Configuration (maybe soon)
+OPENAI_API_KEY=your_openai_key # OpenAI API key for AI features
+OPENAI_SECRET=your_openai_secret # OpenAI secret key
+
+Database Configuration
+
+SUPABASE_URL=your_supabase_url # Supabase project URL
+SUPABASE_KEY=your_supabase_key # Supabase project API key
+
+Server Settings
+PORT=5000 # Port for web server (if applicable)
+```
+
+3. Run the bot:
+
+```bash
+npm start
+```
+
+4. Configure the bot's settings and permissions as needed.
+
+Each feature can be enabled or disabled in the `plugins` table.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is open-sourced under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support, join the [Tiny Rabbit Discord](https://discord.gg/RfBydgJpmU) and ask for help in the #support-ticket channel.

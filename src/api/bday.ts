@@ -1,24 +1,24 @@
 import { bunnyLog } from 'bunny-log'
 import supabase from '../db/supabase'
-import type { ClientUser, Guild, User } from 'discord.js'
+import type * as Discord from 'discord.js'
 
 /**
- * Zapisuje datę urodzin użytkownika w określonym serwerze (gildii) dla danego bota.
- * @param {ClientUser['id']} bot_id - ID bota.
- * @param {Guild['id']} guild_id - ID serwera (gildii).
- * @param {User['id']} user_id - ID użytkownika.
- * @param {Object} birthday - Szczegóły dotyczące urodzin.
- * @param {number} birthday.day - Dzień urodzin.
- * @param {number} birthday.month - Miesiąc urodzin.
- * @param {number} birthday.year - Rok urodzin.
- * @returns {Promise<string>} - Komunikat potwierdzający zapisanie lub aktualizację urodzin.
+ * Save user birthday in specified server (guild) for a given bot.
+ * @param {Discord.ClientUser['id']} bot_id - ID bot.
+ * @param {Discord.Guild['id']} guild_id - ID server (guild).
+ * @param {Discord.User['id']} user_id - ID user.
+ * @param {Object} birthday - Birthday details.
+ * @param {number} birthday.day - Day of birth.
+ * @param {number} birthday.month - Month of birth.
+ * @param {number} birthday.year - Year of birth.
+ * @returns {Promise<void>} - Promise that resolves when the birthday is saved.
  */
 async function saveBirthday(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
-	user_id: User['id'],
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id'],
 	birthday: { day: number; month: number; year: number }
-): Promise<string> {
+): Promise<void> {
 	if (!isValidDate(birthday.day, birthday.month, birthday.year)) {
 		throw new Error('Invalid date provided.')
 	}
@@ -44,16 +44,16 @@ async function saveBirthday(
 }
 
 /**
- * Pobiera użytkowników z określonym dniem i miesiącem urodzin na serwerze (gildii) dla danego bota.
- * @param {ClientUser['id']} bot_id - ID bota.
- * @param {Guild['id']} guild_id - ID serwera (gildii).
- * @param {number} day - Dzień urodzin.
- * @param {number} month - Miesiąc urodzin.
- * @returns {Promise<{ id: string; birthday: { day: number; month: number; year: number } }[]>} - Lista użytkowników z określonymi urodzinami.
+ * Get users with specified birthday day and month on a server (guild) for a given bot.
+ * @param {Discord.ClientUser['id']} bot_id - ID bot.
+ * @param {Discord.Guild['id']} guild_id - ID server (guild).
+ * @param {number} day - Day of birth.
+ * @param {number} month - Month of birth.
+ * @returns {Promise<{ id: string; birthday: { day: number; month: number; year: number } }[]>} - List of users with specified birthdays.
  */
 async function getUsersWithBirthday(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
 	day: number,
 	month: number
 ): Promise<
@@ -79,11 +79,11 @@ async function getUsersWithBirthday(
 }
 
 /**
- * Waliduje, czy podana data jest prawidłowa.
- * @param {number} day - Dzień urodzin.
- * @param {number} month - Miesiąc urodzin.
- * @param {number} year - Rok urodzin.
- * @returns {boolean} - Zwraca true, jeśli data jest prawidłowa, w przeciwnym razie false.
+ * Validate if the provided date is valid.
+ * @param {number} day - Day of birth.
+ * @param {number} month - Month of birth.
+ * @param {number} year - Year of birth.
+ * @returns {boolean} - Returns true if the date is valid, otherwise false.
  */
 function isValidDate(day: number, month: number, year: number): boolean {
 	const parsed_day = Number.parseInt(day.toString().replace(/^0+/, ''), 10)

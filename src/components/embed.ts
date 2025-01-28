@@ -1,48 +1,59 @@
-import {
-	EmbedBuilder,
-	AttachmentBuilder,
-	ActionRowBuilder,
-	ButtonBuilder,
-	type APIButtonComponent,
-} from 'discord.js'
+import * as Discord from 'discord.js'
 import type { UniversalEmbedOptions } from '../types/embed'
 
 /**
  * Creates a universal embed with various optional parameters.
  * @param {UniversalEmbedOptions} options - The data for the embed and additional options.
- * @returns {{ embed: EmbedBuilder; attachment?: AttachmentBuilder; action_row?: ActionRowBuilder<ButtonBuilder> }} The generated embed and optional attachment.
+ * @returns {{ embed: Discord.EmbedBuilder; attachment?: Discord.AttachmentBuilder; action_row?: Discord.ActionRowBuilder<Discord.ButtonBuilder> }} The generated embed and optional attachment.
  */
 function createUniversalEmbed({
 	buttons,
 	image,
 	...embed_data
 }: UniversalEmbedOptions): {
-	embed: EmbedBuilder
-	attachment?: AttachmentBuilder
-	action_row?: ActionRowBuilder<ButtonBuilder>
+	embed: Discord.EmbedBuilder
+	attachment?: Discord.AttachmentBuilder
+	action_row?: Discord.ActionRowBuilder<Discord.ButtonBuilder>
 } {
-	const embed = new EmbedBuilder(embed_data)
+	// Create the embed
+	const embed = new Discord.EmbedBuilder(embed_data)
 
-	let attachment: AttachmentBuilder | null
+	// Initialize variables with null
+	let attachment: Discord.AttachmentBuilder | null = null
+	let action_row: Discord.ActionRowBuilder<Discord.ButtonBuilder> | null = null
+
+	// Check if the image is provided
 	if (image?.url) {
+		// Check if the image is external
 		if (image.external) {
-			attachment = new AttachmentBuilder(image.url)
-		} else embed.setImage(image.url)
+			// Create the attachment
+			attachment = new Discord.AttachmentBuilder(image.url)
+		} else {
+			// Set the image
+			embed.setImage(image.url)
+		}
 	}
 
-	let action_row: ActionRowBuilder<ButtonBuilder> | null
+	// Check if the buttons are provided
 	if (buttons && buttons.length > 0) {
+		// Create the buttons
 		const button_builders = buttons.map((button) => {
-			if (button instanceof ButtonBuilder) return button
-			return new ButtonBuilder(button as APIButtonComponent)
+			if (button instanceof Discord.ButtonBuilder) return button
+			return new Discord.ButtonBuilder(button as Discord.APIButtonComponent)
 		})
 
-		action_row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-			button_builders
-		)
+		// Create the action row
+		action_row =
+			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+				button_builders
+			)
 	}
 
-	return { embed, attachment, action_row }
+	return {
+		embed,
+		attachment: attachment ?? undefined,
+		action_row: action_row ?? undefined,
+	}
 }
 
 export { createUniversalEmbed }

@@ -51,6 +51,21 @@ const availablePlugins = [
 	},
 ]
 
-export const fetchAvailablePlugins = async () => {
-	return availablePlugins
+type Plugin = {
+	id: string
+	title: string
+	description: string
+	iconSolid: string
+	iconOutline: string
+	badge: string
+	category: string
+	premium: boolean
+}
+
+/**
+ * Fetches the available plugins.
+ * @returns {Promise<Plugin[]>} - A promise that resolves to an array of plugins.
+ */
+export const fetchAvailablePlugins = async (): Promise<Plugin[]> => {
+	return availablePlugins as Plugin[]
 }

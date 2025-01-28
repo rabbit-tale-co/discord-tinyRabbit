@@ -1,31 +1,25 @@
-import {
-	ChannelType,
-	EmbedBuilder,
-	type MessageReaction,
-	type PartialMessageReaction,
-	type TextChannel,
-} from 'discord.js'
+import * as Discord from 'discord.js'
 import { getPluginConfig } from '../api/plugins'
-import {
-	createStarboardEntry,
-	deleteStarboardEntry,
-	getStarboardEntry,
-	updateStarboardEntry,
-} from '../api/starboard'
+import * as starboardAPI from '../api/starboard'
 import { createUniversalEmbed } from '../components/embed'
 import type { UniversalEmbedOptions } from '../types/embed'
 import type { StarboardEntry } from '../types/starboard'
 import { hexToNumber } from '../utils/formatter'
 import { bunnyLog } from 'bunny-log'
 
+/**
+ * Watches for starboard reactions and updates the starboard accordingly.
+ * @param {Discord.MessageReaction | Discord.PartialMessageReaction} reaction - The reaction to watch.
+ * @returns {Promise<StarboardEntry | null>} The new starboard entry or null if no entry was created.
+ */
 async function watchStarboard(
-	reaction: MessageReaction | PartialMessageReaction
+	reaction: Discord.MessageReaction | Discord.PartialMessageReaction
 ): Promise<StarboardEntry | null> {
 	try {
 		// Fetch the starboard config
 		const config = await getPluginConfig(
 			reaction.client.user.id,
-			reaction.message.guildId,
+			reaction.message.guildId ?? '',
 			'starboard'
 		)
 
@@ -37,10 +31,13 @@ async function watchStarboard(
 			return null
 		}
 
+		// Get the emoji, watch channels, channel ID, and threshold from the config
 		const { emoji, watch_channels, channel_id, threshold } = config
 
 		// If the reaction or message is partial, fetch the full data
 		if (reaction.partial) await reaction.fetch()
+
+		// If the message is partial, fetch the full data
 		if (reaction.message.partial) await reaction.message.fetch()
 
 		// Check if the reaction is in a monitored channel (if any channels are configured)
@@ -56,19 +53,24 @@ async function watchStarboard(
 		if (reaction.emoji.name !== emoji) return null
 
 		// If the reaction count doesn't meet the threshold, exit
-		if (reaction.count < threshold) return null
+		if ((reaction.count ?? 0) < (threshold ?? 0)) return null
 
 		// Fetch starboard channel
 		const starboardChannel = reaction.message.guild?.channels.cache.get(
-			channel_id
-		) as TextChannel | undefined
+			channel_id ?? ''
+		) as Discord.TextChannel | undefined
 
-		if (!starboardChannel || starboardChannel.type !== ChannelType.GuildText) {
+		// If the starboard channel is not found or is not a text channel, return null
+		if (
+			!starboardChannel ||
+			starboardChannel.type !== Discord.ChannelType.GuildText
+		) {
 			// bunnyLog.error('Starboard channel not found or is not a text channel.')
 			return null
 		}
 
-		if (reaction.message.author.bot) {
+		// If the message author is a bot, return null
+		if (reaction.message.author?.bot) {
 			// bunnyLog.info('Ignoring starboard entry for a bot message.')
 			return null
 		}
@@ -80,38 +82,50 @@ async function watchStarboard(
 		const nonBotReactionCount = users.filter((user) => !user.bot).size
 
 		// If the non-bot reaction count doesn't meet the threshold, exit
-		if (nonBotReactionCount < threshold) {
+		if (nonBotReactionCount < (threshold ?? 0)) {
 			return null
 		}
 
-		//FIXME: do not count bot starboard message
-		const existingStarboardEntry = (await getStarboardEntry(
+		// If the message author is a bot, return null
+		if (reaction.message.author?.bot) {
+			return null
+		}
+
+		// Fetch the existing starboard entry
+		const existingStarboardEntry = (await starboardAPI.getStarboardEntry(
 			reaction.client.user.id,
-			reaction.message.guildId,
+			reaction.message.guildId ?? '',
 			reaction.message.id
 		)) as StarboardEntry | null
 
+		// If the existing starboard entry is found, update it
 		if (existingStarboardEntry) {
 			try {
+				// Fetch the starboard message
 				const starboardMessage = await starboardChannel.messages.fetch(
 					existingStarboardEntry.starboard_message_id
 				)
 
 				// Update existing starboard message
 				if (starboardMessage.embeds.length > 0) {
-					const embed = EmbedBuilder.from(starboardMessage.embeds[0]).setFooter(
-						{
-							text: `${reaction.count} ${config.emoji}`,
-						}
+					const embed = Discord.EmbedBuilder.from(
+						starboardMessage.embeds[0]
+					).setFooter({
+						text: `${reaction.count} ${config.emoji}`,
+					})
+
+					// Update the starboard message
+					await starboardMessage.edit({ embeds: [embed] })
+
+					// Update the starboard entry
+					await starboardAPI.updateStarboardEntry(
+						reaction.client.user.id,
+						reaction.message.guildId ?? '',
+						reaction.message.id,
+						reaction.count ?? 0
 					)
 
-					await starboardMessage.edit({ embeds: [embed] })
-					await updateStarboardEntry(
-						reaction.client.user.id,
-						reaction.message.guildId,
-						reaction.message.id,
-						reaction.count
-					)
+					// Return the existing starboard entry
 					return existingStarboardEntry
 				}
 				bunnyLog.warn('No embeds found in the starboard message.')
@@ -121,9 +135,11 @@ async function watchStarboard(
 					bunnyLog.warn(
 						'Starboard message not found. Deleting entry and creating a new one.'
 					)
-					await deleteStarboardEntry(
+
+					// Delete the existing starboard entry
+					await starboardAPI.deleteStarboardEntry(
 						reaction.client.user.id,
-						reaction.message.guildId,
+						reaction.message.guildId ?? '',
 						reaction.message.id
 					)
 					// Fall through to create a new starboard entry
@@ -138,6 +154,7 @@ async function watchStarboard(
 			(attachment) => attachment.url
 		)
 
+		// Create the embed data
 		const embedData: UniversalEmbedOptions = {
 			color: hexToNumber('#fec676'),
 			description: `${reaction.message.content}\n\n[Jump to message](${reaction.message.url})\nIn <#${reaction.message.channel.id}>`,
@@ -149,28 +166,38 @@ async function watchStarboard(
 			footer: {
 				text: `${reaction.count} ${config.emoji}`,
 			},
-			image: attachments.length > 0 ? { url: attachments[0] } : null,
+			image: attachments.length > 0 ? { url: attachments[0] } : undefined,
+			//TODO: if post have more than 1 image, add them all (as separate messages)
 		}
+
+		// Create the embed
 		const { embed } = createUniversalEmbed(embedData)
 
+		// Create the message payload
 		const messagePayload = {
 			embeds: [embed],
 		}
 
+		// Send the message to the starboard channel
 		const starboardMessage = await starboardChannel.send(messagePayload)
+
+		// Create the new starboard entry
 		const newEntry: StarboardEntry = {
 			starboard_message_id: starboardMessage.id,
-			star_count: reaction.count,
+			star_count: reaction.count ?? 0,
 			original_message_id: reaction.message.id,
 		}
-		await createStarboardEntry(
+
+		// Create the new starboard entry
+		await starboardAPI.createStarboardEntry(
 			reaction.client.user.id,
-			reaction.message.guildId,
+			reaction.message.guildId ?? '',
 			reaction.message.id,
 			starboardMessage.id,
-			reaction.count
+			reaction.count ?? 0
 		)
 
+		// Return the new starboard entry
 		return newEntry
 	} catch (error) {
 		bunnyLog.error('Error handling starboard:', error)

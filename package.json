@@ -4,9 +4,8 @@
   "description": "",
   "scripts": {
     "start": "bun run src/index.ts",
-    "start-pm2": "pm2 start src/index.ts --name TinyRabbit_Discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
+    "deploy": "pm2 start src/index.ts --name TinyRabbit_Discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
     "cloc": "bun run src/utils/cloc.ts",
-    "cloc-o1": "bun run src/utils/cloc-o1.ts",
     "add-commands": "bun run src/deploy-commands.ts",
     "stop": "pm2 stop TinyRabbit_Discord",
     "restart": "pm2 restart TinyRabbit_Discord --time"

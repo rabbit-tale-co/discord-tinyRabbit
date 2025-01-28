@@ -1,17 +1,22 @@
-import type {
-	MessageReaction,
-	PartialMessageReaction,
-	PartialUser,
-	User,
-} from 'discord.js'
+import type * as Discord from 'discord.js'
 import watchStarboard from '../services/starboardService'
 import { bunnyLog } from 'bunny-log'
 
+/**
+ * Handles reactions on messages.
+ * @param {Discord.MessageReaction | Discord.PartialMessageReaction} reaction - The reaction object from Discord.
+ * @param {Discord.User | Discord.PartialUser} user - The user object from Discord.
+ * @returns {Promise<void>}
+ */
 async function reactionHandler(
-	reaction: MessageReaction | PartialMessageReaction,
-	user: User | PartialUser
+	reaction: Discord.MessageReaction | Discord.PartialMessageReaction,
+	user: Discord.User | Discord.PartialUser
 ): Promise<void> {
-	if (user.bot) return // Ignore bot reactions
+	// Ignore reactions in DMs
+	if (!reaction.message.guild) return
+
+	// Ignore bot reactions
+	if (user.bot) return
 
 	try {
 		// Handle partial reactions
@@ -19,8 +24,12 @@ async function reactionHandler(
 			await reaction
 				.fetch()
 				.catch(() => bunnyLog.error('Failed to fetch reaction'))
+
+		// Handle partial users
 		if (user.partial)
 			await user.fetch().catch(() => bunnyLog.error('Failed to fetch user'))
+
+		// Handle partial messages
 		if (reaction.message.partial)
 			await reaction.message
 				.fetch()

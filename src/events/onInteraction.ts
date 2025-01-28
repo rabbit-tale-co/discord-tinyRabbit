@@ -1,18 +1,13 @@
 import { setUserXpAndLevel, levelCommand } from '../commands/xp'
 import * as ticket from '../commands/tickets'
-import { getPluginConfig } from '../api/plugins'
-import type {
-	ButtonInteraction,
-	CommandInteraction,
-	Interaction,
-	ModalSubmitInteraction,
-} from 'discord.js'
+import type * as Discord from 'discord.js'
 import { handleBdayCommand } from '../commands/bday'
 import { bunnyLog } from 'bunny-log'
 
+// Command handlers
 const commandHandlers: Record<
 	string,
-	(interaction: CommandInteraction) => Promise<void>
+	(interaction: Discord.ChatInputCommandInteraction) => Promise<void>
 > = {
 	level: levelCommand,
 	set_level: setUserXpAndLevel,
@@ -20,9 +15,10 @@ const commandHandlers: Record<
 	bday: handleBdayCommand,
 }
 
+// Button interaction handlers
 const buttonInteractionHandlers: Record<
 	string,
-	(interaction: ButtonInteraction) => Promise<void>
+	(interaction: Discord.ButtonInteraction) => Promise<void>
 > = {
 	open_ticket: ticket.openTicket,
 	close_ticket_with_reason: ticket.closeTicketWithReason,
@@ -34,14 +30,17 @@ const buttonInteractionHandlers: Record<
 
 /**
  * Handles interaction commands.
- * @param {Interaction} interaction - The interaction object.
+ * @param {Discord.ChatInputCommandInteraction | Discord.ButtonInteraction | Discord.ModalSubmitInteraction} interaction - The interaction object.
  */
-async function interactionHandler(interaction: Interaction): Promise<void> {
+async function interactionHandler(
+	interaction: Discord.Interaction
+): Promise<void> {
 	try {
 		// Handle command interactions
-		if (interaction.isCommand()) {
+		if (interaction.isChatInputCommand()) {
 			const commandHandler = commandHandlers[interaction.commandName]
 
+			// Check if the command handler exists
 			if (!commandHandler) {
 				bunnyLog.warn('No command handler found for:', interaction.commandName)
 				return
@@ -57,7 +56,9 @@ async function interactionHandler(interaction: Interaction): Promise<void> {
 				([prefix]) => interaction.customId.startsWith(prefix)
 			)?.[1]
 
+			// Check if the button handler exists
 			if (handler) {
+				// Execute the button handler
 				return await handler(interaction)
 			}
 			bunnyLog.warn(
@@ -68,7 +69,9 @@ async function interactionHandler(interaction: Interaction): Promise<void> {
 
 		// Handle modal submissions
 		if (interaction.isModalSubmit()) {
-			return await ticket.modalSubmit(interaction as ModalSubmitInteraction)
+			return await ticket.modalSubmit(
+				interaction as Discord.ModalSubmitInteraction
+			)
 		}
 	} catch (error) {
 		// Log the error with bunnyLog
@@ -79,10 +82,13 @@ async function interactionHandler(interaction: Interaction): Promise<void> {
 				? interaction.commandName
 				: interaction.id,
 		})
-		// Zapewnij odpowiednią odpowiedź/followUp w zależności od statusu interakcji
+
+		// Provide the appropriate reply/followUp depending on the interaction status
 		if (interaction.isRepliable()) {
+			// Check if the interaction has already been replied to or deferred
 			const replyMethod =
 				interaction.replied || interaction.deferred ? 'followUp' : 'reply'
+			// Send an ephemeral error message
 			await interaction[replyMethod]({
 				content: 'Wystąpił błąd podczas wykonywania polecenia.',
 				ephemeral: true,
