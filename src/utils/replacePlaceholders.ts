@@ -15,22 +15,27 @@ type UserType = Discord.GuildMember | { id: string; username: string }
  */
 export function replacePlaceholders(
 	message: string,
-	user: UserType,
+	user: Discord.GuildMember | Discord.PartialGuildMember,
 	guild: Discord.Guild
 ): string {
 	// Ensure message is a valid string
 	const validMessage = typeof message === 'string' ? message : '' // Default to an empty string if message is not a valid string
 
 	// Check if the user is a GuildMember
-	const isGuildMember = (user: UserType): user is Discord.GuildMember =>
-		'guild' in user && 'user' in user
+	const isGuildMember = (
+		user: Discord.GuildMember | Discord.PartialGuildMember
+	): user is Discord.GuildMember => 'guild' in user && 'user' in user
+
+	// Add null checks for partial members
+	const displayName = user.displayName || 'Unknown User'
+	const username = user.user?.username || 'unknown'
 
 	// Replace the placeholders with actual values
 	let output = validMessage
 		// Replace user
 		.replace('{user}', `<@${user.id}>`)
 		// Replace user name
-		.replace('{username}', isGuildMember(user) ? user.user.tag : user.username)
+		.replace('{username}', isGuildMember(user) ? user.user.tag : username)
 		// Replace user avatar
 		.replace(
 			'{avatar}',

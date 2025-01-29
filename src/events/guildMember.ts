@@ -1,7 +1,7 @@
 import type * as Discord from 'discord.js'
-import { getPluginConfig } from '../api/plugins'
-import { createUniversalEmbed } from '../components/embed'
-import { replacePlaceholders } from '../utils/replacePlaceholders'
+import { getPluginConfig } from '../api/plugins.js'
+import { createUniversalEmbed } from '../components/embed.js'
+import { replacePlaceholders } from '../utils/replacePlaceholders.js'
 import { bunnyLog } from 'bunny-log'
 
 // Add proper type definitions
@@ -24,12 +24,16 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 	)
 
 	// Check if the plugin is enabled
-	if (!config.enabled)
-		return bunnyLog.error(`Welcome plugin is disabled in ${member.guild.id}`)
+	if (!config.enabled) {
+		//bunnyLog.error(`Welcome plugin is disabled in ${member.guild.id}`)
+		return
+	}
 
 	// Check if the welcome channel is set
-	if (!config.welcome_channel_id)
-		return bunnyLog.error(`Welcome channel is not set in ${member.guild.id}`)
+	if (!config.welcome_channel_id) {
+		//bunnyLog.error(`Welcome channel is not set in ${member.guild.id}`)
+		return
+	}
 
 	// Get the welcome channel
 	const welcome_channel = member.guild.channels.cache.get(
@@ -38,9 +42,10 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 
 	// Check if the welcome channel is found
 	if (!welcome_channel)
-		return bunnyLog.error(
-			`Welcome channel with ID ${config.welcome_channel_id} not found`
-		)
+		//return bunnyLog.error(
+		//	`Welcome channel with ID ${config.welcome_channel_id} not found`
+		//)
+		return
 
 	// Assign join role if specified
 	if (config.join_role_id) {
@@ -174,27 +179,37 @@ async function handleMemberLeave(
 	)
 
 	// Check if the plugin is enabled
-	if (!config.enabled)
-		return bunnyLog.error(
-			`Welcome plugin is disabled in ${resolvedMember.guild.id}`
-		)
+	if (!config.enabled) {
+		// bunnyLog.error(
+		// 	`Welcome plugin is disabled in ${resolvedMember.guild.id}`
+		// )
+		return
+	}
 
 	// Check if the leave message is set
-	if (!config.leave_message) return bunnyLog.error('Leave message is not set')
+	if (!config.leave_message) {
+		// bunnyLog.error('Leave message is not set')
+		return
+	}
 
 	// Get the leave channel
 	const leave_channel = resolvedMember.guild.channels.cache.get(
 		config.leave_channel_id ?? ''
 	) as Discord.TextChannel | undefined
 
-	if (!leave_channel)
-		return bunnyLog.error(
-			`Leave channel with ID ${config.leave_channel_id} not found`
-		)
+	if (!leave_channel) {
+		// bunnyLog.error(
+		// 	`Leave channel with ID ${config.leave_channel_id} not found`
+		// )
+		return
+	}
 
 	if (config.type === 'embed') {
 		// Check if the embed is set
-		if (!config.embed_leave) return bunnyLog.error('Embed leave is not set')
+		if (!config.embed_leave) {
+			// bunnyLog.error('Embed leave is not set')
+			return
+		}
 
 		const embedConfig: Discord.EmbedData & {
 			fields?: Array<Discord.EmbedField>
@@ -273,4 +288,4 @@ async function handleMemberLeave(
 	}
 }
 
-export { handleMemberJoin, handleMemberLeave, replacePlaceholders }
+export { handleMemberJoin, handleMemberLeave }
