@@ -162,7 +162,7 @@ async function handleMemberLeave(
 	// Check if member is partial and fetch full member
 	const resolvedMember = member.partial
 		? await member.guild.members.fetch(member.id)
-		: member;
+		: member
 
 	// Add null checks for member.guild
 	if (!resolvedMember.guild) return
@@ -212,8 +212,16 @@ async function handleMemberLeave(
 			),
 			fields:
 				config.embed_leave.fields?.map((field: EmbedFieldConfig) => ({
-					name: replacePlaceholders(field.name, resolvedMember, resolvedMember.guild),
-					value: replacePlaceholders(field.value, resolvedMember, resolvedMember.guild),
+					name: replacePlaceholders(
+						field.name,
+						resolvedMember,
+						resolvedMember.guild
+					),
+					value: replacePlaceholders(
+						field.value,
+						resolvedMember,
+						resolvedMember.guild
+					),
 					inline: field.inline ?? false,
 				})) ?? [],
 			footer: config.embed_leave.footer

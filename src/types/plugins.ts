@@ -41,6 +41,7 @@ type Ticket = {
 	admin_channel_id?: string | null
 	counter?: number
 	transcript_channel_id?: string | null
+	mods_role_ids?: Array<string> | null
 	embeds?: {
 		open_ticket?: TicketEmbed | null
 		opened_ticket?: TicketEmbed | null

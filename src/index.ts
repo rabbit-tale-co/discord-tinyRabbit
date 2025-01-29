@@ -1,29 +1,23 @@
 import { env, serve } from 'bun'
 import * as Discord from 'discord.js'
-import { messageHandler } from './events/onMessage'
-import { interactionHandler } from './events/onInteraction'
-import { handleMemberJoin, handleMemberLeave } from './events/guildMember'
-import { updateBotPresence } from './services/presenceService'
-import { handleBotStatus, router } from './router'
-import { reactionHandler } from './events/onReaction'
-import { updateMissingPlugins } from './api/plugins'
+import * as Message from './events/onMessage.js'
+import * as Interaction from './events/onInteraction.js'
+import * as Member from './events/guildMember.js'
+import * as Presence from './services/presenceService.js'
+import * as Router from './router/index.js'
+import * as Reaction from './events/onReaction.js'
+import * as Plugins from './api/plugins.js'
 import chalk from 'chalk'
-import { checkHeartbeat } from './api/heartbeat/BotStatus'
+import * as Heartbeat from './api/heartbeat/BotStatus.js'
 import { bunnyLog } from 'bunny-log'
-import { scheduleBirthdayCheck } from './commands/bday'
-import { initializeDatabase } from './db/initDatabase'
-import { saveBotData } from './api/saveBot'
-import {
-	handleVoiceStateUpdate,
-	initializeTempChannels,
-} from './services/tempvc'
-import {
-	handleLogin,
-	handleOAuthCallback,
-	setCorsHeaders,
-} from './router/oAuth'
-import { startModerationScheduler } from './services/moderation'
-import { Events } from 'discord.js'
+import * as Birthday from './commands/fun/bday.js'
+import * as Database from './db/initDatabase.js'
+import * as SaveBot from './api/saveBot.js'
+import * as TempVC from './services/tempvc.js'
+import * as OAuth from './router/oAuth.js'
+import * as Moderation from './services/moderation.js'
+import { startModerationScheduler } from './services/moderation.js'
+import { updateBotPresence } from './services/presenceService.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5000', 10)
 const CLIENT_ID: string = env.BOT_CLIENT_ID || ''
@@ -39,22 +33,22 @@ serve({
 
 		// Handle preflight requests
 		if (req.method === 'OPTIONS') {
-			return setCorsHeaders(new Response(null, { status: 204 }))
+			return OAuth.setCorsHeaders(new Response(null, { status: 204 }))
 		}
 
 		// Handle API requests
 		if (url.pathname.startsWith('/api')) {
-			return router(req)
+			return Router.router(req)
 		}
 
 		// Handle login requests
 		if (url.pathname === '/login') {
-			return handleLogin(req, CLIENT_ID, REDIRECT_URI)
+			return OAuth.handleLogin(req, CLIENT_ID, REDIRECT_URI)
 		}
 
 		// Handle OAuth callback requests
 		if (url.pathname === '/callback') {
-			return handleOAuthCallback(url, CLIENT_ID)
+			return OAuth.handleOAuthCallback(url, CLIENT_ID)
 		}
 
 		// Handle 404 requests
@@ -66,7 +60,7 @@ serve({
 bunnyLog.server(`Server is running on port ${PORT}`)
 
 // Initialize Firebase
-initializeDatabase()
+Database.initializeDatabase()
 
 // Initialize Discord Bot
 export const client = new Discord.Client({
@@ -124,21 +118,22 @@ client.once('ready', async (c) => {
 	// }
 
 	// Update bot status for all guilds
-	await updateBotPresence(c.user)
-	await handleBotStatus()
-	await saveBotData(c.user)
-	await updateMissingPlugins(c)
-	await initializeTempChannels(c)
-	scheduleBirthdayCheck(c)
-	await startModerationScheduler()
+	await Presence.updateBotPresence(c.user)
+	//await Heartbeat.handleBotStatus()
+	await SaveBot.saveBotData(c.user)
+	await Plugins.updateMissingPlugins(c)
+	await TempVC.initializeTempChannels(c)
+	Birthday.scheduleBirthdayCheck(c)
+	await Moderation.startModerationScheduler()
 
 	// Update bot status every hour for all guilds
 	setInterval(async () => {
-		await updateBotPresence(c.user)
+		await Presence.updateBotPresence(c.user)
 	}, 300_000) // 1h - 3_600_000 now it's 5 min
 
 	setInterval(async () => {
-		const { bot_status: server, db_status: database } = await checkHeartbeat()
+		const { bot_status: server, db_status: database } =
+			await Heartbeat.checkHeartbeat()
 
 		const serverStatusColor = server === 'online' ? chalk.green : chalk.red
 		const databaseStatusColor =
@@ -152,19 +147,19 @@ client.once('ready', async (c) => {
  * @returns {Promise<void>} A promise that resolves when the guild is initialized.
  */
 client.on(Discord.Events.GuildCreate, async (_guild) => {
-	await updateMissingPlugins(client)
+	await Plugins.updateMissingPlugins(client)
 })
 
-client.on(Discord.Events.MessageCreate, messageHandler)
-client.on(Discord.Events.MessageReactionAdd, reactionHandler)
-client.on(Discord.Events.InteractionCreate, interactionHandler)
+client.on('messageCreate', Message.messageHandler)
+client.on(Discord.Events.MessageReactionAdd, Reaction.reactionHandler)
+client.on(Discord.Events.InteractionCreate, Interaction.interactionHandler)
 
 // Channels activity
-client.on(Discord.Events.VoiceStateUpdate, handleVoiceStateUpdate)
+client.on(Discord.Events.VoiceStateUpdate, TempVC.handleVoiceStateUpdate)
 
 // Guild member events
-client.on(Discord.Events.GuildMemberAdd, handleMemberJoin)
-client.on(Discord.Events.GuildMemberRemove, handleMemberLeave)
+client.on(Discord.Events.GuildMemberAdd, Member.handleMemberJoin)
+client.on(Discord.Events.GuildMemberRemove, Member.handleMemberLeave)
 
 client.login(env.BOT_TOKEN)
 

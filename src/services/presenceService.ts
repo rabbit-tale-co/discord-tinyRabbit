@@ -29,7 +29,7 @@ export async function updateBotPresence(
 			activities: [
 				{
 					name: presenceMessage,
-					type: Discord.ActivityType.Watching,
+					type: Discord.ActivityType.Custom,
 					url: 'https://tinyrabbit.co',
 					//state: presenceMessage,
 				},

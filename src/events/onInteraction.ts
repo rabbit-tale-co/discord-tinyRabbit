@@ -1,18 +1,24 @@
-import { setUserXpAndLevel, levelCommand } from '../commands/xp'
-import * as ticket from '../commands/tickets'
+import { setUserXpAndLevel, levelCommand } from '../commands/fun/xp.js'
+import * as ticket from '../commands/moderation/tickets.js'
 import type * as Discord from 'discord.js'
-import { handleBdayCommand } from '../commands/bday'
+import { handleBdayCommand } from '../commands/fun/bday.js'
 import { bunnyLog } from 'bunny-log'
-
+import { handleResponse } from '../utils/responses.js'
+import { cleanMessages } from '../commands/moderation/clean.js'
 // Command handlers
 const commandHandlers: Record<
 	string,
-	(interaction: Discord.ChatInputCommandInteraction) => Promise<void>
+	(
+		interaction:
+			| Discord.ChatInputCommandInteraction
+			| Discord.ContextMenuCommandInteraction
+	) => Promise<void>
 > = {
 	level: levelCommand,
 	set_level: setUserXpAndLevel,
 	send_embed: ticket.sendEmbed,
 	bday: handleBdayCommand,
+	clean: cleanMessages,
 }
 
 // Button interaction handlers
@@ -37,7 +43,10 @@ async function interactionHandler(
 ): Promise<void> {
 	try {
 		// Handle command interactions
-		if (interaction.isChatInputCommand()) {
+		if (
+			interaction.isChatInputCommand() ||
+			interaction.isContextMenuCommand()
+		) {
 			const commandHandler = commandHandlers[interaction.commandName]
 
 			// Check if the command handler exists
@@ -86,12 +95,10 @@ async function interactionHandler(
 		// Provide the appropriate reply/followUp depending on the interaction status
 		if (interaction.isRepliable()) {
 			// Check if the interaction has already been replied to or deferred
-			const replyMethod =
-				interaction.replied || interaction.deferred ? 'followUp' : 'reply'
-			// Send an ephemeral error message
-			await interaction[replyMethod]({
-				content: 'Wystąpił błąd podczas wykonywania polecenia.',
+			handleResponse(interaction, 'error', `${error.message}`, {
 				ephemeral: true,
+				code: 'E001',
+				error: error.message,
 			})
 		}
 	}

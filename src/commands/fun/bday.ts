@@ -1,10 +1,10 @@
 import type * as Discord from 'discord.js'
-import { saveBirthday, getUsersWithBirthday } from '../api/bday'
+import { saveBirthday, getUsersWithBirthday } from '../../api/bday.js'
 import cron from 'node-cron'
-import { getPluginConfig } from '../api/plugins'
+import { getPluginConfig } from '../../api/plugins.js'
 import { bunnyLog } from 'bunny-log'
-import { replacePlaceholders } from '../utils/replacePlaceholders'
-import { handleError, handleSuccess } from '../utils/errorHandlers'
+import { replacePlaceholders } from '../../utils/replacePlaceholders.js'
+import { handleResponse } from '../../utils/responses.js'
 
 async function handleBdayCommand(
 	interaction: Discord.ChatInputCommandInteraction
@@ -31,10 +31,13 @@ async function handleBdayCommand(
 
 	// Check if the plugin is enabled
 	if (!config?.enabled) {
-		await handleError(
+		await handleResponse(
 			interaction,
-			'HB001',
-			'The birthday feature is currently disabled on this server.'
+			'warning',
+			'The birthday feature is currently disabled on this server.',
+			{
+				code: 'HB001',
+			}
 		)
 		return
 	}
@@ -45,10 +48,13 @@ async function handleBdayCommand(
 
 	// Validate the date
 	if (!isValidDate(day, month, year, min_year, current_year)) {
-		await handleError(
+		await handleResponse(
 			interaction,
-			'HB002',
-			`Invalid date. Please provide a valid date between ${min_year} and ${current_year}.`
+			'error',
+			`Invalid date. Please provide a valid date between ${min_year} and ${current_year}.`,
+			{
+				code: 'HB002',
+			}
 		)
 		return
 	}
@@ -61,8 +67,9 @@ async function handleBdayCommand(
 	})
 
 	// Send a success message
-	await handleSuccess(
+	await handleResponse(
 		interaction,
+		'success',
 		`Birthday saved successfully.\n(${day}.${month}.${year})`
 	)
 }

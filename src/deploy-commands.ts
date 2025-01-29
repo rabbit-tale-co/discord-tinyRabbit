@@ -60,7 +60,7 @@ const commands = [
 		],
 	},
 	{
-		name: 'bday',
+		name: 'bday', //bday set {day} {month} {year} bday show bday remove
 		description: 'Set your birthday',
 		options: [
 			{
@@ -79,6 +79,19 @@ const commands = [
 				type: 4, // INTEGER type
 				name: 'year',
 				description: 'Year of your birthday',
+				required: true,
+			},
+		],
+	},
+	{
+		name: 'clean',
+		description: 'Delete last x messages from a channel',
+		default_member_permissions: '8192', // ManageMessages
+		options: [
+			{
+				type: 4, // number type
+				name: 'amount',
+				description: 'delete last x messages',
 				required: true,
 			},
 		],

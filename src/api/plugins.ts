@@ -1,7 +1,11 @@
-import type { DefaultConfigs, PluginResponse, Plugins } from '../types/plugins'
-import type * as Discord from 'discord.js'
+import type {
+	DefaultConfigs,
+	PluginResponse,
+	Plugins,
+} from '../types/plugins.js'
+import * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '../db/supabase.js'
 
 const default_configs: DefaultConfigs = {
 	levels: {
@@ -21,13 +25,13 @@ const default_configs: DefaultConfigs = {
 				title: 'Click to open a ticket',
 				description:
 					'Click on the button corresponding to the type of ticket you wish to open',
-				color: 0x0099ff,
+				color: Discord.Colors.Blurple,
 				buttons_map: [
 					{
 						unique_id: 'open_ticket_general',
 						label: 'General Support',
-						style: 1,
-						type: 2,
+						style: Discord.ButtonStyle.Primary,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
@@ -44,14 +48,14 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'close_ticket',
 						label: 'Close Ticket',
-						style: 4,
-						type: 2,
+						style: Discord.ButtonStyle.Danger,
+						type: Discord.ComponentType.Button,
 					},
 					{
 						unique_id: 'close_ticket_with_reason',
 						label: 'Close Ticket with Reason',
-						style: 4,
-						type: 2,
+						style: Discord.ButtonStyle.Danger,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
@@ -63,15 +67,15 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'confirm_close_ticket',
 						label: 'Confirm Close',
-						style: 3,
-						type: 2,
+						style: Discord.ButtonStyle.Success,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
 			closed_ticket: {
 				title: 'Ticket Closed',
 				description: 'The ticket was closed by {closed_by}.',
-				color: 0xff0000,
+				color: Discord.Colors.Red,
 				fields: [
 					{
 						name: 'Reason',
@@ -82,7 +86,7 @@ const default_configs: DefaultConfigs = {
 			},
 			admin_ticket: {
 				title: 'New Ticket - {ticket_id}',
-				color: 0x0099ff,
+				color: Discord.Colors.Blurple,
 				fields: [
 					{
 						name: 'Opened by',
@@ -104,14 +108,14 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'claim_ticket',
 						label: 'Claim Ticket',
-						style: 1,
-						type: 2,
+						style: Discord.ButtonStyle.Primary,
+						type: Discord.ComponentType.Button,
 					},
 					{
 						unique_id: 'join_ticket',
 						label: 'Join Ticket',
-						style: 2,
-						type: 2,
+						style: Discord.ButtonStyle.Secondary,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
@@ -153,14 +157,16 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'open_thread',
 						label: 'Open Thread',
-						style: 5,
-						type: 2,
+						style: Discord.ButtonStyle.Link,
+						type: Discord.ComponentType.Button,
 						url: 'https://discord.com/channels/{guild_id}/{thread_id}',
 					},
 				],
 				footer: '{close_time}',
 			},
 		},
+		counter: 1,
+		mods_role_ids: [],
 	},
 	welcome: {
 		enabled: false,
@@ -172,14 +178,14 @@ const default_configs: DefaultConfigs = {
 		embed_welcome: {
 			title: '{username} has joined the server!',
 			description: 'We are glad to have you here. Enjoy your stay!',
-			color: 0x0099ff, // Discord.Colors.Blurple
+			color: Discord.Colors.Blurple,
 			thumbnail: {
 				url: '{avatar}',
 			},
 		},
 		embed_leave: {
 			title: '{username} has left the server!',
-			color: 0x0099ff, // Discord.Colors.Blurple
+			color: Discord.Colors.Blurple,
 			thumbnail: {
 				url: '{avatar}',
 			},

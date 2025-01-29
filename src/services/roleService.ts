@@ -40,8 +40,7 @@ async function updateMemberRoles(
 		const member = await guild.members.fetch(user.id)
 
 		// Find the highest role the user qualifies for
-		const currentLevel = userData.level ?? 0
-		const newRole = sortedRoles.find((role) => currentLevel >= role.level)
+		const newRole = sortedRoles.find((role) => userData.level >= role.level)
 		if (!newRole) {
 			// bunnyLog.warn(`No role found for user ${user.id} in guild ${guild.id}`)
 			return
@@ -129,7 +128,7 @@ async function updateMemberRoles(
 					userData.levelChangeStatus === LevelUpResult.LevelUp
 						? 'leveled up'
 						: 'leveled down'
-				} to level ${currentLevel} and have been awarded the role \`${
+				} to level ${userData.level} and have been awarded the role \`${
 					newRoleObject.name
 				}\`! 🎉`
 

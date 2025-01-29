@@ -10,8 +10,8 @@ import supabase from '../db/supabase'
  * @returns {Promise<number>} The ticket counter.
  */
 async function getTicketCounter(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id']
+	bot_id: string,
+	guild_id: string
 ): Promise<number> {
 	const { data, error } = await supabase
 		.from('plugins')
@@ -22,9 +22,7 @@ async function getTicketCounter(
 		.single()
 
 	if (error) throw error
-
-	const ticketConfig = data.config as DefaultConfigs['tickets']
-	return ticketConfig.counter ?? 0
+	return (data?.config as DefaultConfigs['tickets'])?.counter || 0
 }
 
 /**

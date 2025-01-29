@@ -7,13 +7,13 @@ const CLIENT_SECRET: string = env.BOT_CLIENT_SECRET || ''
 /**
  * Handles the login process for the OAuth2 flow.
  * @param {Request} req - The request object.
- * @param {Discord.Client} client - The Discord client.
+ * @param {Discord.ClientUser['id']} client_id - The Discord client.
  * @param {Discord.Snowflake} redirect_uri - The redirect URI.
  * @returns {Response} A response object.
  */
 export function handleLogin(
 	req: Request,
-	client: Discord.Client,
+	client_id: Discord.ClientUser['id'],
 	redirect_uri: Discord.Snowflake
 ): Response {
 	const state: string = encodeURIComponent(
@@ -22,7 +22,7 @@ export function handleLogin(
 	return new Response(null, {
 		status: 302,
 		headers: {
-			Location: `https://discord.com/api/oauth2/authorize?client_id=${client.user?.id}&redirect_uri=${encodeURIComponent(redirect_uri)}&response_type=code&scope=identify+guilds+email&state=${state}`,
+			Location: `https://discord.com/api/oauth2/authorize?client_id=${client_id}&redirect_uri=${encodeURIComponent(redirect_uri)}&response_type=code&scope=identify+guilds+email&state=${state}`,
 		},
 	})
 }

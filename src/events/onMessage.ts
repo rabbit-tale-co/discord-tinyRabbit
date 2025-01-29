@@ -3,6 +3,7 @@ import { getPluginConfig } from '../api/plugins'
 import { assignXP } from '../services/experienceService'
 import { bunnyLog } from 'bunny-log'
 import { manageSlowmode } from '../services/slowmode'
+import { handleResponse } from '../utils/responses.js'
 
 /**
  * Event handler for message creation.
@@ -35,6 +36,30 @@ async function messageHandler(message: Discord.Message): Promise<void> {
 
 		// Assign XP based on the message, if the plugin is enabled
 		await assignXP(message)
+
+		if (message.content.startsWith('!purge') && message.reference?.messageId) {
+			const targetMessage = await message.channel.messages.fetch(
+				message.reference.messageId
+			)
+
+			const messages = await message.channel.messages.fetch({
+				limit: 100,
+				after: targetMessage.id,
+			})
+
+			const messagesToDelete = messages.filter(
+				(m) => m.createdTimestamp > targetMessage.createdTimestamp
+			)
+
+			await message.channel.bulkDelete([...messagesToDelete, message])
+
+			await handleResponse(
+				message,
+				'success',
+				`Deleted ${messagesToDelete.size} messages`,
+				{ ephemeral: false }
+			)
+		}
 	} catch (error) {
 		// Log any errors that may occur during message handling
 		bunnyLog.error('Error handling message:', error)

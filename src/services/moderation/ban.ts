@@ -1,8 +1,8 @@
-import { client } from '../index.js'
+import { client } from '../../index.js'
 import { bunnyLog } from 'bunny-log'
-import { getPluginConfig } from '../api/plugins.js'
+import { getPluginConfig } from '../../api/plugins.js'
 import type * as Discord from 'discord.js'
-import supabase from '../db/supabase.js'
+import supabase from '../../db/supabase.js'
 
 /**
  * Bans users who are likely bots.
