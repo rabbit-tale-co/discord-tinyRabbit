@@ -57,7 +57,6 @@ A feature-rich Discord bot built with Discord.js, offering extensive functionali
 - Configurable detection roles and ban intervals
 - Message purge options
 - Audit logging of automatic bans
-- Commands: `/moderation config`
 
 ## Technical Features
 
@@ -109,10 +108,6 @@ BOT_CLIENT_SECRET=your_client_secret # Your Discord application client secret
 Server Configuration
 GUILD_ID=your_guild_id # Your Discord server ID
 
-OpenAI Configuration (maybe soon)
-OPENAI_API_KEY=your_openai_key # OpenAI API key for AI features
-OPENAI_SECRET=your_openai_secret # OpenAI secret key
-
 Database Configuration
 
 SUPABASE_URL=your_supabase_url # Supabase project URL
@@ -147,3 +142,28 @@ This project is open-sourced under the MIT License - see the LICENSE file for de
 ## Support
 
 For support, join the [Tiny Rabbit Discord](https://discord.gg/RfBydgJpmU) and ask for help in the #support-ticket channel.
+
+## Level System Features
+
+### Public XP Tracking
+- All level-related responses are now public by default
+- Users can check anyone's XP with `/level show @user`
+- Admins can set levels with `/level set @user <level> <xp>`
+
+### Key Changes
+- Removed ephemeral responses for better visibility
+- Improved error handling with public error messages
+- Added server and global ranking displays
+- Enhanced permission checks for admin commands
+
+### Command Structure
+```
+/level
+├── show [user] - Displays public XP card
+└── set <user> <level> <xp> - Admin-only level setting
+```
+
+### Requirements
+- Node.js 18+
+- Discord.js 14+
+- PostgreSQL database
