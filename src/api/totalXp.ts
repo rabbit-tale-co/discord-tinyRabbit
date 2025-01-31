@@ -1,6 +1,6 @@
 import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
 
 /**
  * Calculates the total XP for the bot.

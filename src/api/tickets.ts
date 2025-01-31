@@ -1,7 +1,7 @@
 import type * as Discord from 'discord.js'
-import type { DefaultConfigs } from '../types/plugins'
+import type { DefaultConfigs } from '@/types/plugins.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
 
 /**
  * Fetches the ticket counter for a guild.
@@ -75,7 +75,7 @@ async function saveTranscriptToSupabase(
 		if (error) throw error
 
 		// Log the success
-		bunnyLog.database(`Transcript for thread ${thread_id} saved successfully.`)
+		// bunnyLog.database(`Transcript for thread ${thread_id} saved successfully.`)
 	} catch (error) {
 		// Log the error
 		bunnyLog.error('Error saving transcript:', error)

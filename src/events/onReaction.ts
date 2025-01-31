@@ -1,6 +1,6 @@
 import type * as Discord from 'discord.js'
-import watchStarboard from '../services/starboardService'
 import { bunnyLog } from 'bunny-log'
+import * as services from '@/services/index.js'
 
 /**
  * Handles reactions on messages.
@@ -38,7 +38,7 @@ async function reactionHandler(
 		// bunnyLog.info(`User ${user.tag} reacted with "${reaction.emoji.name}" on message ${reaction.message.id}`)
 
 		// Call the starboard function
-		await watchStarboard(reaction)
+		await services.watchStarboard(reaction)
 	} catch (error) {
 		bunnyLog.error('Error handling reaction:', error)
 	}

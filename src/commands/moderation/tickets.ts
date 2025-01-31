@@ -1,8 +1,8 @@
 import * as Discord from 'discord.js'
-import * as Tickets from '../../api/tickets.js'
-import { getPluginConfig } from '../../api/plugins.js'
+import * as api from '@/api/index.js'
+import * as utils from '@/utils/index.js'
 import { bunnyLog } from 'bunny-log'
-import type { ThreadMetadata } from '../../types/tickets.js'
+import type { ThreadMetadata } from '@/types/tickets.js'
 import { handleResponse } from '../../utils/responses.js'
 
 const thread_metadata_store = new Map<string, ThreadMetadata>()
@@ -149,7 +149,7 @@ const createButton = (
  */
 async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
 	// Defer the reply
-	await interaction.deferReply({ ephemeral: true })
+	await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
 
 	// Get the target channel
 	const target_channel = interaction.options.getChannel(
@@ -171,7 +171,7 @@ async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
 	}
 
 	// Get the plugin config
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		interaction.client.user.id,
 		interaction.guild?.id as Discord.Guild['id'],
 		'tickets'
@@ -244,10 +244,10 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		}
 
 		// Defer the reply
-		await interaction.deferReply({ ephemeral: true })
+		await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
 
 		// Get the plugin config
-		const config = await getPluginConfig(
+		const config = await api.getPluginConfig(
 			interaction.client.user.id,
 			interaction.guild?.id as Discord.Guild['id'],
 			'tickets'
@@ -281,7 +281,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		}
 
 		// Get the ticket counter
-		const ticket_id = await Tickets.getTicketCounter(
+		const ticket_id = await api.getTicketCounter(
 			interaction.client.user.id as Discord.ClientUser['id'],
 			interaction.guild?.id as Discord.Guild['id']
 		)
@@ -381,7 +381,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		await interaction.editReply({ embeds: [reply_embed] })
 
 		// Increment the ticket counter
-		await Tickets.incrementTicketCounter(
+		await api.incrementTicketCounter(
 			interaction.client.user.id,
 			interaction.guild.id
 		)
@@ -558,7 +558,7 @@ async function closeTicket(
 	const permissions = interaction.member?.permissions
 
 	// Defer the reply
-	await interaction.deferReply({ ephemeral: true })
+	await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
 
 	// Check if the user has the necessary permissions
 	if (
@@ -578,7 +578,7 @@ async function closeTicket(
 	}
 
 	// Get the plugin config
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		interaction.client.user.id,
 		interaction.guild.id,
 		'tickets'
@@ -657,7 +657,7 @@ async function closeThread(
 
 	try {
 		// Get the plugin config
-		const config = await getPluginConfig(
+		const config = await api.getPluginConfig(
 			interaction.client.user.id,
 			interaction.guild.id,
 			'tickets'
@@ -753,7 +753,7 @@ async function sendTranscript(
 	reason: string
 ): Promise<void> {
 	// Get the plugin config
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		interaction.client.user.id,
 		interaction.guild?.id as Discord.Guild['id'],
 		'tickets'
@@ -818,10 +818,10 @@ async function sendTranscript(
 	const ticket_type = metadata?.ticket_type || 'Unknown'
 
 	// Fetch the ticket messages
-	const messages = await Tickets.fetchTicketMessages(channel)
+	const messages = await api.fetchTicketMessages(channel)
 
 	// Format the transcript
-	const formattedTranscript = Tickets.formatTranscript(messages)
+	const formattedTranscript = api.formatTranscript(messages)
 
 	// Create the transcript metadata
 	const transcriptMetadata = {
@@ -837,7 +837,7 @@ async function sendTranscript(
 	// Save the transcript to the database
 	try {
 		// Save the transcript to the database
-		await Tickets.saveTranscriptToSupabase(
+		await api.saveTranscriptToSupabase(
 			interaction.client.user.id,
 			interaction.guild?.id as Discord.Guild['id'],
 			channel.id,

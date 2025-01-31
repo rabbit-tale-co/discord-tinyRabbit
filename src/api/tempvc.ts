@@ -1,6 +1,7 @@
 import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
+import type * as Types from '@/types/plugins.js'
 
 /**
  * @param {Discord.ClientUser['id']} bot_id - ID bot
@@ -125,7 +126,7 @@ export { saveTempChannelToDB, deleteTemporaryChannel, checkAndUpdateChannels }
  * Get temporary voice channels from the database.
  * @returns {Promise<TempVCConfig[]>} - An array of temporary voice channels.
  */
-export async function getTempChannels(): Promise<TempVCConfig[]> {
+export async function getTempChannels(): Promise<Types.TempVC[]> {
 	// Try to fetch the temporary voice channels from the database
 	const { data, error } = await supabase.from('temp_voice_channels').select('*')
 
@@ -141,5 +142,5 @@ export async function getTempChannels(): Promise<TempVCConfig[]> {
 	return data.map((channel) => ({
 		...channel,
 		expire_at: new Date(channel.expire_at).getTime(),
-	})) as TempVCConfig[]
+	}))
 }

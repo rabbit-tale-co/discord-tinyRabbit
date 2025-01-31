@@ -1,23 +1,14 @@
 import { env, serve } from 'bun'
+import * as API from '@/api/index.js'
+import * as Services from '@/services/index.js'
+import * as Events from '@/events/index.js'
+import * as Router from '@/router/index.js'
 import * as Discord from 'discord.js'
-import * as Message from './events/onMessage.js'
-import * as Interaction from './events/onInteraction.js'
-import * as Member from './events/guildMember.js'
-import * as Presence from './services/presenceService.js'
-import * as Router from './router/index.js'
-import * as Reaction from './events/onReaction.js'
-import * as Plugins from './api/plugins.js'
 import chalk from 'chalk'
-import * as Heartbeat from './api/heartbeat/BotStatus.js'
 import { bunnyLog } from 'bunny-log'
 import * as Birthday from './commands/fun/bday.js'
 import * as Database from './db/initDatabase.js'
-import * as SaveBot from './api/saveBot.js'
-import * as TempVC from './services/tempvc.js'
 import * as OAuth from './router/oAuth.js'
-import * as Moderation from './services/moderation.js'
-import { startModerationScheduler } from './services/moderation.js'
-import { updateBotPresence } from './services/presenceService.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5000', 10)
 const CLIENT_ID: string = env.BOT_CLIENT_ID || ''
@@ -112,28 +103,23 @@ client.once('ready', async (c) => {
         ,ONMMMMMMMMMMMMMMMMMMWKo.
         .l0WMMMMMMMMMMMMMWN0o.`)
 
-	// const guilds = client.guilds.cache.map((guild) => guild.id)
-	// for (const guildId of guilds) {
-	// 	await initializePlugins(guildId)
-	// }
-
 	// Update bot status for all guilds
-	await Presence.updateBotPresence(c.user)
+	await Services.updateBotPresence(c.user)
 	//await Heartbeat.handleBotStatus()
-	await SaveBot.saveBotData(c.user)
-	await Plugins.updateMissingPlugins(c)
-	await TempVC.initializeTempChannels(c)
+	await API.saveBotData(c.user)
+	await API.updateMissingPlugins(c)
+	await Services.initializeTempChannels(c)
 	Birthday.scheduleBirthdayCheck(c)
-	await Moderation.startModerationScheduler()
+	await Services.startModerationScheduler()
 
 	// Update bot status every hour for all guilds
 	setInterval(async () => {
-		await Presence.updateBotPresence(c.user)
+		await Services.updateBotPresence(c.user)
 	}, 300_000) // 1h - 3_600_000 now it's 5 min
 
 	setInterval(async () => {
 		const { bot_status: server, db_status: database } =
-			await Heartbeat.checkHeartbeat()
+			await API.checkHeartbeat()
 
 		const serverStatusColor = server === 'online' ? chalk.green : chalk.red
 		const databaseStatusColor =
@@ -147,19 +133,19 @@ client.once('ready', async (c) => {
  * @returns {Promise<void>} A promise that resolves when the guild is initialized.
  */
 client.on(Discord.Events.GuildCreate, async (_guild) => {
-	await Plugins.updateMissingPlugins(client)
+	await API.updateMissingPlugins(client)
 })
 
-client.on('messageCreate', Message.messageHandler)
-client.on(Discord.Events.MessageReactionAdd, Reaction.reactionHandler)
-client.on(Discord.Events.InteractionCreate, Interaction.interactionHandler)
+client.on('messageCreate', Events.messageHandler)
+client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler)
+client.on(Discord.Events.InteractionCreate, Events.interactionHandler)
 
 // Channels activity
-client.on(Discord.Events.VoiceStateUpdate, TempVC.handleVoiceStateUpdate)
+client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate)
 
 // Guild member events
-client.on(Discord.Events.GuildMemberAdd, Member.handleMemberJoin)
-client.on(Discord.Events.GuildMemberRemove, Member.handleMemberLeave)
+client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin)
+client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave)
 
 client.login(env.BOT_TOKEN)
 
@@ -171,7 +157,9 @@ client.login(env.BOT_TOKEN)
 /**
  * TODO:
  * Make moderation bot
- * Purge - remove messages from a channel
+ * Purge - remove messages from a channel (Done)
+ * Auto-moderation - ban/kick members who raid/nuke server ()
+ * Auto-bot-detection - detect if a bot is in a server and ban it (Done)
  */
 
 /**

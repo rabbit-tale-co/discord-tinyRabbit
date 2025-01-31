@@ -1,9 +1,9 @@
 import type * as Discord from 'discord.js'
-import { getPluginConfig } from '../api/plugins'
-import { assignXP } from '../services/experienceService'
+import * as utils from '@/utils/index.js'
+import * as services from '@/services/index.js'
+import * as commands from '@/commands/index.js'
+import * as api from '@/api/index.js'
 import { bunnyLog } from 'bunny-log'
-import { manageSlowmode } from '../services/slowmode'
-import { handleResponse } from '../utils/responses.js'
 
 /**
  * Event handler for message creation.
@@ -22,20 +22,7 @@ async function messageHandler(message: Discord.Message): Promise<void> {
 
 	try {
 		// Manage slowmode
-		await manageSlowmode(message)
-
-		// Get the plugin config for the 'levels' plugin for this guild in the context of the given bot
-		const config = await getPluginConfig(
-			message.client.user.id,
-			message.guild.id,
-			'levels'
-		)
-
-		// Check if the 'levels' plugin is enabled
-		if (!config.enabled) return
-
-		// Assign XP based on the message, if the plugin is enabled
-		await assignXP(message)
+		await services.manageSlowmode(message)
 
 		if (message.content.startsWith('!purge') && message.reference?.messageId) {
 			const targetMessage = await message.channel.messages.fetch(
@@ -51,14 +38,28 @@ async function messageHandler(message: Discord.Message): Promise<void> {
 				(m) => m.createdTimestamp > targetMessage.createdTimestamp
 			)
 
-			await message.channel.bulkDelete([...messagesToDelete, message])
-
-			await handleResponse(
+			await (message.channel as Discord.TextChannel).bulkDelete([
+				...messagesToDelete.values(),
 				message,
+			])
+
+			await utils.handleResponse(
+				message as unknown as Discord.ChatInputCommandInteraction,
 				'success',
 				`Deleted ${messagesToDelete.size} messages`,
 				{ ephemeral: false }
 			)
+		}
+
+		// Levels plugin check (only for XP assignment)
+		const config = await api.getPluginConfig(
+			message.client.user.id,
+			message.guild.id,
+			'levels'
+		)
+
+		if (config?.enabled) {
+			await services.assignXP(message)
 		}
 	} catch (error) {
 		// Log any errors that may occur during message handling

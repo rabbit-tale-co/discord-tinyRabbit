@@ -145,3 +145,5 @@ type DefaultConfigs = {
 type PluginResponse<T> = T & { id: string }
 
 export type { DefaultConfigs, PluginResponse, Plugins }
+
+export * from './tempvc.js'

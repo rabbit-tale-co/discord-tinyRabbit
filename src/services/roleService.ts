@@ -1,7 +1,7 @@
-import { getPluginConfig } from '../api/plugins'
+import * as api from '@/api/index.js'
 import type * as Discord from 'discord.js'
-import { LevelUpResult } from '../utils/xpUtils'
-import type { LevelStatus } from '../types/levels'
+import { LevelUpResult } from '@/utils/index.js'
+import type { LevelStatus } from '@/types/levels.js'
 import { bunnyLog } from 'bunny-log'
 
 /**
@@ -20,7 +20,7 @@ async function updateMemberRoles(
 ) {
 	try {
 		// Fetch the 'levels' plugin configuration for the guild
-		const config = await getPluginConfig(bot_id, guild.id, 'levels')
+		const config = await api.getPluginConfig(bot_id, guild.id, 'levels')
 
 		// Check if level roles are defined in the configuration
 		if (!config || !config.reward_roles) {

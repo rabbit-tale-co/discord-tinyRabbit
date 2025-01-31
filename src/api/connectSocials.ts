@@ -1,10 +1,8 @@
 import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import { getPluginConfig } from './plugins'
-import supabase from '../db/supabase'
-import { client } from '..'
-import { ClientUser } from 'discord.js'
-import { Client } from 'discord.js'
+import { getPluginConfig } from '@/api/plugins.js'
+import supabase from '@/db/supabase.js'
+import { client } from '@/index.js'
 
 type SocialPlatform = 'minecraft' | 'youtube' | 'twitter' | 'tiktok' | 'twitch'
 

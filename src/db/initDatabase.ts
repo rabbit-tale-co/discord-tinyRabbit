@@ -1,11 +1,11 @@
-import supabase from './supabase'
+import db from '@/db/supabase.js'
 import { bunnyLog } from 'bunny-log'
 
 export async function initializeDatabase() {
 	// Initialize the database
 	try {
 		// Initialize the database
-		const { error } = await supabase.rpc('initialize_database')
+		const { error } = await db.rpc('initialize_database')
 
 		// Check if the database is initialized
 		if (error) throw error

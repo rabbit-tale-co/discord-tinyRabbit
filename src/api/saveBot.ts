@@ -1,6 +1,6 @@
-import { encryptToken } from '../utils/crypto.js'
+import { encryptToken } from '@/utils/crypto.js'
 import type * as Discord from 'discord.js'
-import supabase from '../db/supabase.js'
+import supabase from '@/db/supabase.js'
 import { bunnyLog } from 'bunny-log'
 
 /**

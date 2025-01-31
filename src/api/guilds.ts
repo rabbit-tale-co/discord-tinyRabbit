@@ -1,5 +1,5 @@
 import { bunnyLog } from 'bunny-log'
-import Discord from 'discord.js'
+import * as Discord from 'discord.js'
 
 async function fetchDiscordAPI(endpoint: string) {
 	const response = await fetch(`https://discord.com/api/${endpoint}`, {

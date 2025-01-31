@@ -1,5 +1,5 @@
 import * as Discord from 'discord.js'
-import { fetchTotalBotXp } from '../api/totalXp'
+import * as api from '@/api/index.js'
 import { bunnyLog } from 'bunny-log'
 
 const DEVELOPMENT = process.env.NODE_ENV !== 'production'
@@ -13,7 +13,7 @@ export async function updateBotPresence(
 ): Promise<void> {
 	try {
 		// Fetch the total XP for the bot
-		const xp = await fetchTotalBotXp(client.id)
+		const xp = await api.fetchTotalBotXp(client.id)
 
 		// Check if the XP is a valid number
 		if (typeof xp !== 'number' || Number.isNaN(xp)) {

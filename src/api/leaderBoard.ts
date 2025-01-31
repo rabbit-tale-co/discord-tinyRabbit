@@ -1,13 +1,11 @@
-import { calculateTotalXpForLevel } from '../utils/xpUtils.js'
-import type { LeaderboardEntry, LeaderboardUser } from '../types/leaderboard.js'
-import { env } from 'node:process'
+import { calculateTotalXpForLevel } from '@/utils/xpUtils.js'
+import type { LeaderboardEntry, LeaderboardUser } from '@/types/leaderboard.js'
 import type * as Discord from 'discord.js'
-import type { UserData } from '../types/user.js'
+import type { UserData } from '@/types/user.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
-import { ClientUser } from 'discord.js'
+import supabase from '@/db/supabase.js'
 
-const BOT_TOKEN = env.BOT_TOKEN
+const BOT_TOKEN = process.env.BOT_TOKEN
 
 /**
  * Fetches user data from Discord.

@@ -1,17 +1,13 @@
-import type {
-	DefaultConfigs,
-	PluginResponse,
-	Plugins,
-} from '../types/plugins.js'
+import type * as Types from '@/types/plugins.js'
 import * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase.js'
+import supabase from '@/db/supabase.js'
 
-const default_configs: DefaultConfigs = {
+const default_configs: Types.DefaultConfigs = {
 	levels: {
 		enabled: false,
 		reward_message: 'Congratulations, you have leveled up to level {level}!',
-		channel_id: null,
+		channel_id: null, // TODO:change to reward_channel_id
 		command_channel_id: null,
 		reward_roles: null,
 		boost_3x_roles: null,
@@ -249,7 +245,9 @@ const default_configs: DefaultConfigs = {
  * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  * @returns {Plugins} - The plugin name.
  */
-function getDefaultConfig(plugin_name: keyof DefaultConfigs): Plugins {
+function getDefaultConfig(
+	plugin_name: keyof Types.DefaultConfigs
+): Types.Plugins {
 	return default_configs[plugin_name]
 }
 
@@ -262,8 +260,8 @@ async function saveGuildPlugins(
 	client: Discord.Client,
 	guild_id: Discord.Guild['id'],
 	plugins: Array<{
-		name: keyof DefaultConfigs
-		config: DefaultConfigs[keyof DefaultConfigs]
+		name: keyof Types.DefaultConfigs
+		config: Types.DefaultConfigs[keyof Types.DefaultConfigs]
 	}>
 ) {
 	try {
@@ -363,7 +361,7 @@ async function updateMissingPlugins(client: Discord.Client): Promise<void> {
 		const missing_plugins = Object.keys(default_configs).filter(
 			(plugin_name) =>
 				!current_plugins.some(
-					(plugin) => plugin.id === (plugin_name as keyof DefaultConfigs)
+					(plugin) => plugin.id === (plugin_name as keyof Types.DefaultConfigs)
 				)
 		)
 
@@ -373,8 +371,8 @@ async function updateMissingPlugins(client: Discord.Client): Promise<void> {
 				client,
 				guild.id,
 				missing_plugins.map((plugin_name) => ({
-					name: plugin_name as keyof DefaultConfigs,
-					config: default_configs[plugin_name as keyof DefaultConfigs],
+					name: plugin_name as keyof Types.DefaultConfigs,
+					config: default_configs[plugin_name as keyof Types.DefaultConfigs],
 				}))
 			)
 
@@ -394,7 +392,9 @@ async function updateMissingPlugins(client: Discord.Client): Promise<void> {
 export async function getGuildPlugins(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id']
-): Promise<PluginResponse<DefaultConfigs[keyof DefaultConfigs]>[]> {
+): Promise<
+	Types.PluginResponse<Types.DefaultConfigs[keyof Types.DefaultConfigs]>[]
+> {
 	// Get the plugins from the database
 	const { data, error } = await supabase
 		.from('plugins')
@@ -423,7 +423,7 @@ export async function getGuildPlugins(
 async function togglePlugin(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins,
+	plugin_name: Types.Plugins,
 	enabled: boolean
 ): Promise<void> {
 	try {
@@ -457,7 +457,7 @@ async function togglePlugin(
 async function setPluginConfig(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins,
+	plugin_name: Types.Plugins,
 	config: object
 ): Promise<void> {
 	// Update the plugin in the database
@@ -480,11 +480,11 @@ async function setPluginConfig(
  * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  * @returns {Promise<PluginResponse<DefaultConfigs[T]>>} - The plugin configuration.
  */
-async function getPluginConfig<T extends keyof DefaultConfigs>(
+async function getPluginConfig<T extends keyof Types.DefaultConfigs>(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
 	plugin_name: T
-): Promise<PluginResponse<DefaultConfigs[T]>> {
+): Promise<Types.PluginResponse<Types.DefaultConfigs[T]>> {
 	// Get the plugin configuration from the database
 	const { data, error } = await supabase
 		.from('plugins')
@@ -498,11 +498,13 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 	if (error) {
 		// If the error is because the plugin doesn't exist, set the default config
 		if (error.code === 'PGRST116') {
-			const default_config = getDefaultConfig(plugin_name) as DefaultConfigs[T]
+			const default_config = getDefaultConfig(
+				plugin_name
+			) as Types.DefaultConfigs[T]
 			await setPluginConfig(
 				bot_id,
 				guild_id,
-				plugin_name as Plugins,
+				plugin_name as Types.Plugins,
 				default_config
 			)
 
@@ -513,17 +515,18 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 
 			// Return the default config
 			return {
-				id: plugin_name as Plugins,
+				id: plugin_name as Types.Plugins,
 				...default_config,
-			} as PluginResponse<DefaultConfigs[T]>
+			} as Types.PluginResponse<Types.DefaultConfigs[T]>
 		}
 		throw error
 	}
 
 	// Return the plugin configuration
-	return { id: plugin_name as Plugins, ...data.config } as PluginResponse<
-		DefaultConfigs[T]
-	>
+	return {
+		id: plugin_name as Types.Plugins,
+		...data.config,
+	} as Types.PluginResponse<Types.DefaultConfigs[T]>
 }
 
 /**
@@ -534,7 +537,7 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 async function enablePlugin(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins
+	plugin_name: Types.Plugins
 ): Promise<void> {
 	await togglePlugin(bot_id, guild_id, plugin_name, true)
 }
@@ -542,7 +545,7 @@ async function enablePlugin(
 async function disablePlugin(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins
+	plugin_name: Types.Plugins
 ): Promise<void> {
 	await togglePlugin(bot_id, guild_id, plugin_name, false)
 }
@@ -553,11 +556,11 @@ async function disablePlugin(
  * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  * @param {object} config - The configuration object.
  */
-async function updatePluginConfig<T extends keyof DefaultConfigs>(
+async function updatePluginConfig<T extends keyof Types.DefaultConfigs>(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
 	plugin_name: T,
-	config: DefaultConfigs[T]
+	config: Types.DefaultConfigs[T]
 ): Promise<void> {
 	try {
 		// Update the plugin in the database

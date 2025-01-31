@@ -1,67 +1,30 @@
 import * as Discord from 'discord.js'
-import { formatter, hexToNumber } from '../../utils/formatter.js'
-import { calculateXpForNextLevel, LevelUpResult } from '../../utils/xpUtils.js'
-import { updateMemberRoles } from '../../services/roleService.js'
-import { getUser } from '../../api/user.js'
-import { getGlobalRank, getServerRank } from '../../api/userRank.js'
-import type { Level, LevelStatus } from '../../types/levels.js'
-import { getDominantColor } from '../../utils/colorThief.js'
-import { createUniversalEmbed } from '../../components/embed.js'
+import * as utils from '@/utils/index.js'
+import * as api from '@/api/index.js'
+import { updateMemberRoles } from '@/services/roleService.js'
+import type { LevelStatus } from '@/types/levels.js'
+import { createUniversalEmbed } from '@/components/embed.js'
 import { bunnyLog } from 'bunny-log'
-import { addOrUpdateUserLevel } from '../../api/levels.js'
-import { handleResponse } from '../../utils/responses.js'
-import { getPluginConfig } from '../../api/plugins.js'
-
-/**
- * Fetches user data from the database.
- * @param {Discord.ClientUser['id']} bot_id - The ID of the bot.
- * @param {Discord.Guild['id']} guild_id - The ID of the guild.
- * @param {Discord.User['id']} user_id - The ID of the user.
- * @returns The user data.
- */
-async function fetchUserData(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	user_id: Discord.User['id']
-): Promise<Level> {
-	try {
-		// Get the user data
-		let data = await getUser(bot_id, guild_id, user_id)
-
-		// Check if the user data is valid
-		if (!data) data = { status: 'not found' }
-
-		// Return the user data
-		return data
-	} catch (error) {
-		// Log the error
-		bunnyLog.error(
-			`Error fetching user data for guild ${guild_id}, user ${user_id}:`,
-			error
-		)
-		throw new Error('Failed to fetch user data')
-	}
-}
 
 /**
  * Handles the setxp command to set XP for a user.
  * @param {Discord.ChatInputCommandInteraction} interaction - The interaction object.
  */
-async function setUserXpAndLevel(
+async function setLevel(
 	interaction: Discord.ChatInputCommandInteraction
 ): Promise<void> {
 	try {
 		// Defer the reply
-		await interaction.deferReply({ ephemeral: true })
+		await interaction.deferReply()
 
 		// Check if the XP plugin is enabled
-		const config = await getPluginConfig(
+		const config = await api.getPluginConfig(
 			interaction.client.user.id,
 			interaction.guild?.id as Discord.Guild['id'],
 			'levels'
 		)
 		if (!config.enabled) {
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'The XP system is currently disabled on this server.',
@@ -77,7 +40,7 @@ async function setUserXpAndLevel(
 
 		// Check if the member has administrator permissions
 		if (!member.permissions.has(Discord.PermissionFlagsBits.Administrator)) {
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'warning',
 				'You need to have administrator permissions to use this command.',
@@ -99,11 +62,11 @@ async function setUserXpAndLevel(
 		const updatedData: LevelStatus = {
 			xp: newXp,
 			level: newLevel,
-			levelChangeStatus: LevelUpResult.NoChange,
+			levelChangeStatus: utils.LevelUpResult.NoChange,
 		}
 
 		// Add or update the user level
-		await addOrUpdateUserLevel(
+		await api.addOrUpdateUserLevel(
 			interaction.client.user.id,
 			interaction.guild?.id as Discord.Guild['id'],
 			targetUser,
@@ -129,7 +92,7 @@ async function setUserXpAndLevel(
 		// Edit the reply
 		await interaction.editReply(message)
 	} catch (error) {
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'An error occurred while setting user level and XP.',
@@ -144,50 +107,49 @@ async function setUserXpAndLevel(
  * Handles the xp command to display XP for a user.
  * @param {Discord.ChatInputCommandInteraction} interaction - The interaction object.
  */
-async function levelCommand(
+async function showLevel(
 	interaction: Discord.ChatInputCommandInteraction
 ): Promise<void> {
-	// Check if the XP plugin is enabled
-	const config = await getPluginConfig(
-		interaction.client.user.id,
-		interaction.guild?.id as Discord.Guild['id'],
-		'levels'
-	)
-
-	// Check if the XP plugin is enabled
-	if (!config.enabled) {
-		await handleResponse(
-			interaction,
-			'warning',
-			'The XP system is currently disabled on this server.',
-			{
-				code: 'XP000',
-			}
-		)
-		return
-	}
-
-	// Get the options
-	const options =
-		interaction.options as Discord.CommandInteractionOptionResolver
-	const targetUser = options.getUser('user') || interaction.user
-
 	try {
-		const data = await fetchUserData(
+		// Regular deferral without ephemeral
+		await interaction.deferReply()
+
+		// Check if the XP plugin is enabled
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'levels'
+		)
+
+		// Check if the XP plugin is enabled
+		if (!config.enabled) {
+			await utils.handleResponse(
+				interaction,
+				'warning',
+				'The XP system is currently disabled on this server.',
+				{ code: 'XP000' }
+			)
+			return
+		}
+
+		// Get the options
+		const options =
+			interaction.options as Discord.CommandInteractionOptionResolver
+		const targetUser = options.getUser('user') || interaction.user
+
+		const data = await api.getUser(
 			interaction.client.user.id,
 			interaction.guild?.id as Discord.Guild['id'],
 			targetUser.id
 		)
 
 		// Check if the user data is valid
-		if (data.status === 'not found') {
-			await handleResponse(
+		if (!data || data.status === 'not found') {
+			await utils.handleResponse(
 				interaction,
 				'warning',
 				'User not found in database.',
-				{
-					code: 'XP003',
-				}
+				{ code: 'XP003' }
 			)
 			return
 		}
@@ -201,13 +163,13 @@ async function levelCommand(
 		const userLevel = data.level
 
 		// Get the XP needed for the next level
-		const xpForNextLevel = calculateXpForNextLevel(userLevel ?? 0)
+		const xpForNextLevel = utils.calculateXpForNextLevel(userLevel ?? 0)
 		const xpNeededForNextLevel = xpForNextLevel - (userExperience ?? 0)
 
 		// Get the global and server ranks
 		const [globalRank, serverRank] = await Promise.all([
-			getGlobalRank(interaction.client.user.id, targetUser.id),
-			getServerRank(
+			api.getGlobalRank(interaction.client.user.id, targetUser.id),
+			api.getServerRank(
 				interaction.client.user.id,
 				interaction.guild?.id as Discord.Guild['id'],
 				targetUser.id
@@ -220,33 +182,33 @@ async function levelCommand(
 			.replace('webp', 'png')
 
 		// Get the dominant color
-		const dominantColor = await getDominantColor(avatarUrl)
+		const dominantColor = await utils.getDominantColor(avatarUrl)
 
 		// Create the fields
 		const fields = [
 			{
 				name: '⭐️ LVL',
-				value: `\`\`\`${formatter.format(userLevel ?? 0)}\`\`\``,
+				value: `\`\`\`${utils.formatter.format(userLevel ?? 0)}\`\`\``,
 				inline: true,
 			},
 			{
 				name: '✨ XP',
-				value: `\`\`\`${formatter.format(userExperience ?? 0)}\`\`\``,
+				value: `\`\`\`${utils.formatter.format(userExperience ?? 0)}\`\`\``,
 				inline: true,
 			},
 			{
-				name: '🎯 XP for LV-UP',
-				value: `\`\`\`${formatter.format(xpNeededForNextLevel ?? 0)}\`\`\``,
+				name: '🎯 XP for LVL-UP',
+				value: `\`\`\`${utils.formatter.format(xpNeededForNextLevel ?? 0)}\`\`\``,
 				inline: true,
 			},
 			{
 				name: '🌐 Global Ranking',
-				value: `\`\`\`${globalRank !== null ? `#${formatter.format(globalRank ?? 0)}` : 'Not ranked'}\`\`\``,
+				value: `\`\`\`${globalRank !== null ? `#${utils.formatter.format(globalRank ?? 0)}` : 'Not ranked'}\`\`\``,
 				inline: true,
 			},
 			{
 				name: '🏠 Server Ranking',
-				value: `\`\`\`${serverRank !== null ? `#${formatter.format(serverRank ?? 0)}` : 'Not ranked'}\`\`\``,
+				value: `\`\`\`${serverRank !== null ? `#${utils.formatter.format(serverRank ?? 0)}` : 'Not ranked'}\`\`\``,
 				inline: true,
 			},
 		]
@@ -255,19 +217,20 @@ async function levelCommand(
 		const xpEmbed = createUniversalEmbed({
 			title: `${targetUser.displayName}'s XP Card`,
 			fields,
-			color: hexToNumber(dominantColor),
+			color: utils.hexToNumber(dominantColor),
 			thumbnail: { url: avatarUrl },
 		})
 
-		// Reply with the embed
-		await interaction.reply({
+		// Send normal follow-up
+		await interaction.editReply({
 			embeds: [xpEmbed.embed],
 		})
 	} catch (error) {
-		await handleResponse(interaction, 'error', error.message, {
+		// Non-ephemeral error response
+		await utils.handleResponse(interaction, 'error', error.message, {
 			code: 'XP004',
 		})
 	}
 }
 
-export { levelCommand, setUserXpAndLevel }
+export { showLevel, setLevel }

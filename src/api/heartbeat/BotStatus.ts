@@ -1,4 +1,4 @@
-import { client } from '../../index' // Ensure correct import of client
+import { client } from '@/index.js' // Ensure correct import of client
 import { bunnyLog } from 'bunny-log'
 
 /**

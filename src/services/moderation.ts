@@ -1,6 +1,6 @@
 import { client } from '../index.js'
 import { bunnyLog } from 'bunny-log'
-import { getPluginConfig } from '../api/plugins.js'
+import * as api from '@/api/index.js'
 import type * as Discord from 'discord.js'
 import supabase from '../db/supabase.js'
 
@@ -14,7 +14,7 @@ async function banBotLikeUsers() {
 
 		// Iterate over each guild
 		for (const guild of guilds) {
-			const config = await getPluginConfig(
+			const config = await api.getPluginConfig(
 				client.user?.id ?? '',
 				guild.id,
 				'moderation'
@@ -88,7 +88,7 @@ async function performSafeBan(
  */
 async function startModerationScheduler() {
 	const scheduler = require('node-schedule')
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		client.user?.id ?? '',
 		process.env.GUILD_ID ?? '',
 		'moderation'

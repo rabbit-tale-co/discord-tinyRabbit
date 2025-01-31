@@ -1,24 +1,39 @@
-import { setUserXpAndLevel, levelCommand } from '../commands/fun/xp.js'
-import * as ticket from '../commands/moderation/tickets.js'
+import * as commands from '../commands/index.js'
+import * as utils from '../utils/index.js'
 import type * as Discord from 'discord.js'
-import { handleBdayCommand } from '../commands/fun/bday.js'
 import { bunnyLog } from 'bunny-log'
-import { handleResponse } from '../utils/responses.js'
-import { cleanMessages } from '../commands/moderation/clean.js'
-// Command handlers
-const commandHandlers: Record<
-	string,
-	(
-		interaction:
-			| Discord.ChatInputCommandInteraction
-			| Discord.ContextMenuCommandInteraction
-	) => Promise<void>
-> = {
-	level: levelCommand,
-	set_level: setUserXpAndLevel,
-	send_embed: ticket.sendEmbed,
-	bday: handleBdayCommand,
-	clean: cleanMessages,
+
+type CommandHandler = (
+	interaction: Discord.ChatInputCommandInteraction
+) => Promise<void>
+
+type SubcommandMap = Record<string, CommandHandler>
+
+interface CommandStructure {
+	handler?: CommandHandler
+	subcommands?: SubcommandMap
+}
+
+const commandMap: Record<string, CommandStructure> = {
+	// Level management
+	level: {
+		subcommands: {
+			show: commands.showLevel,
+			set: commands.setLevel,
+		},
+	},
+
+	// Ticket system
+	send_embed: commands.ticket.sendEmbed,
+
+	// Birthday tracking
+	bday: {
+		subcommands: {
+			set: commands.setBirthday,
+			show: commands.showBirthday,
+			remove: commands.removeBirthday,
+		},
+	},
 }
 
 // Button interaction handlers
@@ -26,12 +41,12 @@ const buttonInteractionHandlers: Record<
 	string,
 	(interaction: Discord.ButtonInteraction) => Promise<void>
 > = {
-	open_ticket: ticket.openTicket,
-	close_ticket_with_reason: ticket.closeTicketWithReason,
-	close_ticket: ticket.closeTicket,
-	confirm_close_ticket: ticket.confirmCloseTicket,
-	join_ticket: ticket.joinTicket,
-	claim_ticket: ticket.claimTicket,
+	open_ticket: commands.ticket.openTicket,
+	close_ticket_with_reason: commands.ticket.closeTicketWithReason,
+	close_ticket: commands.ticket.closeTicket,
+	confirm_close_ticket: commands.ticket.confirmCloseTicket,
+	join_ticket: commands.ticket.joinTicket,
+	claim_ticket: commands.ticket.claimTicket,
 }
 
 /**
@@ -43,20 +58,19 @@ async function interactionHandler(
 ): Promise<void> {
 	try {
 		// Handle command interactions
-		if (
-			interaction.isChatInputCommand() ||
-			interaction.isContextMenuCommand()
-		) {
-			const commandHandler = commandHandlers[interaction.commandName]
+		if (interaction.isChatInputCommand()) {
+			const command = commandMap[interaction.commandName]
 
-			// Check if the command handler exists
-			if (!commandHandler) {
-				bunnyLog.warn('No command handler found for:', interaction.commandName)
-				return
+			if (command?.subcommands) {
+				const subcommand = interaction.options.getSubcommand()
+				const handler = command.subcommands[subcommand]
+
+				if (handler) {
+					return await handler(interaction)
+				}
+			} else if (command?.handler) {
+				return await command.handler(interaction)
 			}
-
-			// Execute the command handler
-			return await commandHandler(interaction)
 		}
 
 		// Handle button interactions
@@ -78,7 +92,7 @@ async function interactionHandler(
 
 		// Handle modal submissions
 		if (interaction.isModalSubmit()) {
-			return await ticket.modalSubmit(
+			return await commands.ticket.modalSubmit(
 				interaction as Discord.ModalSubmitInteraction
 			)
 		}
@@ -95,7 +109,7 @@ async function interactionHandler(
 		// Provide the appropriate reply/followUp depending on the interaction status
 		if (interaction.isRepliable()) {
 			// Check if the interaction has already been replied to or deferred
-			handleResponse(interaction, 'error', `${error.message}`, {
+			utils.handleResponse(interaction, 'error', `${error.message}`, {
 				ephemeral: true,
 				code: 'E001',
 				error: error.message,

@@ -1,7 +1,7 @@
-import { getServerLeaderboard } from './leaderBoard'
+import { getServerLeaderboard } from '@/api/leaderBoard.js'
 import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
 
 /**
  * Gets the global rank of a user based on their XP.

@@ -1,5 +1,5 @@
 import * as Discord from 'discord.js'
-import type { UniversalEmbedOptions } from '../types/embed'
+import type { UniversalEmbedOptions } from '../types/embed.js'
 
 /**
  * Creates a universal embed with various optional parameters.

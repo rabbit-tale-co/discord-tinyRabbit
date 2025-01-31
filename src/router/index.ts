@@ -1,23 +1,11 @@
-import * as leaderboardAPI from '../api/leaderBoard'
-import * as heartbeatAPI from '../api/heartbeat/BotStatus'
-import * as guildsAPI from '../api/guilds'
-import * as userAPI from '../api/user'
-import * as pluginsAPI from '../api/plugins'
-import * as xpAPI from '../api/totalXp'
-import * as connectSocialsAPI from '../api/connectSocials'
-import type { DefaultConfigs } from '../types/plugins'
+import * as API from '@/api/index.js'
+import * as Services from '@/services/index.js'
+import * as Events from '@/events/index.js'
 import type * as Discord from 'discord.js'
+import type { DefaultConfigs } from '@/types/plugins.js'
 import { bunnyLog } from 'bunny-log'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { linkMinecraftAccount } from '../api/connectSocials'
-import {
-	checkBotMembership,
-	checkUserOnServer,
-	getGuildDetails,
-} from '../api/guilds'
-import { getUser } from '../api/user'
-import { getGuildPlugins, getPluginConfig } from '../api/plugins'
 
 type RequestHandler = (req: Request) => Promise<Response>
 
@@ -123,7 +111,7 @@ export async function handleBotStatus(): Promise<Response> {
 	const version = getPackageVersion()
 
 	// Check the heartbeat status
-	const healthStatus = await heartbeatAPI.checkHeartbeat()
+	const healthStatus = await API.checkHeartbeat()
 
 	// Create the response
 	const response = new Response(JSON.stringify({ version, healthStatus }), {
@@ -140,7 +128,7 @@ export async function handleBotStatus(): Promise<Response> {
  */
 async function handleTotalXp(): Promise<Response> {
 	// Fetch the total XP
-	const totalXp = await xpAPI.fetchTotalXp()
+	const totalXp = await API.fetchTotalXp()
 
 	// Create the response
 	const response = new Response(JSON.stringify({ totalXp }), {
@@ -170,16 +158,13 @@ async function handleGlobalLeaderboard(req: Request): Promise<Response> {
 	)
 
 	// Get the global leaderboard
-	const globalLeaderboard = await leaderboardAPI.getGlobalLeaderboard(
-		page,
-		limit
-	)
+	const globalLeaderboard = await API.getGlobalLeaderboard(page, limit)
 
 	// Get the total users
-	const totalUsers = await leaderboardAPI.getTotalUserCount()
+	const totalUsers = await API.getTotalUserCount()
 
 	// Get the total XP
-	const totalXp = await xpAPI.fetchTotalXp()
+	const totalXp = await API.fetchTotalXp()
 
 	// Create the response
 	const response = new Response(
@@ -207,10 +192,7 @@ async function handleServerLeaderboard(req: Request): Promise<Response> {
 		return new Response('Missing bot_id or guild_id', { status: 400 })
 
 	// Get the server leaderboard
-	const serverLeaderboard = await leaderboardAPI.getServerLeaderboard(
-		bot_id,
-		guild_id
-	)
+	const serverLeaderboard = await API.getServerLeaderboard(bot_id, guild_id)
 
 	// Create the response
 	const response = new Response(JSON.stringify(serverLeaderboard), {
@@ -234,7 +216,7 @@ async function handleGetGuild(req: Request): Promise<Response> {
 	if (!guildId) return new Response('Missing guildId', { status: 400 })
 
 	// Get the guild details
-	const guildDetails = await guildsAPI.getGuildDetails(guildId)
+	const guildDetails = await API.getGuildDetails(guildId)
 
 	// Create the response
 	const response = new Response(JSON.stringify(guildDetails), {
@@ -260,7 +242,7 @@ async function handleGetGuildPlugins(req: Request): Promise<Response> {
 		return new Response('Missing bot_id or guild_id', { status: 400 })
 
 	// Get the guild plugins
-	const plugins = await pluginsAPI.getGuildPlugins(bot_id, guild_id)
+	const plugins = await API.getGuildPlugins(bot_id, guild_id)
 
 	// Create the response
 	const response = new Response(JSON.stringify(plugins), {
@@ -284,7 +266,7 @@ async function handleCheckBotMembership(req: Request): Promise<Response> {
 	if (!guildId) return new Response('Missing guildId', { status: 400 })
 
 	// Get the bot membership
-	const isBotMember = await checkBotMembership(guildId)
+	const isBotMember = await API.checkBotMembership(guildId)
 
 	// Create the response
 	const response = new Response(JSON.stringify({ isBotMember }), {
@@ -301,7 +283,7 @@ async function handleCheckBotMembership(req: Request): Promise<Response> {
  */
 async function handleGetBotGuilds(): Promise<Response> {
 	// Get the bot guilds
-	const guilds = await guildsAPI.getBotGuilds()
+	const guilds = await API.getBotGuilds()
 
 	// Create the response
 	const response = new Response(JSON.stringify(guilds), {
@@ -327,7 +309,7 @@ async function handleGetUsers(req: Request): Promise<Response> {
 	if (!serverId) return new Response('Missing serverId', { status: 400 })
 
 	// Get the users
-	const users = await userAPI.getUsers(serverId)
+	const users = await API.getUsers(serverId)
 
 	// Create the response
 	const response = new Response(JSON.stringify(users), {
@@ -357,7 +339,7 @@ async function handleGetUser(req: Request): Promise<Response> {
 		})
 
 	// Get the user
-	const user = await userAPI.getUser(botId, guildId, userId)
+	const user = await API.getUser(botId, guildId, userId)
 
 	// Create the response
 	const response = new Response(JSON.stringify(user), {
@@ -382,7 +364,7 @@ async function handleGetAvailablePlugins(req: Request): Promise<Response> {
 	if (!bot_id || !guild_id)
 		return new Response('Missing bot_id or guild_id', { status: 400 })
 
-	const availablePlugins = await pluginsAPI.getGuildPlugins(bot_id, guild_id)
+	const availablePlugins = await API.getGuildPlugins(bot_id, guild_id)
 
 	// Create the response
 	const response = new Response(JSON.stringify(availablePlugins), {
@@ -414,7 +396,7 @@ async function handleGetPluginConfig(req: Request): Promise<Response> {
 		})
 
 	// Get the plugin config
-	const config = await pluginsAPI.getPluginConfig(bot_id, guild_id, plugin_name)
+	const config = await API.getPluginConfig(bot_id, guild_id, plugin_name)
 
 	// Create the response
 	const response = new Response(JSON.stringify(config), {
@@ -449,7 +431,7 @@ async function handleDiscordLink(req: Request): Promise<Response> {
 		}
 
 		// Check if the user is on the server
-		const isOnServer = await checkUserOnServer(userId, guildId)
+		const isOnServer = await API.checkUserOnServer(userId, guildId)
 
 		// Check if the user is on the server
 		if (!isOnServer) {
@@ -457,7 +439,7 @@ async function handleDiscordLink(req: Request): Promise<Response> {
 		}
 
 		// Link the Minecraft account
-		const success = await linkMinecraftAccount(
+		const success = await API.linkMinecraftAccount(
 			minecraftUuid,
 			botId,
 			guildId,

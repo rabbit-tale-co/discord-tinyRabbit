@@ -20,11 +20,12 @@ const RESPONSE_TYPES: Record<ResponseType, string> = {
 	warning: 'warning',
 } as const
 const RESPONSE_COLORS: Record<ResponseType, Discord.ColorResolvable> = {
-	error: Discord.Colors.Red,
-	success: Discord.Colors.Green,
-	info: Discord.Colors.Blue,
-	warning: Discord.Colors.Yellow,
+	error: 0xf23f43, // #F23F43
+	success: 0x219a53, // #219A53
+	info: Discord.Colors.Blurple, // #5865F2
+	warning: 0xf0b232, // #F0B232
 } as const
+
 const RESPONSE_ICONS: Record<ResponseType, string> = {
 	error: '❌',
 	success: '✅',
@@ -95,7 +96,7 @@ export const handleResponse = async (
 	if (error) {
 		embed.addFields({
 			name: 'Error Details',
-			value: `\`\`\`${error.message.slice(0, 1000)}\`\`\``,
+			value: `\`\`\`${error?.message?.slice(0, 1000) || 'Unknown error'}\`\`\``,
 			inline: false,
 		})
 	}
@@ -122,6 +123,9 @@ export const handleResponse = async (
 	if (interaction.deferred) {
 		await interaction.followUp(responseOptions)
 	} else {
-		await interaction.reply(responseOptions)
+		await interaction.reply({
+			content: message,
+			flags: ephemeral ? Discord.MessageFlags.Ephemeral : undefined,
+		})
 	}
 }

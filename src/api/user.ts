@@ -1,11 +1,11 @@
-import supabase from '../db/supabase.js'
-import { XP_PER_MESSAGE } from '../utils/xpUtils.js'
-import { updateLeaderboard } from './leaderBoard.js'
-import type { Level } from '../types/levels.js'
+import supabase from '@/db/supabase.js'
+import { XP_PER_MESSAGE } from '@/utils/xpUtils.js'
+import { updateLeaderboard } from '@/api/leaderBoard.js'
+import type * as Types from '@/types/levels.js'
 import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
 
-const user_cache: Record<string, Level | null> = {}
+const user_cache: Record<string, Types.Level | null> = {}
 
 /**
  * Gets users for a specific guild.
@@ -43,7 +43,7 @@ async function getUser(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
 	user_id: Discord.User['id']
-): Promise<Level | null> {
+): Promise<Types.Level | null> {
 	// Check if the guild ID or user ID is valid
 	if (!guild_id || !user_id) throw new Error('Invalid guild_id or user_id')
 
@@ -70,7 +70,7 @@ async function getUser(
 		}
 
 		// Add the user to the cache
-		const user_data = data as Level
+		const user_data = data as Types.Level
 		user_cache[cache_key] = user_data
 
 		// Return the user
@@ -93,7 +93,7 @@ async function addUserOrUpdate(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
 	user: Discord.User,
-	user_data: Level
+	user_data: Types.Level
 ): Promise<void> {
 	// Check if the guild ID or user ID is valid
 	if (!guild_id || !user) throw new Error('Invalid guild_id or user_id')

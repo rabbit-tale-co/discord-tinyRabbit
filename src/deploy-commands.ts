@@ -13,37 +13,46 @@ if (!BOT_TOKEN || !BOT_CLIENT_ID) {
 const commands = [
 	{
 		name: 'level',
-		description: 'Shows the XP level of a user',
+		description: 'Manage user levels',
 		options: [
 			{
-				type: 6, // Corresponds to the USER type
-				name: 'user',
-				description: 'The user whose XP level you want to check',
-				required: false,
-			},
-		],
-	},
-	{
-		name: 'set_level',
-		description: 'Sets the XP level of a user (Admin only)',
-		options: [
-			{
-				type: 6, // USER type
-				name: 'user',
-				description: 'The user whose XP level you want to set',
-				required: true,
+				type: 1, // SUB_COMMAND
+				name: 'show',
+				description: "Show a user's level",
+				options: [
+					{
+						type: 6, // USER
+						name: 'user',
+						description: 'User to check',
+						required: false,
+					},
+				],
 			},
 			{
-				type: 10, // NUMBER type
-				name: 'xp',
-				description: 'The amount of XP to set for the user',
-				required: true,
-			},
-			{
-				type: 10, // NUMBER type
-				name: 'level',
-				description: 'The level to set for the user',
-				required: true,
+				type: 1, // SUB_COMMAND
+				name: 'set',
+				description: 'Set user level (Admin only)',
+				default_member_permissions: '0',
+				options: [
+					{
+						type: 6, // USER
+						name: 'user',
+						description: 'User to modify',
+						required: true,
+					},
+					{
+						type: 10, // NUMBER
+						name: 'xp',
+						description: 'XP value to set',
+						required: true,
+					},
+					{
+						type: 10, // NUMBER
+						name: 'level',
+						description: 'Level to set',
+						required: true,
+					},
+				],
 			},
 		],
 	},
@@ -60,39 +69,49 @@ const commands = [
 		],
 	},
 	{
-		name: 'bday', //bday set {day} {month} {year} bday show bday remove
-		description: 'Set your birthday',
+		name: 'bday',
+		description: 'Manage birthday information',
 		options: [
 			{
-				type: 4, // INTEGER type
-				name: 'day',
-				description: 'Day of your birthday',
-				required: true,
+				type: 1, // SUB_COMMAND
+				name: 'set',
+				description: 'Set your birthday',
+				options: [
+					{
+						type: 4, // INTEGER
+						name: 'day',
+						description: 'Birthday day (1-31)',
+						required: true,
+						min_value: 1,
+						max_value: 31,
+					},
+					{
+						type: 4, // INTEGER
+						name: 'month',
+						description: 'Birthday month (1-12)',
+						required: true,
+						min_value: 1,
+						max_value: 12,
+					},
+					{
+						type: 4, // INTEGER
+						name: 'year',
+						description: 'Birth year',
+						required: true,
+						min_value: new Date().getFullYear() - 100,
+						max_value: new Date().getFullYear(),
+					},
+				],
 			},
 			{
-				type: 4, // INTEGER type
-				name: 'month',
-				description: 'Month of your birthday',
-				required: true,
+				type: 1, // SUB_COMMAND
+				name: 'show',
+				description: 'Show your birthday information',
 			},
 			{
-				type: 4, // INTEGER type
-				name: 'year',
-				description: 'Year of your birthday',
-				required: true,
-			},
-		],
-	},
-	{
-		name: 'clean',
-		description: 'Delete last x messages from a channel',
-		default_member_permissions: '8192', // ManageMessages
-		options: [
-			{
-				type: 4, // number type
-				name: 'amount',
-				description: 'delete last x messages',
-				required: true,
+				type: 1, // SUB_COMMAND
+				name: 'remove',
+				description: 'Remove your birthday information',
 			},
 		],
 	},

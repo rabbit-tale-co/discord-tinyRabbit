@@ -1,8 +1,7 @@
 import * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import * as tempvcAPI from '../api/tempvc'
-import { getPluginConfig } from '../api/plugins'
-import type * as TempVC from '../types/tempvc'
+import * as api from '@/api/index.js'
+import type * as TempVC from '@/types/index.js'
 
 // Update the type to Bun.Timer if you're using Bun, otherwise NodeJS.Timeout
 const updateIntervals = new Map<string, Timer>()
@@ -17,7 +16,7 @@ export async function initializeTempChannels(client: Discord.Client) {
 	// bunnyLog.info('Initializing temporary voice channels...')
 
 	// Get the temporary channels from the database
-	const tempChannels = await tempvcAPI.getTempChannels()
+	const tempChannels = await api.getTempChannels()
 
 	for (const channelData of tempChannels) {
 		// Get the guild from the client
@@ -39,7 +38,7 @@ export async function initializeTempChannels(client: Discord.Client) {
 			// bunnyLog.info(
 			// 	`Temp channel ${channelData.channel_id} not found in guild ${guild.name}, removing from database`
 			// )
-			await tempvcAPI.deleteTemporaryChannel(
+			await api.deleteTemporaryChannel(
 				channelData.channel_id,
 				channelData.guild_id,
 				channelData.bot_id
@@ -138,7 +137,7 @@ export const createPrivateVoiceChannel: TempVC.CreatePrivateVoiceChannelFunction
 			await state.setChannel(newChannel)
 
 			// Save the temporary channel to the database
-			await tempvcAPI.saveTempChannelToDB(
+			await api.saveTempChannelToDB(
 				state.client?.user?.id || '',
 				state.guild.id,
 				newChannel.id,
@@ -222,7 +221,7 @@ async function getTempVoiceCategory(
 export const handleVoiceStateUpdate: TempVC.HandleVoiceStateUpdateFunction =
 	async (oldState, newState) => {
 		// Get the configuration for the plugin
-		const config = (await getPluginConfig(
+		const config = (await api.getPluginConfig(
 			newState.client?.user?.id || '',
 			newState.guild.id,
 			'tempvc'
@@ -240,7 +239,7 @@ export const handleVoiceStateUpdate: TempVC.HandleVoiceStateUpdateFunction =
 		// Check if the user leaves a temporary voice channel
 		if (oldState.channel && oldState.channel.id !== config.channel_id) {
 			// Get the temporary channels
-			const tempChannels = await tempvcAPI.getTempChannels()
+			const tempChannels = await api.getTempChannels()
 
 			// Check if the channel is a temporary channel
 			const isTempChannel = tempChannels.some(
@@ -261,7 +260,7 @@ export const handleVoiceStateUpdate: TempVC.HandleVoiceStateUpdateFunction =
 						await currentChannel.delete()
 
 						// Delete the temporary channel from the database
-						await tempvcAPI.deleteTemporaryChannel(
+						await api.deleteTemporaryChannel(
 							currentChannel.id,
 							oldState.guild.id,
 							oldState.client?.user?.id || ''
@@ -335,7 +334,7 @@ async function checkChannelExpiration(
 	// Fetch channel data from database if not in cache
 	if (expirationTime === undefined) {
 		// Get the temporary channels
-		const tempChannels = await tempvcAPI.getTempChannels()
+		const tempChannels = await api.getTempChannels()
 
 		// Find the channel data
 		const channelData = tempChannels.find((ch) => ch.channel_id === channel_id)
@@ -382,7 +381,7 @@ async function checkChannelExpiration(
 		)
 
 		// Delete the temporary channel from the database
-		await tempvcAPI.deleteTemporaryChannel(
+		await api.deleteTemporaryChannel(
 			channel_id,
 			guild.id,
 			client.user?.id || ''
@@ -400,7 +399,7 @@ async function checkChannelExpiration(
 			await channel.delete()
 
 			// Delete the temporary channel from the database
-			await tempvcAPI.deleteTemporaryChannel(
+			await api.deleteTemporaryChannel(
 				channel_id,
 				guild.id,
 				client.user?.id || ''
@@ -455,7 +454,7 @@ async function checkChannelExpiration(
  */
 export async function loadExpirationTimesIntoCache(client: Discord.Client) {
 	// Get the temporary channels
-	const tempChannels = await tempvcAPI.getTempChannels()
+	const tempChannels = await api.getTempChannels()
 
 	// Loop through the temporary channels
 	for (const channelData of tempChannels) {

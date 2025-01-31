@@ -1,7 +1,7 @@
 import type * as Discord from 'discord.js'
-import { getPluginConfig } from '../api/plugins.js'
-import { createUniversalEmbed } from '../components/embed.js'
-import { replacePlaceholders } from '../utils/replacePlaceholders.js'
+import * as api from '@/api/index.js'
+import * as utils from '@/utils/index.js'
+import * as components from '@/components/index.js'
 import { bunnyLog } from 'bunny-log'
 
 // Add proper type definitions
@@ -17,7 +17,7 @@ type EmbedFieldConfig = {
  */
 async function handleMemberJoin(member: Discord.GuildMember) {
 	// Get the config
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		member.client.user.id,
 		member.guild.id,
 		'welcome'
@@ -70,31 +70,31 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 			fields?: Array<Discord.EmbedField>
 		} = {
 			...config.embed_welcome,
-			title: replacePlaceholders(
+			title: utils.replacePlaceholders(
 				config.embed_welcome.title ?? '',
 				member,
 				member.guild
 			),
-			description: replacePlaceholders(
+			description: utils.replacePlaceholders(
 				config.embed_welcome.description ?? '',
 				member,
 				member.guild
 			),
 			fields:
 				config.embed_welcome.fields?.map((field: EmbedFieldConfig) => ({
-					name: replacePlaceholders(field.name, member, member.guild),
-					value: replacePlaceholders(field.value, member, member.guild),
+					name: utils.replacePlaceholders(field.name, member, member.guild),
+					value: utils.replacePlaceholders(field.value, member, member.guild),
 					inline: field.inline ?? false,
 				})) ?? [],
 			footer: config.embed_welcome.footer
 				? {
-						text: replacePlaceholders(
+						text: utils.replacePlaceholders(
 							config.embed_welcome.footer.text ?? '',
 							member,
 							member.guild
 						),
 						iconURL: config.embed_welcome.footer.iconURL
-							? replacePlaceholders(
+							? utils.replacePlaceholders(
 									config.embed_welcome.footer.iconURL ?? '',
 									member,
 									member.guild
@@ -106,7 +106,7 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 
 		if (config.embed_welcome.thumbnail?.url) {
 			embedConfig.thumbnail = {
-				url: replacePlaceholders(
+				url: utils.replacePlaceholders(
 					config.embed_welcome.thumbnail.url ?? '',
 					member,
 					member.guild
@@ -116,7 +116,7 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 
 		if (config.embed_welcome.image?.url) {
 			embedConfig.image = {
-				url: replacePlaceholders(
+				url: utils.replacePlaceholders(
 					config.embed_welcome.image.url ?? '',
 					member,
 					member.guild
@@ -124,7 +124,8 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 			}
 		}
 
-		const { embed, attachment, action_row } = createUniversalEmbed(embedConfig)
+		const { embed, attachment, action_row } =
+			components.createUniversalEmbed(embedConfig)
 		if (!welcome_channel)
 			return bunnyLog.error(
 				`Welcome channel with ID ${config.welcome_channel_id} not found`
@@ -142,7 +143,7 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 			return bunnyLog.error('Welcome message is not set')
 
 		// Send the welcome message
-		const message = replacePlaceholders(
+		const message = utils.replacePlaceholders(
 			config.welcome_message,
 			member,
 			member.guild
@@ -172,7 +173,7 @@ async function handleMemberLeave(
 	// Add null checks for member.guild
 	if (!resolvedMember.guild) return
 	// Get the config
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		resolvedMember.client.user.id,
 		resolvedMember.guild.id,
 		'welcome'
@@ -215,24 +216,24 @@ async function handleMemberLeave(
 			fields?: Array<Discord.EmbedField>
 		} = {
 			...config.embed_leave,
-			title: replacePlaceholders(
+			title: utils.replacePlaceholders(
 				config.embed_leave.title ?? '',
 				resolvedMember,
 				resolvedMember.guild
 			),
-			description: replacePlaceholders(
+			description: utils.replacePlaceholders(
 				config.embed_leave.description ?? '',
 				resolvedMember,
 				resolvedMember.guild
 			),
 			fields:
 				config.embed_leave.fields?.map((field: EmbedFieldConfig) => ({
-					name: replacePlaceholders(
+					name: utils.replacePlaceholders(
 						field.name,
 						resolvedMember,
 						resolvedMember.guild
 					),
-					value: replacePlaceholders(
+					value: utils.replacePlaceholders(
 						field.value,
 						resolvedMember,
 						resolvedMember.guild
@@ -241,13 +242,13 @@ async function handleMemberLeave(
 				})) ?? [],
 			footer: config.embed_leave.footer
 				? {
-						text: replacePlaceholders(
+						text: utils.replacePlaceholders(
 							config.embed_leave.footer.text ?? '',
 							resolvedMember,
 							resolvedMember.guild
 						),
 						iconURL: config.embed_leave.footer.iconURL
-							? replacePlaceholders(
+							? utils.replacePlaceholders(
 									config.embed_leave.footer.iconURL ?? '',
 									resolvedMember,
 									resolvedMember.guild
@@ -258,7 +259,8 @@ async function handleMemberLeave(
 		}
 
 		// Create the embed and action rows
-		const { embed, attachment, action_row } = createUniversalEmbed(embedConfig)
+		const { embed, attachment, action_row } =
+			components.createUniversalEmbed(embedConfig)
 
 		// Check if the embed is valid
 		if (!embed) return bunnyLog.error('Embed is not valid')
@@ -271,7 +273,7 @@ async function handleMemberLeave(
 		})
 	} else {
 		// Send the leave message
-		const leave_message = replacePlaceholders(
+		const leave_message = utils.replacePlaceholders(
 			config.leave_message,
 			resolvedMember,
 			resolvedMember.guild

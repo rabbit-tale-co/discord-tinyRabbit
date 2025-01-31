@@ -1,6 +1,6 @@
 import * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import { getPluginConfig } from '../api/plugins'
+import * as api from '@/api/index.js'
 
 interface ChannelMessageRate {
 	messages: Discord.Collection<string, Discord.Message>
@@ -18,7 +18,7 @@ const channelRates: Map<string, ChannelMessageRate> = new Map()
 export async function manageSlowmode(message: Discord.Message): Promise<void> {
 	if (!(message.channel instanceof Discord.TextChannel)) return
 
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		message.client.user.id,
 		message.guild?.id ?? '',
 		'slowmode'

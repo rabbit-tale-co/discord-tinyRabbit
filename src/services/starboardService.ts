@@ -1,10 +1,9 @@
 import * as Discord from 'discord.js'
-import { getPluginConfig } from '../api/plugins'
-import * as starboardAPI from '../api/starboard'
-import { createUniversalEmbed } from '../components/embed'
-import type { UniversalEmbedOptions } from '../types/embed'
-import type { StarboardEntry } from '../types/starboard'
-import { hexToNumber } from '../utils/formatter'
+import * as api from '@/api/index.js'
+import { createUniversalEmbed } from '@/components/embed.js'
+import type { UniversalEmbedOptions } from '@/types/embed.js'
+import type { StarboardEntry } from '@/types/starboard.js'
+import { hexToNumber } from '@/utils/formatter.js'
 import { bunnyLog } from 'bunny-log'
 
 /**
@@ -17,7 +16,7 @@ async function watchStarboard(
 ): Promise<StarboardEntry | null> {
 	try {
 		// Fetch the starboard config
-		const config = await getPluginConfig(
+		const config = await api.getPluginConfig(
 			reaction.client.user.id,
 			reaction.message.guildId ?? '',
 			'starboard'
@@ -92,7 +91,7 @@ async function watchStarboard(
 		}
 
 		// Fetch the existing starboard entry
-		const existingStarboardEntry = (await starboardAPI.getStarboardEntry(
+		const existingStarboardEntry = (await api.getStarboardEntry(
 			reaction.client.user.id,
 			reaction.message.guildId ?? '',
 			reaction.message.id
@@ -118,7 +117,7 @@ async function watchStarboard(
 					await starboardMessage.edit({ embeds: [embed] })
 
 					// Update the starboard entry
-					await starboardAPI.updateStarboardEntry(
+					await api.updateStarboardEntry(
 						reaction.client.user.id,
 						reaction.message.guildId ?? '',
 						reaction.message.id,
@@ -137,7 +136,7 @@ async function watchStarboard(
 					)
 
 					// Delete the existing starboard entry
-					await starboardAPI.deleteStarboardEntry(
+					await api.deleteStarboardEntry(
 						reaction.client.user.id,
 						reaction.message.guildId ?? '',
 						reaction.message.id
@@ -189,7 +188,7 @@ async function watchStarboard(
 		}
 
 		// Create the new starboard entry
-		await starboardAPI.createStarboardEntry(
+		await api.createStarboardEntry(
 			reaction.client.user.id,
 			reaction.message.guildId ?? '',
 			reaction.message.id,

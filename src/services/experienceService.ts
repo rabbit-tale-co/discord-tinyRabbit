@@ -1,13 +1,11 @@
-import { LevelUpResult, updateUserXpAndLevel } from '../utils/xpUtils'
-import { updateMemberRoles } from './roleService'
-
-import { getUser } from '../api/user'
-import { addOrUpdateUserLevel } from '../api/levels'
+import * as utils from '@/utils/index.js'
+import * as api from '@/api/index.js'
+import type { Level, LevelStatus } from '@/types/levels.js'
 import type { Channel, Guild, Message, User } from 'discord.js'
-import type { Level, LevelStatus } from '../types/levels'
 import { bunnyLog } from 'bunny-log'
-import { client } from '..'
-import { getPluginConfig } from '../api/plugins'
+import { client } from '@/index.js'
+import { LevelUpResult } from '@/utils/index.js'
+import * as services from '@/services/index.js'
 
 const userMessages: Record<
 	string,
@@ -47,7 +45,7 @@ async function initializeUserData(
 	author_id: User['id']
 ): Promise<Level> {
 	try {
-		const data = await getUser(client.user?.id ?? '', guild_id, author_id)
+		const data = await api.getUser(client.user?.id ?? '', guild_id, author_id)
 		// bunnyLog.api(`Fetched user data for ${author_id}:`, JSON.stringify(data, null, 2))
 		if (data) return data
 
@@ -73,7 +71,7 @@ async function assignXP(message: Message) {
 	// Store the message history for the user
 	storeMessageHistory(author.id, channel.id, content)
 
-	const config = await getPluginConfig(
+	const config = await api.getPluginConfig(
 		client.user?.id ?? '',
 		guild?.id ?? '',
 		'levels'
@@ -95,14 +93,14 @@ async function assignXP(message: Message) {
 	}
 
 	// Update points and level for the user
-	const updatedUserData = updateUserXpAndLevel(
+	const updatedUserData = utils.updateUserXpAndLevel(
 		user_data,
 		0,
 		boost_multiplier
 	) as LevelStatus
 
 	// Add or update user in Firestore
-	await addOrUpdateUserLevel(
+	await api.addOrUpdateUserLevel(
 		client.user?.id ?? '',
 		guild?.id ?? '',
 		author,
@@ -111,7 +109,7 @@ async function assignXP(message: Message) {
 
 	// Check if the user leveled up and update roles if necessary
 	if (updatedUserData.levelChangeStatus !== LevelUpResult.NoChange) {
-		await updateMemberRoles(
+		await services.updateMemberRoles(
 			client.user?.id ?? '',
 			guild as Guild,
 			author,

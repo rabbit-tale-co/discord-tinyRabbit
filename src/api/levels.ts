@@ -1,8 +1,8 @@
-import { updateLeaderboard } from './leaderBoard.js'
-import type { Level } from '../types/levels.js'
+import { updateLeaderboard } from '@/api/leaderBoard.js'
+import type { Level } from '@/types/levels.js'
 import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
 
 const level_cache = {}
 
