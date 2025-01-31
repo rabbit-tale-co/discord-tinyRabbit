@@ -1,53 +1,48 @@
-import { serve } from 'bun'
-import { Client, Events, GatewayIntentBits, Partials } from 'discord.js'
-import { messageHandler } from './events/onMessage'
-import { interactionHandler } from './events/onInteraction'
-import { handleMemberJoin, handleMemberLeave } from './events/guildMember'
-import { updateBotPresence } from './services/presenceService'
-import { handleBotStatus, router } from './router'
-import { reactionHandler } from './events/onReaction'
-import { updateMissingPlugins } from './api/plugins'
-import { env } from 'node:process'
+import { env, serve } from 'bun'
+import * as API from '@/api/index.js'
+import * as Services from '@/services/index.js'
+import * as Events from '@/events/index.js'
+import * as Router from '@/router/index.js'
+import * as Discord from 'discord.js'
 import chalk from 'chalk'
-import { checkHeartbeat } from './api/heartbeat/BotStatus'
 import { bunnyLog } from 'bunny-log'
-import { scheduleBirthdayCheck } from './commands/bday'
-import { initializeDatabase } from './db/initDatabase'
-import { saveBotData } from './api/saveBot'
-import {
-	handleVoiceStateUpdate,
-	initializeTempChannels,
-} from './services/tempvc'
-import {
-	handleLogin,
-	handleOAuthCallback,
-	setCorsHeaders,
-} from './router/oAuth'
+import * as Birthday from './commands/fun/bday.js'
+import * as Database from './db/initDatabase.js'
+import * as OAuth from './router/oAuth.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5000', 10)
-const CLIENT_ID: string = env.BOT_CLIENT_ID
+const CLIENT_ID: string = env.BOT_CLIENT_ID || ''
 const REDIRECT_URI: string = 'https://api.rabbittale.co/callback'
 
+/**
+ * Server setup
+ */
 serve({
 	async fetch(req: Request): Promise<Response> {
+		// Get the URL from the request
 		const url: URL = new URL(req.url)
 
+		// Handle preflight requests
 		if (req.method === 'OPTIONS') {
-			return setCorsHeaders(new Response(null, { status: 204 }))
+			return OAuth.setCorsHeaders(new Response(null, { status: 204 }))
 		}
 
+		// Handle API requests
 		if (url.pathname.startsWith('/api')) {
-			return router(req)
+			return Router.router(req)
 		}
 
+		// Handle login requests
 		if (url.pathname === '/login') {
-			return handleLogin(req, CLIENT_ID, REDIRECT_URI)
+			return OAuth.handleLogin(req, CLIENT_ID, REDIRECT_URI)
 		}
 
+		// Handle OAuth callback requests
 		if (url.pathname === '/callback') {
-			return handleOAuthCallback(url, CLIENT_ID)
+			return OAuth.handleOAuthCallback(url, CLIENT_ID)
 		}
 
+		// Handle 404 requests
 		return new Response('Not Found', { status: 404 })
 	},
 	port: PORT,
@@ -56,26 +51,32 @@ serve({
 bunnyLog.server(`Server is running on port ${PORT}`)
 
 // Initialize Firebase
-initializeDatabase()
+Database.initializeDatabase()
 
 // Initialize Discord Bot
-export const client = new Client({
+export const client = new Discord.Client({
 	intents: [
-		GatewayIntentBits.Guilds, // Required for guild events
-		GatewayIntentBits.GuildMembers, // Required for member events
-		GatewayIntentBits.MessageContent, // Required for message content in message events
-		GatewayIntentBits.GuildMessages, // Required for message events
-		GatewayIntentBits.GuildMessageReactions, // Required for reaction events
-		GatewayIntentBits.GuildVoiceStates, // Required for voice channel events
+		Discord.GatewayIntentBits.Guilds, // Required for guild events
+		Discord.GatewayIntentBits.GuildMembers, // Required for member events
+		Discord.GatewayIntentBits.MessageContent, // Required for message content in message events
+		Discord.GatewayIntentBits.GuildMessages, // Required for message events
+		Discord.GatewayIntentBits.GuildMessageReactions, // Required for reaction events
+		Discord.GatewayIntentBits.GuildVoiceStates, // Required for voice channel events
 	],
 	partials: [
-		Partials.Message, // Enables handling of uncached messages
-		Partials.Reaction, // Enables handling of uncached reactions
-		Partials.Channel, // Required to enable reactions in uncached channels
+		Discord.Partials.Message, // Enables handling of uncached messages
+		Discord.Partials.Reaction, // Enables handling of uncached reactions
+		Discord.Partials.Channel, // Required to enable reactions in uncached channels
 	],
 })
 
+/**
+ * Event handler for when the bot is ready.
+ * @param {Client} c - The client object from Discord.
+ * @returns {Promise<void>} A promise that resolves when the bot is ready.
+ */
 client.once('ready', async (c) => {
+	// Check if the client is ready
 	if (!c.user) return
 
 	bunnyLog.info(`${c.user.tag} has logged in!`)
@@ -102,26 +103,23 @@ client.once('ready', async (c) => {
         ,ONMMMMMMMMMMMMMMMMMMWKo.
         .l0WMMMMMMMMMMMMMWN0o.`)
 
-	// const guilds = client.guilds.cache.map((guild) => guild.id)
-	// for (const guildId of guilds) {
-	// 	await initializePlugins(guildId)
-	// }
-
 	// Update bot status for all guilds
-	await updateBotPresence(c.user)
-	await handleBotStatus()
-	await saveBotData(c.user)
-	await updateMissingPlugins(c)
-	await initializeTempChannels(c)
-	scheduleBirthdayCheck(c)
+	await Services.updateBotPresence(c.user)
+	//await Heartbeat.handleBotStatus()
+	await API.saveBotData(c.user)
+	await API.updateMissingPlugins(c)
+	await Services.initializeTempChannels(c)
+	Birthday.scheduleBirthdayCheck(c)
+	await Services.startModerationScheduler()
 
 	// Update bot status every hour for all guilds
 	setInterval(async () => {
-		await updateBotPresence(c.user)
+		await Services.updateBotPresence(c.user)
 	}, 300_000) // 1h - 3_600_000 now it's 5 min
 
 	setInterval(async () => {
-		const { bot_status: server, db_status: database } = await checkHeartbeat()
+		const { bot_status: server, db_status: database } =
+			await API.checkHeartbeat()
 
 		const serverStatusColor = server === 'online' ? chalk.green : chalk.red
 		const databaseStatusColor =
@@ -131,23 +129,23 @@ client.once('ready', async (c) => {
 
 /**
  * Event handler for guild creation.
- * @param {Guild} guild - The guild object from Discord.
+ * @param {Discord.Guild} guild - The guild object from Discord.
  * @returns {Promise<void>} A promise that resolves when the guild is initialized.
  */
-client.on(Events.GuildCreate, async (_guild) => {
-	await updateMissingPlugins(client)
+client.on(Discord.Events.GuildCreate, async (_guild) => {
+	await API.updateMissingPlugins(client)
 })
 
-client.on(Events.MessageCreate, messageHandler)
-client.on(Events.MessageReactionAdd, reactionHandler)
-client.on(Events.InteractionCreate, interactionHandler)
+client.on('messageCreate', Events.messageHandler)
+client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler)
+client.on(Discord.Events.InteractionCreate, Events.interactionHandler)
 
 // Channels activity
-client.on(Events.VoiceStateUpdate, handleVoiceStateUpdate)
+client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate)
 
 // Guild member events
-client.on(Events.GuildMemberAdd, handleMemberJoin)
-client.on(Events.GuildMemberRemove, handleMemberLeave)
+client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin)
+client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave)
 
 client.login(env.BOT_TOKEN)
 
@@ -159,7 +157,9 @@ client.login(env.BOT_TOKEN)
 /**
  * TODO:
  * Make moderation bot
- * Purge - remove messages from a channel
+ * Purge - remove messages from a channel (Done)
+ * Auto-moderation - ban/kick members who raid/nuke server ()
+ * Auto-bot-detection - detect if a bot is in a server and ban it (Done)
  */
 
 /**

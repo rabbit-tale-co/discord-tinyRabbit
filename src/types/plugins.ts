@@ -41,6 +41,7 @@ type Ticket = {
 	admin_channel_id?: string | null
 	counter?: number
 	transcript_channel_id?: string | null
+	mods_role_ids?: Array<string> | null
 	embeds?: {
 		open_ticket?: TicketEmbed | null
 		opened_ticket?: TicketEmbed | null
@@ -128,12 +129,21 @@ type PluginTypes = {
 	connectSocial: ConnectSocial
 }
 
-type Plugins = PluginTypes[keyof PluginTypes]
+type Plugins = PluginTypes[keyof PluginTypes] | 'moderation'
 
 type DefaultConfigs = {
 	[K in keyof PluginTypes]: PluginTypes[K]
+} & {
+	moderation: {
+		enabled: boolean
+		watch_roles: string[]
+		ban_interval: number
+		delete_message_days: number
+	}
 }
 
 type PluginResponse<T> = T & { id: string }
 
 export type { DefaultConfigs, PluginResponse, Plugins }
+
+export * from './tempvc.js'

@@ -1,17 +1,17 @@
 import type * as Discord from 'discord.js'
-import type { DefaultConfigs } from '../types/plugins'
+import type { DefaultConfigs } from '@/types/plugins.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
 
 /**
  * Fetches the ticket counter for a guild.
- * @param {ClientUser['id']} bot_id - The ID of the bot.
- * @param {Guild['id']} guild_id - The ID of the guild.
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
  * @returns {Promise<number>} The ticket counter.
  */
 async function getTicketCounter(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id']
+	bot_id: string,
+	guild_id: string
 ): Promise<number> {
 	const { data, error } = await supabase
 		.from('plugins')
@@ -22,34 +22,34 @@ async function getTicketCounter(
 		.single()
 
 	if (error) throw error
-
-	const ticketConfig = data.config as DefaultConfigs['tickets']
-	return ticketConfig.counter
+	return (data?.config as DefaultConfigs['tickets'])?.counter || 0
 }
 
 /**
  * Increments the ticket counter for a guild.
- * @param {ClientUser['id']} bot_id - The ID of the bot.
- * @param {Guild['id']} guild_id - The ID of the guild.
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
  * @returns {Promise<void>}
  */
 async function incrementTicketCounter(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id']
 ): Promise<void> {
+	// Try to increment the ticket counter
 	const { data, error } = await supabase.rpc('increment_ticket_counter', {
 		p_bot_id: bot_id,
 		p_guild_id: guild_id,
 	})
 
+	// Check if there is an error incrementing the ticket counter
 	if (error) throw error
 }
 
 /**
  * Saves the transcript to Supabase.
- * @param {ClientUser['id']} bot_id - The ID of the bot.
- * @param {Guild['id']} guild_id - The ID of the guild.
- * @param {ThreadChannel['id']} thread_id - The ID of the thread.
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
+ * @param {Discord.ThreadChannel['id']} thread_id - The ID of the thread.
  * @param {Object} transcript - The transcript data.
  * @param {Object} metadata - Additional metadata for the ticket.
  * @returns {Promise<void>}
@@ -62,6 +62,7 @@ async function saveTranscriptToSupabase(
 	metadata: object
 ): Promise<void> {
 	try {
+		// Try to insert the transcript into the database
 		const { error } = await supabase.from('tickets').insert({
 			bot_id,
 			guild_id,
@@ -70,10 +71,13 @@ async function saveTranscriptToSupabase(
 			metadata,
 		})
 
+		// Check if there is an error inserting the transcript
 		if (error) throw error
 
-		bunnyLog.database(`Transcript for thread ${thread_id} saved successfully.`)
+		// Log the success
+		// bunnyLog.database(`Transcript for thread ${thread_id} saved successfully.`)
 	} catch (error) {
+		// Log the error
 		bunnyLog.error('Error saving transcript:', error)
 		throw error
 	}
@@ -81,41 +85,51 @@ async function saveTranscriptToSupabase(
 
 /**
  * Fetches all messages from a ticket thread.
- * @param {PrivateThreadChannel} thread - The ticket thread object.
- * @returns {Promise<Message[]>} An array of messages.
+ * @param {Discord.PrivateThreadChannel} thread - The ticket thread object.
+ * @returns {Promise<Discord.Message[]>} An array of messages.
  */
 async function fetchTicketMessages(
 	thread: Discord.PrivateThreadChannel
 ): Promise<Discord.Message[]> {
+	// Try to fetch the messages from the thread
 	let messages: Discord.Message[] = []
 
+	// Try to fetch the last message ID
 	let last_message_id: string | null = null
 
+	// Fetch the messages from the thread
 	while (true) {
+		// Fetch the messages from the thread
 		const fetched_messages = await thread.messages.fetch({
 			limit: 100,
 			...(last_message_id && { before: last_message_id }),
 		})
 
+		// Check if there are no messages fetched
 		if (fetched_messages.size === 0) {
 			break
 		}
 
+		// Add the fetched messages to the messages array
 		messages = messages.concat(Array.from(fetched_messages.values()))
+
+		// Set the last message ID
 		last_message_id = fetched_messages.last()?.id || null
 	}
 
-	return messages.reverse() // To get messages in chronological order
+	// Return the messages in chronological order
+	return messages.reverse()
 }
 
 /**
  * Formats messages into a structured transcript.
- * @param {Message[]} messages - An array of messages.
+ * @param {Discord.Message[]} messages - An array of messages.
  * @returns {Array<Object>} An array of formatted messages.
  */
 function formatTranscript(messages: Discord.Message[]): Array<object> {
+	// Filter out messages from bots
 	return messages
-		.filter((message) => !message.author.bot) // Exclude messages from bots
+		.filter((message) => !message.author.bot)
 		.map((message) => {
 			// Prepare the attachments field
 			const attachments =
@@ -149,10 +163,10 @@ function formatTranscript(messages: Discord.Message[]): Array<object> {
 							title: embed.title,
 							description: embed.description,
 							url: embed.url,
-							fields: embed.fields.map((field: Discord.EmbedField) => ({
+							fields: embed.fields.map((field: Discord.APIEmbedField) => ({
 								name: field.name,
 								value: field.value,
-								inline: field.inline,
+								inline: field.inline ?? false,
 							})),
 						}))
 					: null

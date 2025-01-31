@@ -1,15 +1,6 @@
 import { bunnyLog } from 'bunny-log'
-import {
-	type AnonymousGuild,
-	ChannelType,
-	type Guild,
-	type GuildChannel,
-	GuildFeature,
-	type Role,
-	type Snowflake,
-} from 'discord.js'
+import * as Discord from 'discord.js'
 
-// Utility function to make authenticated requests to Discord's API
 async function fetchDiscordAPI(endpoint: string) {
 	const response = await fetch(`https://discord.com/api/${endpoint}`, {
 		headers: {
@@ -41,20 +32,17 @@ async function getBotGuilds() {
 		const guilds = await fetchDiscordAPI('users/@me/guilds?with_counts=true')
 
 		const detailedGuilds = await Promise.all(
-			guilds.map(async (guild: Guild) => {
-				// Sprawdzamy, czy gildia ma status społeczności (Community)
+			guilds.map(async (guild: Discord.Guild) => {
 				let invite_link = ''
-				if (guild.features.includes(GuildFeature.Community)) {
+				if (guild.features.includes(Discord.GuildFeature.Community)) {
 					const inviteCode = await getCustomInvite(guild.id)
 					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : ''
 				}
 
-				// Generowanie URL dla ikony, jeśli istnieje
 				const icon = guild.icon
 					? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
 					: null
 
-				// Dodanie dodatkowych informacji, takich jak liczba członków i status weryfikacji
 				return {
 					...guild,
 					icon,
@@ -75,19 +63,21 @@ async function getGuildDetails(guild_id: string) {
 		const [guild, channels, roles] = await Promise.all([
 			fetchDiscordAPI(
 				`guilds/${guild_id}?with_counts=true`
-			) as Promise<AnonymousGuild>,
-			fetchDiscordAPI(`guilds/${guild_id}/channels`) as Promise<GuildChannel[]>,
-			fetchDiscordAPI(`guilds/${guild_id}/roles`) as Promise<Role[]>,
+			) as Promise<Discord.AnonymousGuild>,
+			fetchDiscordAPI(`guilds/${guild_id}/channels`) as Promise<
+				Discord.GuildChannel[]
+			>,
+			fetchDiscordAPI(`guilds/${guild_id}/roles`) as Promise<Discord.Role[]>,
 		])
 
 		const category_count = channels.filter(
-			(channel) => channel.type === ChannelType.GuildCategory
+			(channel) => channel.type === Discord.ChannelType.GuildCategory
 		).length
 		const text_channel_count = channels.filter(
-			(channel) => channel.type === ChannelType.GuildText
+			(channel) => channel.type === Discord.ChannelType.GuildText
 		).length
 		const voice_channel_count = channels.filter(
-			(channel) => channel.type === ChannelType.GuildVoice
+			(channel) => channel.type === Discord.ChannelType.GuildVoice
 		).length
 
 		const filtered_roles = roles.filter(
@@ -108,7 +98,7 @@ async function getGuildDetails(guild_id: string) {
 	}
 }
 
-async function checkBotMembership(guildId: Snowflake) {
+async function checkBotMembership(guildId: Discord.Snowflake) {
 	try {
 		const response = await fetchDiscordAPI(`guilds/${guildId}`)
 
@@ -124,14 +114,15 @@ async function checkBotMembership(guildId: Snowflake) {
 	}
 }
 
-async function checkUserOnServer(userId: Snowflake, guildId: Snowflake): Promise<boolean> {
+async function checkUserOnServer(
+	user_id: Discord.User['id'],
+	guild_id: Discord.Guild['id']
+): Promise<boolean> {
 	try {
-		const response = await fetchDiscordAPI(`guilds/${guildId}/members/${userId}`)
-		return true
+		return await fetchDiscordAPI(`guilds/${guild_id}/members/${user_id}`)
+			.then(() => true)
+			.catch(() => false)
 	} catch (error) {
-		if (error instanceof Error && error.message.includes('Status: 404')) {
-			return false
-		}
 		bunnyLog.error('Error checking user on server:', error)
 		return false
 	}

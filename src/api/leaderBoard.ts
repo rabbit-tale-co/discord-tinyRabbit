@@ -1,20 +1,20 @@
-import { calculateTotalXpForLevel } from '../utils/xpUtils.js'
-import type { Level } from '../types/levels.js'
-import type { LeaderboardEntry, LeaderboardUser } from '../types/leaderboard.js'
-import { env } from 'node:process'
-import type { ClientUser, Guild, User } from 'discord.js'
-import type { UserData } from '../types/user.js'
+import { calculateTotalXpForLevel } from '@/utils/xpUtils.js'
+import type { LeaderboardEntry, LeaderboardUser } from '@/types/leaderboard.js'
+import type * as Discord from 'discord.js'
+import type { UserData } from '@/types/user.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
 
-const BOT_TOKEN = env.BOT_TOKEN
+const BOT_TOKEN = process.env.BOT_TOKEN
 
 /**
  * Fetches user data from Discord.
- * @param {User['id']} user_id - The ID of the user.
+ * @param {Discord.User['id']} user_id - The ID of the user.
  * @returns {Promise<UserData | null>} The user data.
  */
-const fetchUserData = async (user_id: User['id']): Promise<UserData | null> => {
+const fetchUserData = async (
+	user_id: Discord.User['id']
+): Promise<UserData | null> => {
 	if (!user_id) return null
 
 	try {
@@ -36,8 +36,9 @@ const fetchUserData = async (user_id: User['id']): Promise<UserData | null> => {
 	} catch (error) {
 		bunnyLog.error(
 			`Error fetching user data for user ID ${user_id}:`,
-			error.message
+			error instanceof Error ? error.message : 'Unknown error'
 		)
+		return null
 	}
 }
 
@@ -50,6 +51,7 @@ async function getGlobalLeaderboard(
 	limit = 25
 ): Promise<LeaderboardUser[]> {
 	try {
+		// Fetch leaderboard data from Supabase
 		const { data: leaderboard_data, error } = await supabase
 			.from('leaderboard')
 			.select('user_id, xp')
@@ -58,14 +60,18 @@ async function getGlobalLeaderboard(
 
 		if (error) throw error
 
+		// Fetch user data for each leaderboard entry
 		const users_promises = leaderboard_data.map(async (user) => {
+			// Check if user is valid
 			if (!user || !user.user_id) {
 				bunnyLog.error(`Invalid user ID: ${JSON.stringify(user)}`)
 				return null
 			}
 
+			// Fetch user data for each leaderboard entry
 			const userData = await fetchUserData(user.user_id)
 
+			// Check if userData is valid
 			if (userData)
 				return {
 					user: {
@@ -79,8 +85,10 @@ async function getGlobalLeaderboard(
 			return null
 		})
 
+		// Fetch user data for each leaderboard entry
 		const users = await Promise.all(users_promises)
 
+		// Filter out null users and return the leaderboard
 		return users.filter((user): user is LeaderboardUser => user !== null)
 	} catch (error) {
 		bunnyLog.error('Error fetching global leaderboard:', error)
@@ -94,12 +102,15 @@ async function getGlobalLeaderboard(
  */
 async function getTotalUserCount(): Promise<number> {
 	try {
+		// Fetch the total count of users from Supabase
 		const { count, error } = await supabase
 			.from('leaderboard')
 			.select('*', { count: 'exact', head: true })
 
+		// Check if there is an error fetching the total user count
 		if (error) throw error
 
+		// Return the total user count
 		return count || 0
 	} catch (error) {
 		bunnyLog.error('Error fetching total user count:', error)
@@ -113,10 +124,13 @@ async function getTotalUserCount(): Promise<number> {
  */
 async function calculateTotalXp(): Promise<number> {
 	try {
+		// Fetch all XP entries from Supabase
 		const { data, error } = await supabase.from('leaderboard').select('xp')
 
+		// Check if there is an error fetching the XP entries
 		if (error) throw error
 
+		// Calculate the total XP by summing up all the XP values
 		return data.reduce((total, user) => total + (user.xp || 0), 0)
 	} catch (error) {
 		bunnyLog.error('Error calculating total XP:', error)
@@ -126,15 +140,16 @@ async function calculateTotalXp(): Promise<number> {
 
 /**
  * Gets the server leaderboard.
- * @param {ClientUser['id']} bot_id - The ID of the bot.
- * @param {Guild['id']} guild_id - The ID of the guild.
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
  * @returns {Promise<LeaderboardEntry[]>} The server leaderboard.
  */
 async function getServerLeaderboard(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id']
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id']
 ): Promise<LeaderboardEntry[]> {
 	try {
+		// Check if guild_id is undefined
 		if (!guild_id) {
 			bunnyLog.warn(
 				'Attempted to fetch server leaderboard with undefined guild_id'
@@ -142,28 +157,26 @@ async function getServerLeaderboard(
 			return []
 		}
 
-		// bunnyLog.api(
-		// 	`Fetching server leaderboard for bot ${bot_id}, guild ${guild_id}`
-		// )
-
+		// Fetch user levels from Supabase
 		const { data, error } = await supabase
 			.from('user_levels')
 			.select('user_id, xp, level')
 			.eq('bot_id', bot_id)
 			.eq('guild_id', guild_id)
 
+		// Check if there is an error fetching the server leaderboard
 		if (error) {
 			bunnyLog.error('Error fetching server leaderboard:', error)
 			throw error
 		}
 
+		// Check if there are no users in the leaderboard
 		if (!data || data.length === 0) {
 			bunnyLog.warn(`No users found in the leaderboard for guild ${guild_id}`)
 			return []
 		}
 
-		// bunnyLog.api(`Leaderboard fetched successfully, ${data.length} users found`)
-
+		// Calculate total XP for each user
 		const leaderboard = data.map((entry) => ({
 			user_id: entry.user_id,
 			total_xp: calculateTotalXpForLevel(entry.level) + entry.xp,
@@ -174,6 +187,7 @@ async function getServerLeaderboard(
 		// Sort the leaderboard by total XP
 		leaderboard.sort((a, b) => b.total_xp - a.total_xp)
 
+		// Add rank to each entry
 		return leaderboard.map((entry, index) => ({
 			...entry,
 			rank: index + 1,
@@ -186,13 +200,13 @@ async function getServerLeaderboard(
 
 /**
  * Updates the leaderboard with the new XP and level.
- * @param {ClientUser['id']} bot_id - The ID of the bot.
- * @param {User} user - The user object.
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot.
+ * @param {Discord.User} user - The user object.
  * @returns {Promise<void>} A promise that resolves when the leaderboard is updated.
  */
 async function updateLeaderboard(
-	bot_id: ClientUser['id'],
-	user: User
+	bot_id: Discord.ClientUser['id'],
+	user: Discord.User
 ): Promise<void> {
 	try {
 		// Fetch all XP entries for this user across all guilds
@@ -202,6 +216,7 @@ async function updateLeaderboard(
 			.eq('bot_id', bot_id)
 			.eq('user_id', user.id)
 
+		// Check if there is an error fetching the XP entries
 		if (fetchError) throw fetchError
 
 		// Calculate total XP across all guilds, including level bonuses
@@ -215,11 +230,8 @@ async function updateLeaderboard(
 			.from('leaderboard')
 			.upsert({ bot_id, user_id: user.id, xp: total_xp })
 
+		// Check if there is an error updating the global leaderboard
 		if (globalError) throw globalError
-
-		// bunnyLog.database(
-		// 	`Global leaderboard updated for user ${user.id}. Total XP across all servers (including level bonuses): ${total_xp}`
-		// )
 	} catch (error) {
 		bunnyLog.error(`Error updating leaderboard for user ${user.id}:`, error)
 		throw error

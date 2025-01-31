@@ -1,28 +1,24 @@
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
-import type { ClientUser, Guild, User } from 'discord.js'
+import supabase from '@/db/supabase.js'
+import type * as Discord from 'discord.js'
 
 /**
- * Zapisuje datę urodzin użytkownika w określonym serwerze (gildii) dla danego bota.
- * @param {ClientUser['id']} bot_id - ID bota.
- * @param {Guild['id']} guild_id - ID serwera (gildii).
- * @param {User['id']} user_id - ID użytkownika.
- * @param {Object} birthday - Szczegóły dotyczące urodzin.
- * @param {number} birthday.day - Dzień urodzin.
- * @param {number} birthday.month - Miesiąc urodzin.
- * @param {number} birthday.year - Rok urodzin.
- * @returns {Promise<string>} - Komunikat potwierdzający zapisanie lub aktualizację urodzin.
+ * Save user birthday in specified server (guild) for a given bot.
+ * @param {Discord.ClientUser['id']} bot_id - ID bot.
+ * @param {Discord.Guild['id']} guild_id - ID server (guild).
+ * @param {Discord.User['id']} user_id - ID user.
+ * @param {Object} birthday - Birthday details.
+ * @param {number} birthday.day - Day of birth.
+ * @param {number} birthday.month - Month of birth.
+ * @param {number} birthday.year - Year of birth.
+ * @returns {Promise<void>} - Promise that resolves when the birthday is saved.
  */
 async function saveBirthday(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
-	user_id: User['id'],
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id'],
 	birthday: { day: number; month: number; year: number }
-): Promise<string> {
-	if (!isValidDate(birthday.day, birthday.month, birthday.year)) {
-		throw new Error('Invalid date provided.')
-	}
-
+): Promise<void> {
 	const { data, error } = await supabase
 		.from('user_bdays')
 		.upsert(
@@ -44,16 +40,16 @@ async function saveBirthday(
 }
 
 /**
- * Pobiera użytkowników z określonym dniem i miesiącem urodzin na serwerze (gildii) dla danego bota.
- * @param {ClientUser['id']} bot_id - ID bota.
- * @param {Guild['id']} guild_id - ID serwera (gildii).
- * @param {number} day - Dzień urodzin.
- * @param {number} month - Miesiąc urodzin.
- * @returns {Promise<{ id: string; birthday: { day: number; month: number; year: number } }[]>} - Lista użytkowników z określonymi urodzinami.
+ * Get users with specified birthday day and month on a server (guild) for a given bot.
+ * @param {Discord.ClientUser['id']} bot_id - ID bot.
+ * @param {Discord.Guild['id']} guild_id - ID server (guild).
+ * @param {number} day - Day of birth.
+ * @param {number} month - Month of birth.
+ * @returns {Promise<{ id: string; birthday: { day: number; month: number; year: number } }[]>} - List of users with specified birthdays.
  */
-async function getUsersWithBirthday(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
+async function getBirthdayUsers(
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
 	day: number,
 	month: number
 ): Promise<
@@ -79,22 +75,47 @@ async function getUsersWithBirthday(
 }
 
 /**
- * Waliduje, czy podana data jest prawidłowa.
- * @param {number} day - Dzień urodzin.
- * @param {number} month - Miesiąc urodzin.
- * @param {number} year - Rok urodzin.
- * @returns {boolean} - Zwraca true, jeśli data jest prawidłowa, w przeciwnym razie false.
+ * Delete a user's birthday from the database
+ * @param {Discord.ClientUser['id']} bot_id - Bot ID
+ * @param {Discord.Guild['id']} guild_id - Guild ID
+ * @param {Discord.User['id']} user_id - User ID
  */
-function isValidDate(day: number, month: number, year: number): boolean {
-	const parsed_day = Number.parseInt(day.toString().replace(/^0+/, ''), 10)
-	const parsed_month = Number.parseInt(month.toString().replace(/^0+/, ''), 10)
+async function deleteBirthday(
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
+): Promise<void> {
+	const { error } = await supabase
+		.from('user_bdays')
+		.delete()
+		.eq('bot_id', bot_id)
+		.eq('guild_id', guild_id)
+		.eq('user_id', user_id)
 
-	const date = new Date(year, parsed_month - 1, parsed_day)
-	return (
-		date.getFullYear() === year &&
-		date.getMonth() === parsed_month - 1 &&
-		date.getDate() === parsed_day
-	)
+	if (error) throw new Error('Failed to delete birthday')
 }
 
-export { saveBirthday, getUsersWithBirthday }
+/**
+ * Get a user's birthday from the database
+ * @param {Discord.ClientUser['id']} bot_id - Bot ID
+ * @param {Discord.Guild['id']} guild_id - Guild ID
+ * @param {Discord.User['id']} user_id - User ID
+ */
+async function getBirthday(
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
+): Promise<{ day: number; month: number; year: number } | null> {
+	const { data, error } = await supabase
+		.from('user_bdays')
+		.select('birthday')
+		.eq('bot_id', bot_id)
+		.eq('guild_id', guild_id)
+		.eq('user_id', user_id)
+		.single()
+
+	if (error) return null
+	return data?.birthday || null
+}
+
+export { saveBirthday, getBirthdayUsers, deleteBirthday, getBirthday }

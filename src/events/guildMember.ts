@@ -1,194 +1,293 @@
-import type { GuildMember, TextChannel } from "discord.js";
-import { getPluginConfig } from "../api/plugins";
-import { createUniversalEmbed } from "../components/embed";
-import { replacePlaceholders } from "../utils/replacePlaceholders";
+import type * as Discord from 'discord.js'
+import * as api from '@/api/index.js'
+import * as utils from '@/utils/index.js'
+import * as components from '@/components/index.js'
+import { bunnyLog } from 'bunny-log'
+
+// Add proper type definitions
+type EmbedFieldConfig = {
+	name: string
+	value: string
+	inline?: boolean
+}
 
 /**
  * Handles the guild member join event.
- * @param {GuildMember} member - The member that joined the guild.
+ * @param {Discord.GuildMember} member - The member that joined the guild.
  */
-async function handleMemberJoin(member: GuildMember) {
-	const config = await getPluginConfig(
+async function handleMemberJoin(member: Discord.GuildMember) {
+	// Get the config
+	const config = await api.getPluginConfig(
 		member.client.user.id,
 		member.guild.id,
-		"welcome",
-	);
+		'welcome'
+	)
 
-	if (!config.enabled)
-		return console.error(`Welcome plugin is disabled in ${member.guild.id}`);
+	// Check if the plugin is enabled
+	if (!config.enabled) {
+		//bunnyLog.error(`Welcome plugin is disabled in ${member.guild.id}`)
+		return
+	}
 
+	// Check if the welcome channel is set
+	if (!config.welcome_channel_id) {
+		//bunnyLog.error(`Welcome channel is not set in ${member.guild.id}`)
+		return
+	}
+
+	// Get the welcome channel
 	const welcome_channel = member.guild.channels.cache.get(
-		config.welcome_channel_id,
-	) as TextChannel | undefined;
+		config.welcome_channel_id
+	) as Discord.TextChannel | undefined
+
+	// Check if the welcome channel is found
+	if (!welcome_channel)
+		//return bunnyLog.error(
+		//	`Welcome channel with ID ${config.welcome_channel_id} not found`
+		//)
+		return
 
 	// Assign join role if specified
 	if (config.join_role_id) {
-		const role = member.guild.roles.cache.get(config.join_role_id);
+		// Get the join role
+		const role = member.guild.roles.cache.get(config.join_role_id)
+
+		// Check if the join role is found
 		if (role) {
-			await member.roles.add(role).catch(console.error);
+			// Add the join role
+			await member.roles.add(role).catch(console.error)
 		} else {
-			console.error(`Role with ID ${config.join_role_id} not found`);
+			bunnyLog.error(`Role with ID ${config.join_role_id} not found`)
 		}
 	}
 
 	// Send welcome message
-	if (config.type === "embed") {
-		const embedConfig: any = {
+	if (config.type === 'embed') {
+		// Check if the embed is set
+		if (!config.embed_welcome) return bunnyLog.error('Embed welcome is not set')
+
+		const embedConfig: Discord.EmbedData & {
+			fields?: Array<Discord.EmbedField>
+		} = {
 			...config.embed_welcome,
-			title: replacePlaceholders(
-				config.embed_welcome.title,
+			title: utils.replacePlaceholders(
+				config.embed_welcome.title ?? '',
 				member,
-				member.guild,
+				member.guild
 			),
-			description: replacePlaceholders(
-				config.embed_welcome.description,
+			description: utils.replacePlaceholders(
+				config.embed_welcome.description ?? '',
 				member,
-				member.guild,
+				member.guild
 			),
-			fields: config.embed_welcome.fields.map((field: any) => ({
-				name: replacePlaceholders(field.name, member, member.guild),
-				value: replacePlaceholders(field.value, member, member.guild),
-				inline: field.inline,
-			})),
+			fields:
+				config.embed_welcome.fields?.map((field: EmbedFieldConfig) => ({
+					name: utils.replacePlaceholders(field.name, member, member.guild),
+					value: utils.replacePlaceholders(field.value, member, member.guild),
+					inline: field.inline ?? false,
+				})) ?? [],
 			footer: config.embed_welcome.footer
 				? {
-						text: replacePlaceholders(
-							config.embed_welcome.footer.text,
+						text: utils.replacePlaceholders(
+							config.embed_welcome.footer.text ?? '',
 							member,
-							member.guild,
+							member.guild
 						),
 						iconURL: config.embed_welcome.footer.iconURL
-							? replacePlaceholders(
-									config.embed_welcome.footer.iconURL,
+							? utils.replacePlaceholders(
+									config.embed_welcome.footer.iconURL ?? '',
 									member,
-									member.guild,
+									member.guild
 								)
 							: undefined,
 					}
 				: undefined,
-		};
+		}
 
 		if (config.embed_welcome.thumbnail?.url) {
 			embedConfig.thumbnail = {
-				url: replacePlaceholders(
-					config.embed_welcome.thumbnail.url,
+				url: utils.replacePlaceholders(
+					config.embed_welcome.thumbnail.url ?? '',
 					member,
-					member.guild,
+					member.guild
 				),
-			};
+			}
 		}
 
 		if (config.embed_welcome.image?.url) {
 			embedConfig.image = {
-				url: replacePlaceholders(
-					config.embed_welcome.image.url,
+				url: utils.replacePlaceholders(
+					config.embed_welcome.image.url ?? '',
 					member,
-					member.guild,
+					member.guild
 				),
-			};
+			}
 		}
 
-		const { embed, attachment, action_row } = createUniversalEmbed(embedConfig);
+		const { embed, attachment, action_row } =
+			components.createUniversalEmbed(embedConfig)
 		if (!welcome_channel)
-			return console.error(
-				`Welcome channel with ID ${config.welcome_channel_id} not found`,
-			);
+			return bunnyLog.error(
+				`Welcome channel with ID ${config.welcome_channel_id} not found`
+			)
+
+		// Send the welcome message
 		await welcome_channel.send({
 			embeds: [embed],
 			files: attachment ? [attachment] : [],
 			components: action_row ? [action_row] : [],
-		});
+		})
 	} else {
-		const message = replacePlaceholders(
+		// Check if the welcome message is set
+		if (!config.welcome_message)
+			return bunnyLog.error('Welcome message is not set')
+
+		// Send the welcome message
+		const message = utils.replacePlaceholders(
 			config.welcome_message,
 			member,
-			member.guild,
-		);
+			member.guild
+		)
 
 		if (!welcome_channel)
-			return console.error(
-				`Welcome channel with ID ${config.welcome_channel_id} not found`,
-			);
+			return bunnyLog.error(
+				`Welcome channel with ID ${config.welcome_channel_id} not found`
+			)
 
-		await welcome_channel.send(message);
+		await welcome_channel.send(message)
 	}
 }
 
 /**
  * Handles the guild member leave event.
- * @param {GuildMember} member - The member that left the guild.
+ * @param {Discord.GuildMember} member - The member that left the guild.
  */
-async function handleMemberLeave(member: GuildMember) {
-	const config = await getPluginConfig(
-		member.client.user.id,
-		member.guild.id,
-		"welcome",
-	);
+async function handleMemberLeave(
+	member: Discord.GuildMember | Discord.PartialGuildMember
+) {
+	// Check if member is partial and fetch full member
+	const resolvedMember = member.partial
+		? await member.guild.members.fetch(member.id)
+		: member
 
-	if (!config.enabled)
-		return console.error(`Welcome plugin is disabled in ${member.guild.id}`);
+	// Add null checks for member.guild
+	if (!resolvedMember.guild) return
+	// Get the config
+	const config = await api.getPluginConfig(
+		resolvedMember.client.user.id,
+		resolvedMember.guild.id,
+		'welcome'
+	)
 
-	const leave_message = replacePlaceholders(
-		config.leave_message,
-		member,
-		member.guild,
-	);
+	// Check if the plugin is enabled
+	if (!config.enabled) {
+		// bunnyLog.error(
+		// 	`Welcome plugin is disabled in ${resolvedMember.guild.id}`
+		// )
+		return
+	}
 
-	const leave_channel = member.guild.channels.cache.get(
-		config.leave_channel_id,
-	) as TextChannel | undefined;
+	// Check if the leave message is set
+	if (!config.leave_message) {
+		// bunnyLog.error('Leave message is not set')
+		return
+	}
 
-	if (!leave_channel)
-		return console.error(
-			`Leave channel with ID ${config.leave_channel_id} not found`,
-		);
+	// Get the leave channel
+	const leave_channel = resolvedMember.guild.channels.cache.get(
+		config.leave_channel_id ?? ''
+	) as Discord.TextChannel | undefined
 
-	if (config.type === "embed") {
-		const embedConfig: any = {
+	if (!leave_channel) {
+		// bunnyLog.error(
+		// 	`Leave channel with ID ${config.leave_channel_id} not found`
+		// )
+		return
+	}
+
+	if (config.type === 'embed') {
+		// Check if the embed is set
+		if (!config.embed_leave) {
+			// bunnyLog.error('Embed leave is not set')
+			return
+		}
+
+		const embedConfig: Discord.EmbedData & {
+			fields?: Array<Discord.EmbedField>
+		} = {
 			...config.embed_leave,
-			title: replacePlaceholders(
-				config.embed_leave.title,
-				member,
-				member.guild,
+			title: utils.replacePlaceholders(
+				config.embed_leave.title ?? '',
+				resolvedMember,
+				resolvedMember.guild
 			),
-			description: replacePlaceholders(
-				config.embed_leave.description,
-				member,
-				member.guild,
+			description: utils.replacePlaceholders(
+				config.embed_leave.description ?? '',
+				resolvedMember,
+				resolvedMember.guild
 			),
+			fields:
+				config.embed_leave.fields?.map((field: EmbedFieldConfig) => ({
+					name: utils.replacePlaceholders(
+						field.name,
+						resolvedMember,
+						resolvedMember.guild
+					),
+					value: utils.replacePlaceholders(
+						field.value,
+						resolvedMember,
+						resolvedMember.guild
+					),
+					inline: field.inline ?? false,
+				})) ?? [],
 			footer: config.embed_leave.footer
 				? {
-						text: replacePlaceholders(
-							config.embed_leave.footer.text,
-							member,
-							member.guild,
+						text: utils.replacePlaceholders(
+							config.embed_leave.footer.text ?? '',
+							resolvedMember,
+							resolvedMember.guild
 						),
 						iconURL: config.embed_leave.footer.iconURL
-							? replacePlaceholders(
-									config.embed_leave.footer.iconURL,
-									member,
-									member.guild,
+							? utils.replacePlaceholders(
+									config.embed_leave.footer.iconURL ?? '',
+									resolvedMember,
+									resolvedMember.guild
 								)
 							: undefined,
 					}
 				: undefined,
-		};
+		}
 
-		const { embed, attachment, action_row } = createUniversalEmbed(embedConfig);
+		// Create the embed and action rows
+		const { embed, attachment, action_row } =
+			components.createUniversalEmbed(embedConfig)
+
+		// Check if the embed is valid
+		if (!embed) return bunnyLog.error('Embed is not valid')
+
+		// Send the leave message
 		await leave_channel.send({
 			embeds: [embed],
 			files: attachment ? [attachment] : [],
 			components: action_row ? [action_row] : [],
-		});
+		})
 	} else {
-		const leave_message = replacePlaceholders(
+		// Send the leave message
+		const leave_message = utils.replacePlaceholders(
 			config.leave_message,
-			member,
-			member.guild,
-		);
+			resolvedMember,
+			resolvedMember.guild
+		)
 
-		await leave_channel.send(leave_message);
+		// Check if the leave channel is found
+		if (!leave_channel)
+			return bunnyLog.error(
+				`Leave channel with ID ${config.leave_channel_id} not found`
+			)
+
+		// Send the leave message
+		await leave_channel.send(leave_message)
 	}
 }
 
-export { handleMemberJoin, handleMemberLeave, replacePlaceholders };
+export { handleMemberJoin, handleMemberLeave }

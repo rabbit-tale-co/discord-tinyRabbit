@@ -1,35 +1,68 @@
-import type { Message } from 'discord.js'
-import { getPluginConfig } from '../api/plugins'
-import { assignXP } from '../services/experienceService'
+import type * as Discord from 'discord.js'
+import * as utils from '@/utils/index.js'
+import * as services from '@/services/index.js'
+import * as commands from '@/commands/index.js'
+import * as api from '@/api/index.js'
 import { bunnyLog } from 'bunny-log'
-import { manageSlowmode } from '../services/slowmode'
 
 /**
  * Event handler for message creation.
- * @param {Message} message - The message object from Discord.
+ * @param {Discord.Message} message - The message object from Discord.
  * @returns {Promise<void>} A promise that resolves when the message is handled.
  */
-async function messageHandler(message: Message): Promise<void> {
-	// Ignoruj wiadomości od botów
+async function messageHandler(message: Discord.Message): Promise<void> {
+	// Ignore messages from bots
 	if (message.author.bot) return
 
-	try {
-		await manageSlowmode(message)
+	// Ignore messages in DMs
+	if (!message.guild) return // TODO: add error handling
 
-		// Pobierz konfigurację pluginu 'levels' dla tej gildii w kontekście danego bota
-		const config = await getPluginConfig(
+	// Ignore messages in threads
+	if (message.channel.isThread()) return
+
+	try {
+		// Manage slowmode
+		await services.manageSlowmode(message)
+
+		if (message.content.startsWith('!purge') && message.reference?.messageId) {
+			const targetMessage = await message.channel.messages.fetch(
+				message.reference.messageId
+			)
+
+			const messages = await message.channel.messages.fetch({
+				limit: 100,
+				after: targetMessage.id,
+			})
+
+			const messagesToDelete = messages.filter(
+				(m) => m.createdTimestamp > targetMessage.createdTimestamp
+			)
+
+			await (message.channel as Discord.TextChannel).bulkDelete([
+				...messagesToDelete.values(),
+				message,
+			])
+
+			await utils.handleResponse(
+				message as unknown as Discord.ChatInputCommandInteraction,
+				'success',
+				`Deleted ${messagesToDelete.size} messages`,
+				{ ephemeral: false }
+			)
+		}
+
+		// Levels plugin check (only for XP assignment)
+		const config = await api.getPluginConfig(
 			message.client.user.id,
 			message.guild.id,
 			'levels'
 		)
 
-		// Sprawdź, czy plugin 'levels' jest włączony
-		if (!config.enabled) return
-
-		// Przypisz XP na podstawie wiadomości, jeśli plugin jest włączony
-		await assignXP(message)
+		if (config?.enabled) {
+			await services.assignXP(message)
+		}
 	} catch (error) {
-		// Loguj błędy, które mogą wystąpić podczas obsługi wiadomości
+		// Log any errors that may occur during message handling
 		bunnyLog.error('Error handling message:', error)
 	}
 }

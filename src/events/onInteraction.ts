@@ -1,54 +1,76 @@
-import { setUserXpAndLevel, levelCommand } from '../commands/xp'
-import * as ticket from '../commands/tickets'
-import { getPluginConfig } from '../api/plugins'
-import type {
-	ButtonInteraction,
-	CommandInteraction,
-	Interaction,
-	ModalSubmitInteraction,
-} from 'discord.js'
-import { handleBdayCommand } from '../commands/bday'
+import * as commands from '../commands/index.js'
+import * as utils from '../utils/index.js'
+import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
 
-const commandHandlers: Record<
-	string,
-	(interaction: CommandInteraction) => Promise<void>
-> = {
-	level: levelCommand,
-	set_level: setUserXpAndLevel,
-	send_embed: ticket.sendEmbed,
-	bday: handleBdayCommand,
+type CommandHandler = (
+	interaction: Discord.ChatInputCommandInteraction
+) => Promise<void>
+
+type SubcommandMap = Record<string, CommandHandler>
+
+interface CommandStructure {
+	handler?: CommandHandler
+	subcommands?: SubcommandMap
 }
 
+const commandMap: Record<string, CommandStructure> = {
+	// Level management
+	level: {
+		subcommands: {
+			show: commands.showLevel,
+			set: commands.setLevel,
+		},
+	},
+
+	// Ticket system
+	send_embed: commands.ticket.sendEmbed,
+
+	// Birthday tracking
+	bday: {
+		subcommands: {
+			set: commands.setBirthday,
+			show: commands.showBirthday,
+			remove: commands.removeBirthday,
+		},
+	},
+}
+
+// Button interaction handlers
 const buttonInteractionHandlers: Record<
 	string,
-	(interaction: ButtonInteraction) => Promise<void>
+	(interaction: Discord.ButtonInteraction) => Promise<void>
 > = {
-	open_ticket: ticket.openTicket,
-	close_ticket_with_reason: ticket.closeTicketWithReason,
-	close_ticket: ticket.closeTicket,
-	confirm_close_ticket: ticket.confirmCloseTicket,
-	join_ticket: ticket.joinTicket,
-	claim_ticket: ticket.claimTicket,
+	open_ticket: commands.ticket.openTicket,
+	close_ticket_with_reason: commands.ticket.closeTicketWithReason,
+	close_ticket: commands.ticket.closeTicket,
+	confirm_close_ticket: commands.ticket.confirmCloseTicket,
+	join_ticket: commands.ticket.joinTicket,
+	claim_ticket: commands.ticket.claimTicket,
 }
 
 /**
  * Handles interaction commands.
- * @param {Interaction} interaction - The interaction object.
+ * @param {Discord.ChatInputCommandInteraction | Discord.ButtonInteraction | Discord.ModalSubmitInteraction} interaction - The interaction object.
  */
-async function interactionHandler(interaction: Interaction): Promise<void> {
+async function interactionHandler(
+	interaction: Discord.Interaction
+): Promise<void> {
 	try {
 		// Handle command interactions
-		if (interaction.isCommand()) {
-			const commandHandler = commandHandlers[interaction.commandName]
+		if (interaction.isChatInputCommand()) {
+			const command = commandMap[interaction.commandName]
 
-			if (!commandHandler) {
-				bunnyLog.warn('No command handler found for:', interaction.commandName)
-				return
+			if (command?.subcommands) {
+				const subcommand = interaction.options.getSubcommand()
+				const handler = command.subcommands[subcommand]
+
+				if (handler) {
+					return await handler(interaction)
+				}
+			} else if (command?.handler) {
+				return await command.handler(interaction)
 			}
-
-			// Execute the command handler
-			return await commandHandler(interaction)
 		}
 
 		// Handle button interactions
@@ -57,7 +79,9 @@ async function interactionHandler(interaction: Interaction): Promise<void> {
 				([prefix]) => interaction.customId.startsWith(prefix)
 			)?.[1]
 
+			// Check if the button handler exists
 			if (handler) {
+				// Execute the button handler
 				return await handler(interaction)
 			}
 			bunnyLog.warn(
@@ -68,7 +92,9 @@ async function interactionHandler(interaction: Interaction): Promise<void> {
 
 		// Handle modal submissions
 		if (interaction.isModalSubmit()) {
-			return await ticket.modalSubmit(interaction as ModalSubmitInteraction)
+			return await commands.ticket.modalSubmit(
+				interaction as Discord.ModalSubmitInteraction
+			)
 		}
 	} catch (error) {
 		// Log the error with bunnyLog
@@ -79,13 +105,14 @@ async function interactionHandler(interaction: Interaction): Promise<void> {
 				? interaction.commandName
 				: interaction.id,
 		})
-		// Zapewnij odpowiednią odpowiedź/followUp w zależności od statusu interakcji
+
+		// Provide the appropriate reply/followUp depending on the interaction status
 		if (interaction.isRepliable()) {
-			const replyMethod =
-				interaction.replied || interaction.deferred ? 'followUp' : 'reply'
-			await interaction[replyMethod]({
-				content: 'Wystąpił błąd podczas wykonywania polecenia.',
+			// Check if the interaction has already been replied to or deferred
+			utils.handleResponse(interaction, 'error', `${error.message}`, {
 				ephemeral: true,
+				code: 'E001',
+				error: error.message,
 			})
 		}
 	}

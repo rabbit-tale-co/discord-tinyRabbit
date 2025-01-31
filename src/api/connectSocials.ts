@@ -1,23 +1,25 @@
-import type { Client, Guild, Snowflake, User } from 'discord.js'
+import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import { getPluginConfig } from './plugins'
-import supabase from '../db/supabase'
-import { client } from '..'
+import { getPluginConfig } from '@/api/plugins.js'
+import supabase from '@/db/supabase.js'
+import { client } from '@/index.js'
 
 type SocialPlatform = 'minecraft' | 'youtube' | 'twitter' | 'tiktok' | 'twitch'
 
 async function linkSocialAccount(
-	client: Client,
-	socialId: string,
-	discordId: Snowflake,
+	client: Discord.Client,
+	social_id: string,
+	discord_id: Discord.Snowflake,
 	platform: SocialPlatform
 ): Promise<boolean> {
 	try {
-		const guild = await client.guilds.fetch(process.env.GUILD_ID as Snowflake)
-		const member = await guild.members.fetch(discordId)
+		const guild = await client.guilds.fetch(
+			process.env.GUILD_ID as Discord.Snowflake
+		)
+		const member = await guild.members.fetch(discord_id)
 
 		if (!member) {
-			bunnyLog.warn(`User ${discordId} not found in the guild`)
+			bunnyLog.warn(`User ${discord_id} not found in the guild`)
 			return false
 		}
 
@@ -26,8 +28,8 @@ async function linkSocialAccount(
 			{
 				bot_id: client.user?.id,
 				guild_id: guild.id,
-				user_id: discordId,
-				[`${platform}_id`]: socialId,
+				user_id: discord_id,
+				[`${platform}_id`]: social_id,
 			},
 			{
 				onConflict: 'bot_id,guild_id,user_id',
@@ -39,22 +41,25 @@ async function linkSocialAccount(
 			return false
 		}
 
-		const config = await getPluginConfig(
-			client.user?.id,
-			guild.id,
-			'connectSocial'
-		)
-		const roleId = config[platform].role_id
+		const bot_id = client.user?.id
 
-		if (roleId) {
-			const role = guild.roles.cache.get(roleId)
+		if (!bot_id) {
+			bunnyLog.error('Bot ID is not set')
+			return false
+		}
+
+		const config = await getPluginConfig(bot_id, guild.id, 'connectSocial')
+		const role_id = config[platform].role_id
+
+		if (role_id) {
+			const role = guild.roles.cache.get(role_id)
 			if (role) {
 				await member.roles.add(role)
 			}
 		}
 
 		bunnyLog.info(
-			`Successfully linked ${platform} account ${socialId} to Discord user ${discordId}`
+			`Successfully linked ${platform} account ${social_id} to Discord user ${discord_id}`
 		)
 		return true
 	} catch (error) {
@@ -64,10 +69,10 @@ async function linkSocialAccount(
 }
 
 export async function linkMinecraftAccount(
-	minecraftUuid: string,
-	bot_id: Client['user']['id'],
-	guild_id: Guild['id'],
-	user_id: User['id']
+	minecraft_uuid: string,
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
 ): Promise<boolean> {
 	try {
 		const guild = await client.guilds.fetch(guild_id)
@@ -82,7 +87,7 @@ export async function linkMinecraftAccount(
 		const { data: existingLink, error: fetchError } = await supabase
 			.from('user_socials')
 			.select('minecraft_uuid')
-			.eq('bot_id', client.user?.id)
+			.eq('bot_id', bot_id)
 			.eq('guild_id', guild_id)
 			.eq('user_id', user_id)
 			.single()
@@ -98,39 +103,35 @@ export async function linkMinecraftAccount(
 		}
 
 		// Update user data in Supabase
-		const { error: upsertError } = await supabase.from('user_socials').upsert(
+		const { error: upsert_error } = await supabase.from('user_socials').upsert(
 			{
-				bot_id: client.user?.id,
+				bot_id: bot_id,
 				guild_id: guild_id,
 				user_id: user_id,
-				minecraft_uuid: minecraftUuid,
+				minecraft_uuid: minecraft_uuid,
 			},
 			{
 				onConflict: 'bot_id,guild_id,user_id',
 			}
 		)
 
-		if (upsertError) {
-			bunnyLog.error('Error updating Minecraft data in Supabase:', upsertError)
+		if (upsert_error) {
+			bunnyLog.error('Error updating Minecraft data in Supabase:', upsert_error)
 			return false
 		}
 
-		const config = await getPluginConfig(
-			client.user?.id,
-			guild_id,
-			'connectSocial'
-		)
-		const roleId = config.minecraft.role_id
+		const config = await getPluginConfig(bot_id, guild_id, 'connectSocial')
+		const role_id = config.minecraft.role_id
 
-		if (roleId) {
-			const role = guild.roles.cache.get(roleId)
+		if (role_id) {
+			const role = guild.roles.cache.get(role_id)
 			if (role) {
 				await member.roles.add(role)
 			}
 		}
 
 		bunnyLog.info(
-			`Successfully linked Minecraft account ${minecraftUuid} to Discord user ${user_id} in guild ${guild_id}`
+			`Successfully linked Minecraft account ${minecraft_uuid} to Discord user ${user_id} in guild ${guild_id}`
 		)
 		return true
 	} catch (error) {
@@ -140,33 +141,36 @@ export async function linkMinecraftAccount(
 }
 
 export const linkYoutubeAccount = (
-	client: Client,
-	youtubeId: string,
-	bot_id: Client['user']['id'],
-	guild_id: Guild['id'],
-	user_id: User['id']
-) => linkSocialAccount(client, youtubeId, user_id, 'youtube')
+	client: Discord.Client,
+	youtube_id: string,
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
+) => {
+	if (!bot_id) throw new Error('Bot ID is required')
+	return linkSocialAccount(client, youtube_id, user_id, 'youtube')
+}
 
 export const linkTwitterAccount = (
-	client: Client,
-	twitterId: string,
-	bot_id: Client['user']['id'],
-	guild_id: Guild['id'],
-	user_id: User['id']
-) => linkSocialAccount(client, twitterId, user_id, 'twitter')
+	client: Discord.Client,
+	twitter_id: string,
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
+) => linkSocialAccount(client, twitter_id, user_id, 'twitter')
 
 export const linkTiktokAccount = (
-	client: Client,
-	tiktokId: string,
-	bot_id: Client['user']['id'],
-	guild_id: Guild['id'],
-	user_id: User['id']
-) => linkSocialAccount(client, tiktokId, user_id, 'tiktok')
+	client: Discord.Client,
+	tiktok_id: string,
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
+) => linkSocialAccount(client, tiktok_id, user_id, 'tiktok')
 
 export const linkTwitchAccount = (
-	client: Client,
-	twitchId: string,
-	bot_id: Client['user']['id'],
-	guild_id: Guild['id'],
-	user_id: User['id']
-) => linkSocialAccount(client, twitchId, user_id, 'twitch')
+	client: Discord.Client,
+	twitch_id: string,
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
+) => linkSocialAccount(client, twitch_id, user_id, 'twitch')

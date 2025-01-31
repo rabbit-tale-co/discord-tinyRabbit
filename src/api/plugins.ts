@@ -1,21 +1,13 @@
-import type { DefaultConfigs, PluginResponse, Plugins } from '../types/plugins'
-import {
-	ButtonStyle,
-	ComponentType,
-	type Guild,
-	type Client,
-	type Snowflake,
-	type ClientUser,
-	Colors,
-} from 'discord.js'
+import type * as Types from '@/types/plugins.js'
+import * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
-import supabase from '../db/supabase'
+import supabase from '@/db/supabase.js'
 
-const default_configs: DefaultConfigs = {
+const default_configs: Types.DefaultConfigs = {
 	levels: {
 		enabled: false,
 		reward_message: 'Congratulations, you have leveled up to level {level}!',
-		channel_id: null,
+		channel_id: null, // TODO:change to reward_channel_id
 		command_channel_id: null,
 		reward_roles: null,
 		boost_3x_roles: null,
@@ -29,13 +21,13 @@ const default_configs: DefaultConfigs = {
 				title: 'Click to open a ticket',
 				description:
 					'Click on the button corresponding to the type of ticket you wish to open',
-				color: Colors.Blurple,
+				color: Discord.Colors.Blurple,
 				buttons_map: [
 					{
 						unique_id: 'open_ticket_general',
 						label: 'General Support',
-						style: ButtonStyle.Primary,
-						type: ComponentType.Button,
+						style: Discord.ButtonStyle.Primary,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
@@ -52,14 +44,14 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'close_ticket',
 						label: 'Close Ticket',
-						style: ButtonStyle.Danger,
-						type: ComponentType.Button,
+						style: Discord.ButtonStyle.Danger,
+						type: Discord.ComponentType.Button,
 					},
 					{
 						unique_id: 'close_ticket_with_reason',
 						label: 'Close Ticket with Reason',
-						style: ButtonStyle.Danger,
-						type: ComponentType.Button,
+						style: Discord.ButtonStyle.Danger,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
@@ -71,15 +63,15 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'confirm_close_ticket',
 						label: 'Confirm Close',
-						style: ButtonStyle.Success,
-						type: ComponentType.Button,
+						style: Discord.ButtonStyle.Success,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
 			closed_ticket: {
 				title: 'Ticket Closed',
 				description: 'The ticket was closed by {closed_by}.',
-				color: Colors.Red,
+				color: Discord.Colors.Red,
 				fields: [
 					{
 						name: 'Reason',
@@ -90,7 +82,7 @@ const default_configs: DefaultConfigs = {
 			},
 			admin_ticket: {
 				title: 'New Ticket - {ticket_id}',
-				color: Colors.Blurple,
+				color: Discord.Colors.Blurple,
 				fields: [
 					{
 						name: 'Opened by',
@@ -112,14 +104,14 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'claim_ticket',
 						label: 'Claim Ticket',
-						style: ButtonStyle.Primary,
-						type: ComponentType.Button,
+						style: Discord.ButtonStyle.Primary,
+						type: Discord.ComponentType.Button,
 					},
 					{
 						unique_id: 'join_ticket',
 						label: 'Join Ticket',
-						style: ButtonStyle.Secondary,
-						type: ComponentType.Button,
+						style: Discord.ButtonStyle.Secondary,
+						type: Discord.ComponentType.Button,
 					},
 				],
 			},
@@ -161,14 +153,16 @@ const default_configs: DefaultConfigs = {
 					{
 						unique_id: 'open_thread',
 						label: 'Open Thread',
-						style: ButtonStyle.Link,
-						type: ComponentType.Button,
+						style: Discord.ButtonStyle.Link,
+						type: Discord.ComponentType.Button,
 						url: 'https://discord.com/channels/{guild_id}/{thread_id}',
 					},
 				],
 				footer: '{close_time}',
 			},
 		},
+		counter: 1,
+		mods_role_ids: [],
 	},
 	welcome: {
 		enabled: false,
@@ -180,14 +174,14 @@ const default_configs: DefaultConfigs = {
 		embed_welcome: {
 			title: '{username} has joined the server!',
 			description: 'We are glad to have you here. Enjoy your stay!',
-			color: Colors.Blurple,
+			color: Discord.Colors.Blurple,
 			thumbnail: {
 				url: '{avatar}',
 			},
 		},
 		embed_leave: {
 			title: '{username} has left the server!',
-			color: Colors.Blurple,
+			color: Discord.Colors.Blurple,
 			thumbnail: {
 				url: '{avatar}',
 			},
@@ -239,27 +233,51 @@ const default_configs: DefaultConfigs = {
 			role_id: null,
 		},
 	},
+	moderation: {
+		enabled: false,
+		watch_roles: [],
+		ban_interval: 60, // Check every hour
+		delete_message_days: 7,
+	},
 }
 
-function getDefaultConfig(plugin_name: keyof DefaultConfigs): Plugins {
+/**
+ * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
+ * @returns {Plugins} - The plugin name.
+ */
+function getDefaultConfig(
+	plugin_name: keyof Types.DefaultConfigs
+): Types.Plugins {
 	return default_configs[plugin_name]
 }
 
+/**
+ * @param {Discord.Client} client - The Discord client object.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
+ * @param {Array<{name: keyof DefaultConfigs, config: DefaultConfigs[keyof DefaultConfigs]}>} plugins - The plugins to save.
+ */
 async function saveGuildPlugins(
-	client: Client,
-	guild_id: Guild['id'],
-	plugins: any[]
+	client: Discord.Client,
+	guild_id: Discord.Guild['id'],
+	plugins: Array<{
+		name: keyof Types.DefaultConfigs
+		config: Types.DefaultConfigs[keyof Types.DefaultConfigs]
+	}>
 ) {
 	try {
 		// Fetch the guild from Discord
 		const guild = await client.guilds.fetch(guild_id)
+
+		// Check if the guild exists
 		if (!guild) {
 			throw new Error(`Guild not found for ID: ${guild_id}`)
 		}
 
+		// Get the guild name and bot ID
 		const guild_name = guild.name
 		const bot_id = client.user?.id
 
+		// Check if the bot ID is undefined
 		if (!bot_id) {
 			throw new Error('Bot ID is undefined')
 		}
@@ -272,15 +290,19 @@ async function saveGuildPlugins(
 			.eq('guild_id', guild_id)
 			.single()
 
+		// Check if there is an error fetching the guild
 		if (guildError && guildError.code !== 'PGRST116') {
 			throw guildError
 		}
 
 		// If guild doesn't exist, add it
 		if (!guildExists) {
+			// Insert the guild into the database
 			const { error: insertGuildError } = await supabase
 				.from('guilds')
 				.insert({ bot_id: bot_id, guild_id: guild_id, guild_name: guild_name })
+
+			// Check if there is an error inserting the guild
 			if (insertGuildError) throw insertGuildError
 		} else {
 			// If guild exists, update the name in case it has changed
@@ -289,6 +311,8 @@ async function saveGuildPlugins(
 				.update({ guild_name: guild_name })
 				.eq('bot_id', bot_id)
 				.eq('guild_id', guild_id)
+
+			// Check if there is an error updating the guild
 			if (updateGuildError) throw updateGuildError
 		}
 
@@ -300,12 +324,15 @@ async function saveGuildPlugins(
 			config: plugin.config,
 		}))
 
+		// Insert the plugins into the database
 		const { error: pluginError } = await supabase
 			.from('plugins')
 			.upsert(pluginData)
 
+		// Check if there is an error inserting the plugins
 		if (pluginError) throw pluginError
 
+		// Log the success
 		bunnyLog.database(
 			`Plugins saved successfully for guild ${guild_name} (${guild_id})`
 		)
@@ -315,27 +342,41 @@ async function saveGuildPlugins(
 	}
 }
 
-async function updateMissingPlugins(client: Client): Promise<void> {
+/**
+ * @param {Discord.Client} client - The Discord client object.
+ */
+async function updateMissingPlugins(client: Discord.Client): Promise<void> {
+	// Check if the client is logged in
+	if (!client.user) throw new Error('Client not logged in')
+
+	// Get the guilds
 	const guilds = client.guilds.cache
 
+	// Loop through the guilds
 	for (const guild of guilds.values()) {
+		// Get the current plugins
 		const current_plugins = await getGuildPlugins(client.user.id, guild.id)
 
+		// Get the missing plugins
 		const missing_plugins = Object.keys(default_configs).filter(
 			(plugin_name) =>
-				!current_plugins.some((plugin) => plugin.id === plugin_name)
+				!current_plugins.some(
+					(plugin) => plugin.id === (plugin_name as keyof Types.DefaultConfigs)
+				)
 		)
 
+		// If there are missing plugins, save them
 		if (missing_plugins.length > 0) {
 			await saveGuildPlugins(
 				client,
 				guild.id,
 				missing_plugins.map((plugin_name) => ({
-					name: plugin_name,
-					config: default_configs[plugin_name],
+					name: plugin_name as keyof Types.DefaultConfigs,
+					config: default_configs[plugin_name as keyof Types.DefaultConfigs],
 				}))
 			)
 
+			// Log the success
 			bunnyLog.database(
 				`Initialized missing plugins for guild ${guild.name} (${guild.id})`
 			)
@@ -343,33 +384,50 @@ async function updateMissingPlugins(client: Client): Promise<void> {
 	}
 }
 
+/**
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
+ * @returns {Promise<PluginResponse<DefaultConfigs[keyof DefaultConfigs]>[]>} - The plugins.
+ */
 export async function getGuildPlugins(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id']
-): Promise<PluginResponse<DefaultConfigs[keyof DefaultConfigs]>[]> {
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id']
+): Promise<
+	Types.PluginResponse<Types.DefaultConfigs[keyof Types.DefaultConfigs]>[]
+> {
+	// Get the plugins from the database
 	const { data, error } = await supabase
 		.from('plugins')
 		.select('*')
 		.eq('bot_id', bot_id)
 		.eq('guild_id', guild_id)
 
+	// Check if there is an error fetching the plugins
 	if (error) {
 		throw error
 	}
 
+	// Return the plugins
 	return data.map((plugin) => ({
 		id: plugin.plugin_name,
 		...plugin.config,
 	}))
 }
 
+/**
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
+ * @param {Plugins} plugin_name - The name of the plugin.
+ * @param {boolean} enabled - Whether the plugin is enabled.
+ */
 async function togglePlugin(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
-	plugin_name: Plugins,
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	plugin_name: Types.Plugins,
 	enabled: boolean
 ): Promise<void> {
 	try {
+		// Update the plugin in the database
 		const { error } = await supabase
 			.from('plugins')
 			.update({ 'config.enabled': enabled })
@@ -377,6 +435,7 @@ async function togglePlugin(
 			.eq('guild_id', guild_id)
 			.eq('plugin_name', plugin_name)
 
+		// Check if there is an error updating the plugin
 		if (error) {
 			throw error
 		}
@@ -389,12 +448,19 @@ async function togglePlugin(
 	}
 }
 
+/**
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
+ * @param {Plugins} plugin_name - The name of the plugin.
+ * @param {object} config - The configuration object.
+ */
 async function setPluginConfig(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
-	plugin_name: Plugins,
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	plugin_name: Types.Plugins,
 	config: object
 ): Promise<void> {
+	// Update the plugin in the database
 	const { error } = await supabase
 		.from('plugins')
 		.update({ config })
@@ -402,22 +468,24 @@ async function setPluginConfig(
 		.eq('guild_id', guild_id)
 		.eq('plugin_name', plugin_name)
 
+	// Check if there is an error updating the plugin
 	if (error) {
 		throw error
 	}
 }
 
 /**
- * @param {ClientUser['id']} bot_id - The ID of the bot user.
- * @param {Guild['id']} guild_id - The ID of the guild.
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
  * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
- * @returns
+ * @returns {Promise<PluginResponse<DefaultConfigs[T]>>} - The plugin configuration.
  */
-async function getPluginConfig<T extends keyof DefaultConfigs>(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
+async function getPluginConfig<T extends keyof Types.DefaultConfigs>(
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
 	plugin_name: T
-): Promise<PluginResponse<DefaultConfigs[T]>> {
+): Promise<Types.PluginResponse<Types.DefaultConfigs[T]>> {
+	// Get the plugin configuration from the database
 	const { data, error } = await supabase
 		.from('plugins')
 		.select('config')
@@ -426,51 +494,76 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 		.eq('plugin_name', plugin_name)
 		.single()
 
+	// Check if there is an error fetching the plugin
 	if (error) {
+		// If the error is because the plugin doesn't exist, set the default config
 		if (error.code === 'PGRST116') {
-			const default_config = getDefaultConfig(plugin_name) as DefaultConfigs[T]
+			const default_config = getDefaultConfig(
+				plugin_name
+			) as Types.DefaultConfigs[T]
 			await setPluginConfig(
 				bot_id,
 				guild_id,
-				plugin_name as Plugins,
+				plugin_name as Types.Plugins,
 				default_config
 			)
+
+			// Log the success
+			bunnyLog.database(
+				`Initialized missing plugin ${plugin_name} for guild ${guild_id}`
+			)
+
+			// Return the default config
 			return {
-				id: plugin_name as Plugins,
+				id: plugin_name as Types.Plugins,
 				...default_config,
-			} as PluginResponse<DefaultConfigs[T]>
+			} as Types.PluginResponse<Types.DefaultConfigs[T]>
 		}
 		throw error
 	}
 
-	return { id: plugin_name as Snowflake, ...data.config } as PluginResponse<
-		DefaultConfigs[T]
-	>
+	// Return the plugin configuration
+	return {
+		id: plugin_name as Types.Plugins,
+		...data.config,
+	} as Types.PluginResponse<Types.DefaultConfigs[T]>
 }
 
+/**
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
+ * @param {Plugins} plugin_name - The name of the plugin.
+ */
 async function enablePlugin(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
-	plugin_name: Plugins
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	plugin_name: Types.Plugins
 ): Promise<void> {
 	await togglePlugin(bot_id, guild_id, plugin_name, true)
 }
 
 async function disablePlugin(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
-	plugin_name: Plugins
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	plugin_name: Types.Plugins
 ): Promise<void> {
 	await togglePlugin(bot_id, guild_id, plugin_name, false)
 }
 
-async function updatePluginConfig<T extends keyof DefaultConfigs>(
-	bot_id: ClientUser['id'],
-	guild_id: Guild['id'],
+/**
+ * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
+ * @param {Discord.Guild['id']} guild_id - The ID of the guild.
+ * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
+ * @param {object} config - The configuration object.
+ */
+async function updatePluginConfig<T extends keyof Types.DefaultConfigs>(
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
 	plugin_name: T,
-	config: DefaultConfigs[T]
+	config: Types.DefaultConfigs[T]
 ): Promise<void> {
 	try {
+		// Update the plugin in the database
 		const { error } = await supabase
 			.from('plugins')
 			.update({ config })
@@ -478,10 +571,12 @@ async function updatePluginConfig<T extends keyof DefaultConfigs>(
 			.eq('guild_id', guild_id)
 			.eq('plugin_name', plugin_name)
 
+		// Check if there is an error updating the plugin
 		if (error) {
 			throw error
 		}
 
+		// Log the success
 		bunnyLog.database('Plugin configuration updated successfully')
 	} catch (error) {
 		bunnyLog.error('Error updating plugin configuration:', error)
