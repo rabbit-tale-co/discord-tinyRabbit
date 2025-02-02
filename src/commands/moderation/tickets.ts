@@ -378,13 +378,13 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		)
 
 		// Send the reply embed
-		await interaction.editReply({ embeds: [reply_embed] })
-
-		// Increment the ticket counter
-		await api.incrementTicketCounter(
-			interaction.client.user.id,
-			interaction.guild.id
-		)
+		await Promise.all([
+			interaction.editReply({ embeds: [reply_embed] }),
+			api.incrementTicketCounter(
+				interaction.client.user.id,
+				interaction.guild.id
+			),
+		])
 
 		// Create the metadata
 		const metadata: ThreadMetadata = {
@@ -726,15 +726,14 @@ async function closeThread(
 			placeholders
 		)
 
-		// Send the embed
-		await thread.send({ embeds: [closeEmbed] })
+		await Promise.all([
+			thread.send({ embeds: [closeEmbed] }),
+			sendTranscript(interaction, reason),
 
-		// Send the transcript
-		await sendTranscript(interaction, reason)
-
-		// Set the thread to locked and archived
-		await thread.setLocked(true)
-		await thread.setArchived(true)
+			// Set the thread to locked and archived
+			thread.setLocked(true),
+			thread.setArchived(true),
+		])
 
 		// Check if the admin channel is set
 		if (metadata?.join_ticket_message_id && metadata.admin_channel_id) {
@@ -851,6 +850,7 @@ async function sendTranscript(
 
 	// Create the transcript metadata
 	const transcriptMetadata = {
+		ticket_id: ticket_id,
 		opened_by: opened_by.id,
 		closed_by: closed_by.id,
 		open_time: new Date(open_time * 1000),
