@@ -2,6 +2,7 @@ import type * as Discord from 'discord.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
 import { bunnyLog } from 'bunny-log'
 import supabase from '@/db/supabase.js'
+import type { ThreadMetadata } from '@/types/tickets.js'
 
 /**
  * Fetches the ticket counter for a guild.
@@ -187,10 +188,67 @@ function formatTranscript(messages: Discord.Message[]): Array<object> {
 		})
 }
 
+/**
+ * Saves the ticket metadata to the database.
+ * @param {string} bot_id - The bot's user ID.
+ * @param {string} guild_id - The guild ID.
+ * @param {string} thread_id - The ticket thread's ID.
+ * @param {object} ticketData - The ticket metadata.
+ * @param {object[]} messages - An array of messages.
+ * @returns {Promise<void>}
+ */
+async function saveTicketMetadata(
+	bot_id: string,
+	guild_id: string,
+	thread_id: string,
+	ticketData: object,
+	messages: object[]
+): Promise<void> {
+	try {
+		const { data, error } = await supabase.from('tickets').insert({
+			bot_id,
+			guild_id,
+			thread_id,
+			...ticketData,
+			messages,
+		})
+		if (error) throw error
+	} catch (error) {
+		bunnyLog.error('Failed to save ticket metadata:', error)
+		throw error
+	}
+}
+
+/**
+ * Retrieves ticket metadata for a given thread from the database.
+ * @param {string} bot_id - The bot's user ID.
+ * @param {string} guild_id - The guild's ID.
+ * @param {string} thread_id - The ticket thread's ID.
+ * @returns {Promise<ThreadMetadata | null>} The ticket metadata or null if not found.
+ */
+async function getTicketMetadata(
+	bot_id: string,
+	guild_id: string,
+	thread_id: string
+): Promise<ThreadMetadata | null> {
+	const { data, error } = await supabase
+		.from('tickets')
+		.select('*')
+		.match({ bot_id, guild_id, thread_id })
+		.single()
+	if (error || !data) {
+		bunnyLog.error('Failed to retrieve ticket metadata:', error)
+		return null
+	}
+	return data as ThreadMetadata
+}
+
 export {
+	saveTicketMetadata,
 	saveTranscriptToSupabase,
 	fetchTicketMessages,
 	formatTranscript,
 	getTicketCounter,
 	incrementTicketCounter,
+	getTicketMetadata,
 }

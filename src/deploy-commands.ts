@@ -2,6 +2,7 @@ import { REST } from '@discordjs/rest'
 import { bunnyLog } from 'bunny-log'
 import { Routes } from 'discord-api-types/v10'
 import { env } from 'node:process'
+import { data as createLicenseCommand } from './commands/game/createLicense.js'
 
 const { BOT_TOKEN, BOT_CLIENT_ID } = env
 
@@ -115,6 +116,39 @@ const commands = [
 			},
 		],
 	},
+	// {
+	// 	name: 'plugin',
+	// 	description: 'Manage your Minecraft account',
+	// 	options: [
+	// 		{
+	// 			type: 1, // SUB_COMMAND
+	// 			name: 'game',
+	// 			description: 'Manage your game plugins',
+	// 			options: [
+	// 				{
+	// 					type: 3, // STRING
+	// 					name: 'minecraft',
+	// 					description: 'The name of the game to manage',
+	// 					required: true,
+	// 				},
+	// 			],
+	// 		},
+	// 		{
+	// 			type: 1, // SUB_COMMAND
+	// 			name: 'info',
+	// 			description: 'Get info about a specified game plugin',
+	// 			options: [
+	// 				{
+	// 					type: 3, // STRING
+	// 					name: 'plugin_name',
+	// 					description: 'The name of the game plugin to get info about',
+	// 					required: true,
+	// 				},
+	// 			],
+	// 		},
+	// 	],
+	// },
+	createLicenseCommand.toJSON(),
 ]
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN)

@@ -104,7 +104,4 @@ UPDATE plugins SET enabled = true WHERE plugin_name = 'levels';
 
 ## Support & Contribution
 
-Report issues or contribute via GitHub:
-https://github.com/your-repo
-
 [![Support Server](https://img.shields.io/discord/1234567890?label=Support%20Server)](https://discord.gg/RfBydgJpmU)

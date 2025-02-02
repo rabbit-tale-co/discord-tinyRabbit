@@ -23,10 +23,20 @@ const commandMap: Record<string, CommandStructure> = {
 		},
 	},
 
-	// Ticket system
-	send_embed: commands.ticket.sendEmbed,
+	// Ticket system - fix structure
+	send_embed: {
+		handler: commands.ticket.sendEmbed,
+	},
+
+	plugin: {
+		subcommands: {
+			create_license: commands.plugin.createLicense,
+			info: commands.plugin.info,
+		},
+	},
 
 	// Birthday tracking
+
 	bday: {
 		subcommands: {
 			set: commands.setBirthday,
