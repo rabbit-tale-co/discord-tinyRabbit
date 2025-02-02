@@ -449,6 +449,25 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 
 		// Set the metadata
 		thread_metadata_store.set(thread.id, metadata)
+
+		// Save the ticket metadata to the database
+		try {
+			await api.saveTicketMetadata(
+				interaction.client.user.id,
+				interaction.guild.id,
+				thread.id,
+				{
+					ticket_id, // already a number/string from getTicketCounter
+					opened_by: interaction.user.id, // save only the user id
+					open_time: metadata.open_time,
+					ticket_type,
+					claimed_by: 'Not claimed',
+				},
+				[] // messages are empty on ticket creation
+			)
+		} catch (dbError) {
+			bunnyLog.error('Failed to save ticket metadata to the database:', dbError)
+		}
 	} catch (error) {
 		const err =
 			error instanceof Error
@@ -664,20 +683,27 @@ async function closeThread(
 		)
 
 		// Get the metadata
-		const metadata = thread_metadata_store.get(thread.id)
-
-		// Check if the metadata is valid
+		let metadata = thread_metadata_store.get(thread.id) as ThreadMetadata
+		// Fallback: if not found in memory, try to fetch it from the database
 		if (!metadata) {
-			// Send an error if the metadata is not valid
-			await handleResponse(
-				interaction,
-				'error',
-				'No metadata found for the ticket.',
-				{
-					code: 'CT007',
-				}
-			)
-			return
+			metadata = (await api.getTicketMetadata(
+				interaction.client.user.id,
+				interaction.guild.id,
+				thread.id
+			)) as ThreadMetadata
+
+			// If still not found, handle accordingly
+			if (!metadata) {
+				await handleResponse(
+					interaction,
+					'error',
+					'No metadata found for the ticket.',
+					{
+						code: 'CT007',
+					}
+				)
+				return
+			}
 		}
 
 		// Get the placeholders

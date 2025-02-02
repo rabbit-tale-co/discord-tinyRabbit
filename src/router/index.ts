@@ -88,6 +88,8 @@ async function router(req: Request): Promise<Response> {
 		['/api/plugins/available', handleGetAvailablePlugins],
 		['/api/plugins/config', handleGetPluginConfig],
 		['/api/connectSocials/link', handleDiscordLink],
+		['/api/license/verify', handleLicenseVerify],
+		['/api/license/trial', handleLicenseTrial],
 	])
 
 	// Get the handler for the requested route
@@ -457,6 +459,54 @@ async function handleDiscordLink(req: Request): Promise<Response> {
 		// Log the error
 		bunnyLog.error('Error linking Minecraft account:', error)
 		return new Response('Error processing request', { status: 500 })
+	}
+}
+
+/**
+ * Handles the license verification request.
+ */
+async function handleLicenseVerify(req: Request): Promise<Response> {
+	if (req.method !== 'POST')
+		return new Response('Method Not Allowed', { status: 405 })
+	try {
+		const { licenseKey, botId } = await req.json()
+		if (!licenseKey || !botId)
+			return new Response('Missing licenseKey or botId', { status: 400 })
+
+		await API.LicenseManager.verifyLicense(licenseKey)
+		const resObj = {
+			valid: API.LicenseManager.premium,
+			trialActive: API.LicenseManager.trialActive,
+		}
+		const response = new Response(JSON.stringify(resObj), {
+			headers: { 'Content-Type': 'application/json' },
+		})
+		return setCorsHeaders(response)
+	} catch (error: any) {
+		bunnyLog.error('Error in handleLicenseVerify:', error)
+		return new Response('Internal Server Error', { status: 500 })
+	}
+}
+
+/**
+ * Handles the license trial check request.
+ */
+async function handleLicenseTrial(req: Request): Promise<Response> {
+	if (req.method !== 'POST')
+		return new Response('Method Not Allowed', { status: 405 })
+	try {
+		const { botId } = await req.json()
+		if (!botId) return new Response('Missing botId', { status: 400 })
+
+		await API.LicenseManager.checkTrialStatus()
+		const resObj = { valid: API.LicenseManager.trialActive }
+		const response = new Response(JSON.stringify(resObj), {
+			headers: { 'Content-Type': 'application/json' },
+		})
+		return setCorsHeaders(response)
+	} catch (error: any) {
+		bunnyLog.error('Error in handleLicenseTrial:', error)
+		return new Response('Internal Server Error', { status: 500 })
 	}
 }
 
