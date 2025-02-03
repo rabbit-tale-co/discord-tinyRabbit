@@ -88,8 +88,8 @@ const createEmbed = (
 
 			// Check if the button is valid
 			if (button_builder) {
-				// Check if the current row has more than 5 buttons
-				if (current_row.components.length >= 5) {
+				// Check if the current row has more than 4 buttons
+				if (current_row.components.length >= 4) {
 					// Add the current row to the action rows
 					action_rows.push(current_row)
 					current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
