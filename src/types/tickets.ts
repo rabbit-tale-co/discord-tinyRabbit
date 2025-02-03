@@ -23,11 +23,11 @@ interface ThreadMetadata {
 	join_ticket_message_id?: string | null
 	confirm_close_ticket_message_id?: string | null
 	admin_channel_id?: string | null
-	ticket_id: number
-	opened_by: Discord.User
+	ticket_id: string | number
+	opened_by: string
 	open_time: number
 	ticket_type: string
-	claimed_by?: Discord.User | null
+	claimed_by?: string | null
 }
 
 export type { Transcript, Attachment, ThreadMetadata }

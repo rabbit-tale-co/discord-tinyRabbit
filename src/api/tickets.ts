@@ -63,23 +63,17 @@ async function saveTranscriptToSupabase(
 	metadata: object
 ): Promise<void> {
 	try {
-		// Try to insert the transcript into the database
-		const { error } = await supabase.from('tickets').insert({
+		// Use upsert instead of insert to handle duplicate key violation
+		const { error } = await supabase.from('tickets').upsert({
 			bot_id,
 			guild_id,
 			thread_id,
 			messages: transcript,
 			metadata,
 		})
-
-		// Check if there is an error inserting the transcript
 		if (error) throw error
-
-		// Log the success
-		// bunnyLog.database(`Transcript for thread ${thread_id} saved successfully.`)
 	} catch (error) {
-		// Log the error
-		bunnyLog.error('Error saving transcript:', error)
+		bunnyLog.error('Error saving transcript to database:', error)
 		throw error
 	}
 }
@@ -209,7 +203,7 @@ async function saveTicketMetadata(
 			bot_id,
 			guild_id,
 			thread_id,
-			...ticketData,
+			metadata: ticketData,
 			messages,
 		})
 		if (error) throw error
@@ -240,7 +234,33 @@ async function getTicketMetadata(
 		bunnyLog.error('Failed to retrieve ticket metadata:', error)
 		return null
 	}
-	return data as ThreadMetadata
+	return data.metadata as ThreadMetadata
+}
+
+/**
+ * Updates the ticket metadata in the database.
+ * @param {string} bot_id - The bot's user ID.
+ * @param {string} guild_id - The guild ID.
+ * @param {string} thread_id - The ticket thread's ID.
+ * @param {ThreadMetadata} metadata - The new ticket metadata.
+ * @returns {Promise<void>}
+ */
+async function updateTicketMetadata(
+	bot_id: string,
+	guild_id: string,
+	thread_id: string,
+	metadata: ThreadMetadata
+): Promise<void> {
+	try {
+		const { error } = await supabase
+			.from('tickets')
+			.update({ metadata }) // update the JSONB metadata field
+			.match({ bot_id, guild_id, thread_id })
+		if (error) throw error
+	} catch (error) {
+		bunnyLog.error('Error updating ticket metadata:', error)
+		throw error
+	}
 }
 
 export {
@@ -251,4 +271,5 @@ export {
 	getTicketCounter,
 	incrementTicketCounter,
 	getTicketMetadata,
+	updateTicketMetadata,
 }

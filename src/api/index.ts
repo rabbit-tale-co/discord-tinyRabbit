@@ -14,7 +14,6 @@ export * from './totalXp.js'
 export * from './user.js'
 export * from './userRank.js'
 export * from './licenseManager.js'
-export * from './featureManager.js'
 
 // Newly added license endpoints:
 /** Export license verification endpoints */
@@ -26,4 +25,3 @@ export { checkHeartbeat } from './heartbeat/BotStatus.js'
 export { saveBirthday } from './bday.js'
 export { getGlobalRank, getServerRank } from './userRank.js'
 export { LicenseManager } from './licenseManager.js'
-export { FeatureManager } from './featureManager.js'
