@@ -100,6 +100,49 @@ async function interactionHandler(
 			)
 		}
 
+		// Handle select menu interactions
+		if (interaction.isStringSelectMenu()) {
+			try {
+				// Extract the selected value from the dropdown
+				const selectedValue = interaction.values[0]
+				// Override the interaction customId with the selected value so that openTicket gets the proper unique_id
+				;(interaction as any).customId = selectedValue
+
+				// Find a corresponding button handler by matching the selected value prefix
+				const handlerEntry = Object.entries(buttonInteractionHandlers).find(
+					([prefix]) => selectedValue.startsWith(prefix)
+				)
+
+				// Defer update if not already done
+				if (!interaction.deferred && !interaction.replied) {
+					await interaction.deferUpdate()
+				}
+
+				if (handlerEntry) {
+					// Execute the corresponding button handler (casting as needed)
+					const res = await handlerEntry[1](
+						interaction as unknown as Discord.ButtonInteraction
+					)
+					// Reset the select menu so the user can re-select the same option if needed
+					try {
+						await interaction.message.edit({
+							components: interaction.message.components,
+						})
+					} catch (err) {
+						bunnyLog.error('Error resetting select menu', err)
+					}
+					return res
+				}
+				bunnyLog.warn(
+					'No handler found for select menu interaction with value:',
+					selectedValue
+				)
+				return
+			} catch (error) {
+				bunnyLog.error('Error handling select menu interaction', error)
+			}
+		}
+
 		// Handle modal submissions
 		if (interaction.isModalSubmit()) {
 			return await commands.ticket.modalSubmit(

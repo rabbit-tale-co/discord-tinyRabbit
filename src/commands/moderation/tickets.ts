@@ -45,7 +45,9 @@ const createEmbed = (
 	placeholders: Record<string, string | number>
 ): {
 	embed: Discord.EmbedBuilder
-	action_rows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[]
+	action_rows: Discord.ActionRowBuilder<
+		Discord.ButtonBuilder | Discord.StringSelectMenuBuilder
+	>[]
 } => {
 	// Process embed config
 	const processed_config = {
@@ -75,34 +77,50 @@ const createEmbed = (
 	const embed = new Discord.EmbedBuilder(processed_config)
 
 	// Create the action rows
-	const action_rows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] = []
+	const action_rows: Discord.ActionRowBuilder<
+		Discord.ButtonBuilder | Discord.StringSelectMenuBuilder
+	>[] = []
 
-	// Process buttons
+	// Process buttons or select menu based on the number of buttons available
 	if (embed_config.buttons_map?.length) {
-		// Create the current row
-		let current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+		if (embed_config.buttons_map.length > 3) {
+			// Create a dropdown (select menu) for more than 3 buttons
+			const selectMenu = new Discord.StringSelectMenuBuilder()
+				.setCustomId(
+					`${embed_config.buttons_map[0].unique_id}_${placeholders.thread_id || 'main'}`
+				)
+				.setPlaceholder('Select an option')
+				.setMinValues(1)
+				.setMaxValues(1)
+			// Convert each button into a select menu option
+			const options = embed_config.buttons_map.map((button, index) => ({
+				label: button.label,
+				value: `${button.unique_id}_${placeholders.thread_id || 'main'}_${index}`,
+			}))
+			selectMenu.setOptions(options)
 
-		// Process each button
-		embed_config.buttons_map.forEach((button, index) => {
-			const button_builder = createButton(button, placeholders, index)
-
-			// Check if the button is valid
-			if (button_builder) {
-				// Check if the current row has more than 3 buttons
-				if (current_row.components.length >= 3) {
-					// Add the current row to the action rows
-					action_rows.push(current_row)
-					current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+			// Add the select menu to a new action row
+			const selectRow =
+				new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+					selectMenu
+				)
+			action_rows.push(selectRow)
+		} else {
+			// Use individual buttons for 3 or fewer options
+			let current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+			embed_config.buttons_map.forEach((button, index) => {
+				const button_builder = createButton(button, placeholders, index)
+				if (button_builder) {
+					if (current_row.components.length >= 3) {
+						action_rows.push(current_row)
+						current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+					}
+					current_row.addComponents(button_builder)
 				}
-
-				// Add the button to the current row
-				current_row.addComponents(button_builder)
+			})
+			if (current_row.components.length > 0) {
+				action_rows.push(current_row)
 			}
-		})
-
-		// Add the last row if it has components
-		if (current_row.components.length > 0) {
-			action_rows.push(current_row)
 		}
 	}
 
@@ -243,8 +261,10 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Defer the reply
-		await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+		// Defer the reply if not already deferred
+		if (!interaction.deferred && !interaction.replied) {
+			await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+		}
 
 		// Get the plugin config
 		const config = await api.getPluginConfig(
@@ -328,12 +348,24 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Add the user to the thread
 		await thread.members.add(interaction.user.id)
 
-		// Get the ticket type
+		// Get the ticket type by matching if the interaction customId starts with the button's unique_id
 		const ticket_type = config.embeds?.open_ticket?.buttons_map
-			? config.embeds.open_ticket.buttons_map.find(
-					(button) => button.unique_id === interaction.customId
+			? config.embeds.open_ticket.buttons_map.find((button) =>
+					interaction.customId.startsWith(button.unique_id)
 				)?.label ?? 'General Support'
 			: 'General Support'
+
+		// Get the closed by as full message author info
+		const closedByInfo = {
+			id: interaction.user.id,
+			avatar: interaction.user.displayAvatarURL({
+				extension: interaction.user.avatar?.startsWith('a_') ? 'gif' : 'png',
+			}),
+			username: interaction.user.username,
+			displayName:
+				(interaction.member as Discord.GuildMember)?.displayName ??
+				interaction.user.username,
+		}
 
 		// Get the placeholders
 		const placeholders = {
@@ -343,6 +375,8 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			thread_id: thread.id,
 			category: ticket_type,
 			claimed_by: 'Not claimed',
+			closed_by: `<@${closedByInfo.id}>`,
+			open_time: Math.floor(Date.now() / 1000),
 		}
 
 		// Create the embed and action rows
@@ -371,25 +405,31 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			components: ticket_action_row ? ticket_action_row : [],
 		})
 
-		// Send the reply embed
+		// Send a new ephemeral follow-up message notifying that the ticket was created.
 		const { embed: reply_embed } = createEmbed(
 			config.embeds.user_ticket as unknown as TicketEmbedConfig,
 			placeholders
 		)
+		await interaction.followUp({ embeds: [reply_embed], ephemeral: true })
+		await api.incrementTicketCounter(
+			interaction.client.user.id,
+			interaction.guild.id
+		)
 
-		// Send the reply embed
-		await Promise.all([
-			interaction.editReply({ embeds: [reply_embed] }),
-			api.incrementTicketCounter(
-				interaction.client.user.id,
-				interaction.guild.id
-			),
-		])
-
-		// Create the metadata (store opened_by as user id string)
+		// Create the metadata (store opened_by as message author info)
 		const metadata: ThreadMetadata = {
 			ticket_id,
-			opened_by: interaction.user.id,
+			opened_by: {
+				id: interaction.user.id,
+				avatar: interaction.user.displayAvatarURL({
+					extension: interaction.user.avatar?.startsWith('a_') ? 'gif' : 'png',
+				}),
+				username: interaction.user.username,
+				displayName:
+					interaction.member && 'displayName' in interaction.member
+						? (interaction.member as Discord.GuildMember).displayName
+						: interaction.user.username,
+			},
 			open_time: Math.floor(Date.now() / 1000),
 			ticket_type,
 		}
@@ -457,7 +497,19 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			thread.id,
 			{
 				ticket_id, // already a number/string from getTicketCounter
-				opened_by: interaction.user.id,
+				opened_by: {
+					id: interaction.user.id,
+					avatar: interaction.user.displayAvatarURL({
+						extension: interaction.user.avatar?.startsWith('a_')
+							? 'gif'
+							: 'png',
+					}),
+					username: interaction.user.username,
+					displayName:
+						interaction.member && 'displayName' in interaction.member
+							? (interaction.member as Discord.GuildMember).displayName
+							: interaction.user.username,
+				},
 				open_time: metadata.open_time,
 				ticket_type,
 				claimed_by: 'Not claimed',
@@ -704,18 +756,32 @@ async function closeThread(
 			}
 		}
 
+		// Get the closed by as full message author info
+		const closedByInfo = {
+			id: interaction.user.id,
+			avatar: interaction.user.displayAvatarURL({
+				extension: interaction.user.avatar?.startsWith('a_') ? 'gif' : 'png',
+			}),
+			username: interaction.user.username,
+			displayName:
+				(interaction.member as Discord.GuildMember)?.displayName ??
+				interaction.user.username,
+		}
+
 		// Get the placeholders
 		const placeholders = {
 			ticket_id: metadata?.ticket_id || 'Unknown',
-			opened_by: metadata?.opened_by?.toString() || 'Unknown',
-			closed_by: interaction.user.toString(),
+			opened_by: metadata?.opened_by
+				? `<@${metadata.opened_by.id}>`
+				: 'Unknown',
+			closed_by: `<@${closedByInfo.id}>`,
 			open_time: metadata?.open_time
 				? new Date(metadata.open_time * 1000).toLocaleString()
 				: 'Unknown',
 			claimed_by:
-				metadata?.claimed_by && /^\d+$/.test(metadata.claimed_by)
-					? `<@${metadata.claimed_by}>`
-					: metadata.claimed_by || 'Not claimed',
+				typeof metadata?.claimed_by === 'object'
+					? `<@${metadata.claimed_by.id}>`
+					: metadata?.claimed_by || 'Not claimed',
 			reason: reason,
 			close_time: new Date().toLocaleString(),
 			category: metadata?.ticket_type || 'Unknown',
@@ -849,16 +915,23 @@ async function sendTranscript(
 
 	// Get the opened by
 	const claimed_by =
-		metadata?.claimed_by && /^\d+$/.test(metadata.claimed_by)
-			? `<@${metadata.claimed_by}>`
-			: metadata.claimed_by || 'Not claimed'
+		typeof metadata?.claimed_by === 'object'
+			? `<@${metadata.claimed_by.id}>`
+			: metadata?.claimed_by || 'Not claimed'
 
-	// Get the closed by
-	const opened_by: string =
-		typeof metadata?.opened_by === 'string'
-			? metadata.opened_by
-			: interaction.user.id
-	const closed_by = interaction.user
+	// Get the closed by as full message author info
+	const closedByInfo = {
+		id: interaction.user.id,
+		avatar: interaction.user.displayAvatarURL({
+			extension: interaction.user.avatar?.startsWith('a_') ? 'gif' : 'png',
+		}),
+		username: interaction.user.username,
+		displayName:
+			(interaction.member as Discord.GuildMember)?.displayName ??
+			interaction.user.username,
+	}
+
+	// Get the open time
 	const open_time = metadata?.open_time || Math.floor(Date.now() / 1000)
 	const closeTime = new Date()
 	const ticket_type = metadata?.ticket_type || 'Unknown'
@@ -872,7 +945,7 @@ async function sendTranscript(
 	// Create the transcript metadata by merging stored metadata with new transcript details.
 	const transcriptMetadata = {
 		...metadata,
-		closed_by: closed_by.id,
+		closed_by: closedByInfo,
 		close_time: closeTime,
 		reason: reason,
 	}
@@ -895,8 +968,8 @@ async function sendTranscript(
 	// Get the placeholders
 	const placeholders = {
 		ticket_id: metadata?.ticket_id || 'Unknown',
-		opened_by: `<@${opened_by}>`,
-		closed_by: `<@${closed_by.id}>`,
+		opened_by: `<@${metadata?.opened_by?.id}>`,
+		closed_by: `<@${closedByInfo.id}>`,
 		open_time: `<t:${open_time}:f>`,
 		claimed_by: claimed_by,
 		reason: reason,
@@ -1104,8 +1177,18 @@ async function claimTicket(
 		thread_metadata_store.set(thread.id, metadata)
 	}
 
-	// Set the claimed by as a user id string
-	metadata.claimed_by = interaction.user.id
+	// Set the claimed by as message author info
+	metadata.claimed_by = {
+		id: interaction.user.id,
+		avatar: interaction.user.displayAvatarURL({
+			extension: interaction.user.avatar?.startsWith('a_') ? 'gif' : 'png',
+		}),
+		username: interaction.user.username,
+		displayName:
+			interaction.member && 'displayName' in interaction.member
+				? (interaction.member as Discord.GuildMember).displayName
+				: interaction.user.username,
+	}
 
 	// Set the metadata in memory and update the database
 	thread_metadata_store.set(thread.id, metadata)
