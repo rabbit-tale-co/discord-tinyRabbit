@@ -105,32 +105,26 @@ async function interactionHandler(
 			try {
 				// Extract the selected value from the dropdown
 				const selectedValue = interaction.values[0]
+				// Override the interaction customId with the selected value so that openTicket gets the proper unique_id
+				;(interaction as any).customId = selectedValue
 
 				// Find a corresponding button handler by matching the selected value prefix
 				const handlerEntry = Object.entries(buttonInteractionHandlers).find(
 					([prefix]) => selectedValue.startsWith(prefix)
 				)
 
-				// Only defer if the interaction hasn't been already deferred or replied
+				// Defer update if not already done
 				if (!interaction.deferred && !interaction.replied) {
-					try {
-						await interaction.deferUpdate()
-					} catch (e) {
-						// Ignore the error if the reply is already deferred/sent
-						if (!e.message.includes('already been sent or deferred')) {
-							throw e
-						}
-					}
+					await interaction.deferUpdate()
 				}
 
 				if (handlerEntry) {
-					// Execute the corresponding button handler (casting the interaction as needed)
+					// Execute the corresponding button handler (casting as needed)
 					const res = await handlerEntry[1](
 						interaction as unknown as Discord.ButtonInteraction
 					)
-					// Reset the select menu so the user can select the same option again.
+					// Reset the select menu so the user can re-select the same option if needed
 					try {
-						// Re-edit the original message with the same components to clear any selection.
 						await interaction.message.edit({
 							components: interaction.message.components,
 						})
@@ -139,7 +133,6 @@ async function interactionHandler(
 					}
 					return res
 				}
-				// No matching handler found, so just log a warning
 				bunnyLog.warn(
 					'No handler found for select menu interaction with value:',
 					selectedValue
