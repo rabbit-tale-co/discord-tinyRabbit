@@ -793,14 +793,12 @@ async function closeThread(
 			placeholders
 		)
 
-		await Promise.all([
-			thread.send({ embeds: [closeEmbed] }),
-			sendTranscript(interaction, reason),
+		await thread.send({ embeds: [closeEmbed] })
+		await sendTranscript(interaction, reason)
 
-			// Set the thread to locked and archived
-			thread.setLocked(true),
-			thread.setArchived(true),
-		])
+		// Set the thread to locked and archived
+		await thread.setLocked(true)
+		await thread.setArchived(true)
 
 		// Check if the admin channel is set
 		if (metadata?.join_ticket_message_id && metadata.admin_channel_id) {
