@@ -45,7 +45,7 @@ const createEmbed = (
 	placeholders: Record<string, string | number>
 ): {
 	embed: Discord.EmbedBuilder
-	action_rows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[]
+	action_rows: Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>[]
 } => {
 	// Process embed config
 	const processed_config = {
@@ -75,34 +75,51 @@ const createEmbed = (
 	const embed = new Discord.EmbedBuilder(processed_config)
 
 	// Create the action rows
-	const action_rows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] = []
+	const action_rows: Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>[] =
+		[]
 
-	// Process buttons
+	// Process buttons or select menu based on the number of buttons available
 	if (embed_config.buttons_map?.length) {
-		// Create the current row
-		let current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+		if (embed_config.buttons_map.length > 3) {
+			// Create a dropdown (select menu) for more than 3 buttons
+			const selectMenu = new Discord.StringSelectMenuBuilder()
+				.setCustomId(
+					`${embed_config.buttons_map[0].unique_id}_${placeholders.thread_id || 'main'}`
+				)
+				.setPlaceholder('Select an option')
+				.setMinValues(1)
+				.setMaxValues(1)
 
-		// Process each button
-		embed_config.buttons_map.forEach((button, index) => {
-			const button_builder = createButton(button, placeholders, index)
+			// Convert each button into a select menu option
+			const options = embed_config.buttons_map.map((button, index) => ({
+				label: button.label,
+				value: `${button.unique_id}_${placeholders.thread_id || 'main'}_${index}`,
+				// Optional: description: button.description if needed
+			}))
+			selectMenu.setOptions(options)
 
-			// Check if the button is valid
-			if (button_builder) {
-				// Check if the current row has more than 3 buttons
-				if (current_row.components.length >= 3) {
-					// Add the current row to the action rows
-					action_rows.push(current_row)
-					current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+			// Add the select menu to a new action row
+			const selectRow =
+				new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+					selectMenu
+				)
+			action_rows.push(selectRow)
+		} else {
+			// Use individual buttons for 3 or fewer options
+			let current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+			embed_config.buttons_map.forEach((button, index) => {
+				const button_builder = createButton(button, placeholders, index)
+				if (button_builder) {
+					if (current_row.components.length >= 3) {
+						action_rows.push(current_row)
+						current_row = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+					}
+					current_row.addComponents(button_builder)
 				}
-
-				// Add the button to the current row
-				current_row.addComponents(button_builder)
+			})
+			if (current_row.components.length > 0) {
+				action_rows.push(current_row)
 			}
-		})
-
-		// Add the last row if it has components
-		if (current_row.components.length > 0) {
-			action_rows.push(current_row)
 		}
 	}
 
@@ -228,6 +245,11 @@ async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
  * @param interaction - The interaction to open the ticket
  */
 async function openTicket(interaction: Discord.ButtonInteraction) {
+	// Defer the reply if not already deferred
+	if (!interaction.deferred && !interaction.replied) {
+		await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+	}
+
 	try {
 		// Check if the interaction is in a guild
 		if (!interaction.guild) {
@@ -242,9 +264,6 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			)
 			return
 		}
-
-		// Defer the reply
-		await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
 
 		// Get the plugin config
 		const config = await api.getPluginConfig(
@@ -328,10 +347,15 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Add the user to the thread
 		await thread.members.add(interaction.user.id)
 
-		// Get the ticket type
+		// Determine the effective custom ID: if the interaction comes from a select menu,
+		// use the selected value; otherwise, use interaction.customId.
+		const effectiveId = (interaction as any).values
+			? (interaction as any).values[0]
+			: interaction.customId
+		// Get the ticket type based on the effective custom ID's prefix
 		const ticket_type = config.embeds?.open_ticket?.buttons_map
-			? config.embeds.open_ticket.buttons_map.find(
-					(button) => button.unique_id === interaction.customId
+			? config.embeds.open_ticket.buttons_map.find((button) =>
+					effectiveId.startsWith(button.unique_id)
 				)?.label ?? 'General Support'
 			: 'General Support'
 
@@ -377,14 +401,8 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			placeholders
 		)
 
-		// Send the reply embed
-		await Promise.all([
-			interaction.editReply({ embeds: [reply_embed] }),
-			api.incrementTicketCounter(
-				interaction.client.user.id,
-				interaction.guild.id
-			),
-		])
+		// Send a new ephemeral follow-up message notifying that the ticket was created.
+		await interaction.followUp({ embeds: [reply_embed], ephemeral: true })
 
 		// Create the metadata (store opened_by as user id string)
 		const metadata: ThreadMetadata = {

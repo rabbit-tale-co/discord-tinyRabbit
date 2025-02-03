@@ -100,6 +100,56 @@ async function interactionHandler(
 			)
 		}
 
+		// Handle select menu interactions
+		if (interaction.isStringSelectMenu()) {
+			try {
+				// Extract the selected value from the dropdown
+				const selectedValue = interaction.values[0]
+
+				// Find a corresponding button handler by matching the selected value prefix
+				const handlerEntry = Object.entries(buttonInteractionHandlers).find(
+					([prefix]) => selectedValue.startsWith(prefix)
+				)
+
+				// Only defer if the interaction hasn't been already deferred or replied
+				if (!interaction.deferred && !interaction.replied) {
+					try {
+						await interaction.deferUpdate()
+					} catch (e) {
+						// Ignore the error if the reply is already deferred/sent
+						if (!e.message.includes('already been sent or deferred')) {
+							throw e
+						}
+					}
+				}
+
+				if (handlerEntry) {
+					// Execute the corresponding button handler (casting the interaction as needed)
+					const res = await handlerEntry[1](
+						interaction as unknown as Discord.ButtonInteraction
+					)
+					// Reset the select menu so the user can select the same option again.
+					try {
+						// Re-edit the original message with the same components to clear any selection.
+						await interaction.message.edit({
+							components: interaction.message.components,
+						})
+					} catch (err) {
+						bunnyLog.error('Error resetting select menu', err)
+					}
+					return res
+				}
+				// No matching handler found, so just log a warning
+				bunnyLog.warn(
+					'No handler found for select menu interaction with value:',
+					selectedValue
+				)
+				return
+			} catch (error) {
+				bunnyLog.error('Error handling select menu interaction', error)
+			}
+		}
+
 		// Handle modal submissions
 		if (interaction.isModalSubmit()) {
 			return await commands.ticket.modalSubmit(
