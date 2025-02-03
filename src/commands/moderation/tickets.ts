@@ -386,10 +386,10 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			),
 		])
 
-		// Create the metadata
+		// Create the metadata (store opened_by as user id string)
 		const metadata: ThreadMetadata = {
 			ticket_id,
-			opened_by: interaction.user,
+			opened_by: interaction.user.id,
 			open_time: Math.floor(Date.now() / 1000),
 			ticket_type,
 		}
@@ -450,24 +450,22 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Set the metadata
 		thread_metadata_store.set(thread.id, metadata)
 
-		// Save the ticket metadata to the database
-		try {
-			await api.saveTicketMetadata(
-				interaction.client.user.id,
-				interaction.guild.id,
-				thread.id,
-				{
-					ticket_id, // already a number/string from getTicketCounter
-					opened_by: interaction.user.id, // save only the user id
-					open_time: metadata.open_time,
-					ticket_type,
-					claimed_by: 'Not claimed',
-				},
-				[] // messages are empty on ticket creation
-			)
-		} catch (dbError) {
-			bunnyLog.error('Failed to save ticket metadata to the database:', dbError)
-		}
+		// Save the ticket metadata to the database (include admin message info if set)
+		await api.saveTicketMetadata(
+			interaction.client.user.id,
+			interaction.guild.id,
+			thread.id,
+			{
+				ticket_id, // already a number/string from getTicketCounter
+				opened_by: interaction.user.id,
+				open_time: metadata.open_time,
+				ticket_type,
+				claimed_by: 'Not claimed',
+				join_ticket_message_id: metadata.join_ticket_message_id, // if set
+				admin_channel_id: config.admin_channel_id, // if set
+			},
+			[] // messages are empty on ticket creation
+		)
 	} catch (error) {
 		const err =
 			error instanceof Error
@@ -714,7 +712,10 @@ async function closeThread(
 			open_time: metadata?.open_time
 				? new Date(metadata.open_time * 1000).toLocaleString()
 				: 'Unknown',
-			claimed_by: metadata?.claimed_by?.toString() || 'Not claimed',
+			claimed_by:
+				metadata?.claimed_by && /^\d+$/.test(metadata.claimed_by)
+					? `<@${metadata.claimed_by}>`
+					: metadata.claimed_by || 'Not claimed',
 			reason: reason,
 			close_time: new Date().toLocaleString(),
 			category: metadata?.ticket_type || 'Unknown',
@@ -737,22 +738,20 @@ async function closeThread(
 
 		// Check if the admin channel is set
 		if (metadata?.join_ticket_message_id && metadata.admin_channel_id) {
-			const adminChannel = (await interaction.guild.channels.fetch(
-				metadata.admin_channel_id
-			)) as Discord.TextChannel
-
-			// Check if the admin channel is valid
-			if (adminChannel?.isTextBased()) {
-				// Fetch the join ticket message
-				const joinTicketMessage = await adminChannel.messages.fetch(
-					metadata.join_ticket_message_id
-				)
-
-				// Delete the join ticket message
-				await joinTicketMessage?.delete()
+			try {
+				const adminChannel = (await interaction.guild.channels.fetch(
+					metadata.admin_channel_id
+				)) as Discord.TextChannel
+				if (adminChannel?.isTextBased()) {
+					const joinTicketMessage = await adminChannel.messages.fetch(
+						metadata.join_ticket_message_id
+					)
+					if (joinTicketMessage) await joinTicketMessage.delete()
+				}
+			} catch (fetchError) {
+				bunnyLog.error('Error fetching or deleting admin message:', fetchError)
 			}
-
-			// Delete the metadata
+			// Delete the in-memory metadata (you may also want to update the DB record accordingly)
 			thread_metadata_store.delete(thread.id)
 		}
 	} catch (error) {
@@ -826,17 +825,39 @@ async function sendTranscript(
 		return
 	}
 
-	// Get the metadata
-	const metadata = thread_metadata_store.get(channel.id)
-
-	// Get the ticket id
-	const ticket_id = metadata?.ticket_id || 'Unknown'
+	// Get the metadata with fallback to the database if missing
+	let metadata = thread_metadata_store.get(channel.id) as
+		| ThreadMetadata
+		| undefined
+	if (!metadata) {
+		metadata = (await api.getTicketMetadata(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			channel.id
+		)) as ThreadMetadata | null
+		if (!metadata) {
+			await handleResponse(
+				interaction,
+				'warning',
+				'Ticket metadata not found in memory or database. Transcript cannot include ticket id.',
+				{ code: 'CT011' }
+			)
+			return
+		}
+	}
+	const ticket_id = metadata.ticket_id
 
 	// Get the opened by
-	const claimed_by = metadata?.claimed_by || 'Not assigned'
+	const claimed_by =
+		metadata?.claimed_by && /^\d+$/.test(metadata.claimed_by)
+			? `<@${metadata.claimed_by}>`
+			: metadata.claimed_by || 'Not claimed'
 
 	// Get the closed by
-	const opened_by = metadata?.opened_by || interaction.user
+	const opened_by: string =
+		typeof metadata?.opened_by === 'string'
+			? metadata.opened_by
+			: interaction.user.id
 	const closed_by = interaction.user
 	const open_time = metadata?.open_time || Math.floor(Date.now() / 1000)
 	const closeTime = new Date()
@@ -848,16 +869,12 @@ async function sendTranscript(
 	// Format the transcript
 	const formattedTranscript = api.formatTranscript(messages)
 
-	// Create the transcript metadata
+	// Create the transcript metadata by merging stored metadata with new transcript details.
 	const transcriptMetadata = {
-		ticket_id: ticket_id,
-		opened_by: opened_by.id,
+		...metadata,
 		closed_by: closed_by.id,
-		open_time: new Date(open_time * 1000),
 		close_time: closeTime,
 		reason: reason,
-		ticket_type: ticket_type,
-		claimed_by: claimed_by instanceof Discord.User ? claimed_by.id : claimed_by,
 	}
 
 	// Save the transcript to the database
@@ -878,11 +895,10 @@ async function sendTranscript(
 	// Get the placeholders
 	const placeholders = {
 		ticket_id: metadata?.ticket_id || 'Unknown',
-		opened_by: opened_by.toString(),
-		closed_by: closed_by.toString(),
+		opened_by: `<@${opened_by}>`,
+		closed_by: `<@${closed_by.id}>`,
 		open_time: `<t:${open_time}:f>`,
-		claimed_by:
-			claimed_by instanceof Discord.User ? claimed_by.toString() : claimed_by,
+		claimed_by: claimed_by,
 		reason: reason,
 		close_time: closeTime.toLocaleString(),
 		category: ticket_type,
@@ -1064,28 +1080,41 @@ async function claimTicket(
 		return
 	}
 
-	// Get the metadata
-	const metadata = thread_metadata_store.get(thread.id)
-
-	// Check if the metadata is valid
+	// Get the metadata from the in-memory store or fallback to the database
+	let metadata = thread_metadata_store.get(thread.id) as
+		| ThreadMetadata
+		| undefined
 	if (!metadata) {
-		// Send an error if the metadata is not valid
-		await handleResponse(
-			interaction,
-			'error',
-			'No metadata found for the thread.',
-			{
-				code: 'CT007',
-			}
-		)
-		return
+		metadata = (await api.getTicketMetadata(
+			interaction.client.user.id,
+			interaction.guild.id,
+			thread.id
+		)) as ThreadMetadata | null
+		if (!metadata) {
+			await handleResponse(
+				interaction,
+				'error',
+				'No metadata found for the thread.',
+				{
+					code: 'CT007',
+				}
+			)
+			return
+		}
+		thread_metadata_store.set(thread.id, metadata)
 	}
 
-	// Set the claimed by
-	metadata.claimed_by = interaction.user
+	// Set the claimed by as a user id string
+	metadata.claimed_by = interaction.user.id
 
-	// Set the metadata
+	// Set the metadata in memory and update the database
 	thread_metadata_store.set(thread.id, metadata)
+	await api.updateTicketMetadata(
+		interaction.client.user.id,
+		interaction.guild.id,
+		thread.id,
+		metadata
+	)
 
 	// Get the message
 	const message = await interaction.message.fetch()

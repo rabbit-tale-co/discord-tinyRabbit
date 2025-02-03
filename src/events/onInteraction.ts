@@ -28,12 +28,12 @@ const commandMap: Record<string, CommandStructure> = {
 		handler: commands.ticket.sendEmbed,
 	},
 
-	plugin: {
-		subcommands: {
-			create_license: commands.plugin.createLicense,
-			info: commands.plugin.info,
-		},
-	},
+	// plugin: {
+	// 	subcommands: {
+	// 		create_license: commands.plugin.createLicense,
+	// 		info: commands.plugin.info,
+	// 	},
+	// },
 
 	// Birthday tracking
 
