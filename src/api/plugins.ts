@@ -346,42 +346,39 @@ async function saveGuildPlugins(
  * @param {Discord.Client} client - The Discord client object.
  */
 async function updateMissingPlugins(client: Discord.Client): Promise<void> {
-	// Check if the client is logged in
-	if (!client.user) throw new Error('Client not logged in')
-
 	// Get the guilds
 	const guilds = client.guilds.cache
 
-	// Loop through the guilds
-	for (const guild of guilds.values()) {
-		// Get the current plugins
-		const current_plugins = await getGuildPlugins(client.user.id, guild.id)
+	// Process each guild concurrently and return 1 if plugins were initialized, 0 otherwise.
+	const updateResults = await Promise.all(
+		[...guilds.values()].map(async (guild) => {
+			const current_plugins = await getGuildPlugins(client.user.id, guild.id)
+			const missing_plugins = Object.keys(default_configs).filter(
+				(plugin_name) =>
+					!current_plugins.some(
+						(plugin) =>
+							plugin.id === (plugin_name as keyof Types.DefaultConfigs)
+					)
+			)
 
-		// Get the missing plugins
-		const missing_plugins = Object.keys(default_configs).filter(
-			(plugin_name) =>
-				!current_plugins.some(
-					(plugin) => plugin.id === (plugin_name as keyof Types.DefaultConfigs)
+			if (missing_plugins.length > 0) {
+				await saveGuildPlugins(
+					client,
+					guild.id,
+					missing_plugins.map((plugin_name) => ({
+						name: plugin_name as keyof Types.DefaultConfigs,
+						config: default_configs[plugin_name as keyof Types.DefaultConfigs],
+					}))
 				)
-		)
+				return 1
+			}
+			return 0
+		})
+	)
 
-		// If there are missing plugins, save them
-		if (missing_plugins.length > 0) {
-			await saveGuildPlugins(
-				client,
-				guild.id,
-				missing_plugins.map((plugin_name) => ({
-					name: plugin_name as keyof Types.DefaultConfigs,
-					config: default_configs[plugin_name as keyof Types.DefaultConfigs],
-				}))
-			)
-
-			// Log the success
-			bunnyLog.database(
-				`Initialized missing plugins for guild ${guild.name} (${guild.id})`
-			)
-		}
-	}
+	// Aggregate the results and log a single summary line.
+	const updatedCount = updateResults.reduce((sum, curr) => sum + curr, 0)
+	bunnyLog.database(`Initialized missing plugins for ${updatedCount} guild(s)`)
 }
 
 /**

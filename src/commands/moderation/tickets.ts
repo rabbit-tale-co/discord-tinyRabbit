@@ -3,7 +3,6 @@ import * as api from '@/api/index.js'
 import * as utils from '@/utils/index.js'
 import { bunnyLog } from 'bunny-log'
 import type { ThreadMetadata } from '@/types/tickets.js'
-import { handleResponse } from '../../utils/responses.js'
 
 const thread_metadata_store = new Map<string, ThreadMetadata>()
 
@@ -177,7 +176,7 @@ async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
 	// Check if the channel is a valid text channel
 	if (!target_channel?.isTextBased()) {
 		// If the channel is not a valid text channel, send an error
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'The specified channel is not a valid text channel. Please select a text channel where messages can be sent.',
@@ -197,7 +196,7 @@ async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
 
 	// Check if the config is valid
 	if (!config) {
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'warning',
 			'No configuration found for the tickets plugin.',
@@ -230,7 +229,7 @@ async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
 		await interaction.editReply('Embed sent successfully.')
 	} catch (error) {
 		// Send an error message
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			"Failed to send the embed. Please check the bot's permissions in the target channel and try again.",
@@ -250,7 +249,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Check if the interaction is in a guild
 		if (!interaction.guild) {
 			// Send an error if the interaction is not in a guild
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'This command can only be used in a server.',
@@ -258,6 +257,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 					code: 'OT005',
 				}
 			)
+
 			return
 		}
 
@@ -276,7 +276,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Check if the config is valid
 		if (!config) {
 			// Send an error if the config is not valid
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'No configuration found for the tickets plugin.',
@@ -289,7 +289,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 
 		// Check if the feature is enabled
 		if (!config.enabled) {
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'The tickets feature is currently disabled on this server.',
@@ -309,7 +309,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Check if the ticket counter is valid
 		if (!ticket_id) {
 			// Send an error if the ticket counter is not valid
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'An error occurred while getting the ticket counter.',
@@ -326,7 +326,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Check if the interaction is in a text channel
 		if (!(interaction.channel instanceof Discord.TextChannel)) {
 			// Send an error if the interaction is not in a text channel
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'This command can only be used in a text channel.',
@@ -388,7 +388,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Check if the embed is valid
 		if (!config.embeds?.opened_ticket) {
 			// Send an error if the embed is not valid
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'No opened ticket embed found in the configuration.',
@@ -471,7 +471,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 				metadata.join_ticket_message_id = admin_message.id
 				metadata.admin_channel_id = config.admin_channel_id
 			} catch (channelError) {
-				await handleResponse(
+				await utils.handleResponse(
 					interaction,
 					'warning',
 					'Failed to notify admin channel but ticket was created',
@@ -528,7 +528,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 							: String(error)
 					)
 
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			`Ticket creation failed: ${err.message}`,
@@ -551,7 +551,7 @@ async function closeTicketWithReason(
 	// Check if the interaction is in a guild
 	if (!interaction.guild) {
 		// Send an error if the interaction is not in a guild
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'This command can only be used in a server.',
@@ -570,7 +570,7 @@ async function closeTicketWithReason(
 		!permissions?.has(Discord.PermissionsBitField.Flags.ManageChannels)
 	) {
 		// Send an error if the user does not have the necessary permissions
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'You do not have permission to close this ticket.',
@@ -612,7 +612,7 @@ async function closeTicket(
 	// Check if the interaction is in a guild
 	if (!interaction.guild) {
 		// Send an error if the interaction is not in a guild
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'This command can only be used in a server.',
@@ -635,7 +635,7 @@ async function closeTicket(
 		!permissions?.has(Discord.PermissionsBitField.Flags.ManageChannels)
 	) {
 		// Send an error if the user does not have the necessary permissions
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'You do not have permission to close this ticket.',
@@ -666,7 +666,7 @@ async function closeTicket(
 
 	// Check if the embed is valid
 	if (!config.embeds?.confirm_close_ticket) {
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'No confirm close ticket embed found in the configuration.',
@@ -696,7 +696,7 @@ async function closeThread(
 	// Check if the interaction is in a guild
 	if (!interaction.guild) {
 		// Send an error if the interaction is not in a guild
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'This command can only be used in a server.',
@@ -713,7 +713,7 @@ async function closeThread(
 	// Check if the thread is a thread
 	if (!thread?.isThread()) {
 		// Send an error if the thread is not a thread
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'The found channel is not a thread.',
@@ -744,7 +744,7 @@ async function closeThread(
 
 			// If still not found, handle accordingly
 			if (!metadata) {
-				await handleResponse(
+				await utils.handleResponse(
 					interaction,
 					'error',
 					'No metadata found for the ticket.',
@@ -820,7 +820,7 @@ async function closeThread(
 		}
 	} catch (error) {
 		// Send an error if an error occurs
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'An error occurred while closing the ticket.',
@@ -850,7 +850,7 @@ async function sendTranscript(
 	// Check if the transcript channel is set
 	if (!config?.transcript_channel_id) {
 		// Send an error if the transcript channel is not set
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'warning',
 			'No transcript channel found in the configuration.',
@@ -878,7 +878,7 @@ async function sendTranscript(
 		channel.type !== Discord.ChannelType.PrivateThread
 	) {
 		// Send an error if the thread is not a thread
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'warning',
 			'The found channel is not a thread.',
@@ -900,7 +900,7 @@ async function sendTranscript(
 			channel.id
 		)) as ThreadMetadata | null
 		if (!metadata) {
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'warning',
 				'Ticket metadata not found in memory or database. Transcript cannot include ticket id.',
@@ -987,7 +987,7 @@ async function sendTranscript(
 	// Check if the embed is valid
 	if (!config.embeds?.transcript) {
 		// Send an error if the embed is not valid
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'warning',
 			'No transcript embed found in the configuration.',
@@ -1035,9 +1035,14 @@ async function joinTicket(
 
 	// Check if the thread id is valid
 	if (!threadId) {
-		await handleResponse(interaction, 'error', 'Unable to find thread ID.', {
-			code: 'JT002',
-		})
+		await utils.handleResponse(
+			interaction,
+			'error',
+			'Unable to find thread ID.',
+			{
+				code: 'JT002',
+			}
+		)
 		return
 	}
 
@@ -1050,7 +1055,7 @@ async function joinTicket(
 		)) as Discord.ThreadChannel
 	} catch (error) {
 		// Send an error if an error occurs
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			"Unable to find thread. It may have been deleted or you don't have access.",
@@ -1064,7 +1069,7 @@ async function joinTicket(
 	// Check if the thread is a thread
 	if (!thread?.isThread()) {
 		// Send an error if the thread is not a thread
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'The found channel is not a thread.',
@@ -1081,12 +1086,13 @@ async function joinTicket(
 		await thread.members.add(interaction.user.id)
 	} catch (error) {
 		// Send an error if an error occurs
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'An error occurred while trying to join the thread. Check if you have the appropriate permissions.',
 			{
 				code: 'JT004',
+				error: error,
 			}
 		)
 		return
@@ -1109,7 +1115,7 @@ async function claimTicket(
 
 	// Check if the thread id is valid
 	if (!threadChannelId || Number.isNaN(Number(threadChannelId))) {
-		await handleResponse(interaction, 'error', 'Invalid thread ID.', {
+		await utils.handleResponse(interaction, 'error', 'Invalid thread ID.', {
 			code: 'CT004',
 		})
 		return
@@ -1126,12 +1132,13 @@ async function claimTicket(
 		)) as Discord.ThreadChannel
 	} catch (error) {
 		// Send an error if an error occurs
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'An error occurred while trying to find the thread.',
 			{
 				code: 'CT005',
+				error: error,
 			}
 		)
 		return
@@ -1140,7 +1147,7 @@ async function claimTicket(
 	// Check if the thread is a thread
 	if (!thread?.isThread()) {
 		// Send an error if the thread is not a thread
-		await handleResponse(
+		await utils.handleResponse(
 			interaction,
 			'error',
 			'The found channel is not a thread.',
@@ -1162,7 +1169,7 @@ async function claimTicket(
 			thread.id
 		)) as ThreadMetadata | null
 		if (!metadata) {
-			await handleResponse(
+			await utils.handleResponse(
 				interaction,
 				'error',
 				'No metadata found for the thread.',

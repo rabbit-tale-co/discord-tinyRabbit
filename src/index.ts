@@ -106,11 +106,13 @@ client.once('ready', async (c) => {
 	// Update bot status for all guilds
 	await Services.updateBotPresence(c.user)
 	//await Heartbeat.handleBotStatus()
-	await API.saveBotData(c.user)
-	await API.updateMissingPlugins(c)
-	await Services.initializeTempChannels(c)
+	await Promise.all([
+		API.saveBotData(c.user),
+		API.updateMissingPlugins(c),
+		Services.initializeTempChannels(c),
+		Services.startModerationScheduler(),
+	])
 	Birthday.scheduleBirthdayCheck(c)
-	await Services.startModerationScheduler()
 
 	// Update bot status every hour for all guilds
 	setInterval(async () => {

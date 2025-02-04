@@ -15,52 +15,36 @@ const TIME_INTERVAL = 5 * 60 * 1000 // 5 minutes
 export async function initializeTempChannels(client: Discord.Client) {
 	// bunnyLog.info('Initializing temporary voice channels...')
 
-	// Get the temporary channels from the database
 	const tempChannels = await api.getTempChannels()
+	await Promise.all(
+		tempChannels.map(async (channelData) => {
+			// Get the guild from the client
+			const guild = client.guilds.cache.get(channelData.guild_id)
 
-	for (const channelData of tempChannels) {
-		// Get the guild from the client
-		const guild = client.guilds.cache.get(channelData.guild_id)
+			// Skip if guild not found
+			if (!guild) return
 
-		// If the guild is not found, continue
-		if (!guild) {
-			// bunnyLog.warn(
-			// 	`Guild ${channelData.guild_id} not found for temp channel ${channelData.channel_id}`
-			// )
-			continue
-		}
+			// Get the channel from the guild
+			const channel = guild.channels.cache.get(channelData.channel_id)
 
-		// Get the channel from the guild
-		const channel = guild.channels.cache.get(channelData.channel_id)
+			// If the channel does not exist, delete from DB and skip
+			if (!channel) {
+				await api.deleteTemporaryChannel(
+					channelData.channel_id,
+					channelData.guild_id,
+					channelData.bot_id
+				)
+				return
+			}
 
-		// If the channel is not found, delete it from the database and continue
-		if (!channel) {
-			// bunnyLog.info(
-			// 	`Temp channel ${channelData.channel_id} not found in guild ${guild.name}, removing from database`
-			// )
-			await api.deleteTemporaryChannel(
-				channelData.channel_id,
-				channelData.guild_id,
-				channelData.bot_id
-			)
+			// Determine and cache expiration time
+			const expirationTime = new Date(channelData.expire_at).getTime()
+			expirationCache.set(channelData.channel_id, expirationTime)
 
-			// Continue to the next iteration
-			continue
-		}
-
-		// Get the expiration time from the database
-		const expirationTime = new Date(channelData.expire_at).getTime()
-
-		// Set the expiration time in the cache
-		expirationCache.set(channelData.channel_id, expirationTime)
-
-		// Start checking for expiration
-		startExpirationCheck(client, channelData.channel_id)
-
-		// bunnyLog.info(
-		// 	`Restored temp channel: ${channel.name} in guild ${guild.name}`
-		// )
-	}
+			// Start expiration check for the channel
+			startExpirationCheck(client, channelData.channel_id)
+		})
+	)
 
 	// bunnyLog.success(
 	// 	`Initialized ${tempChannels.length} temporary voice channels`

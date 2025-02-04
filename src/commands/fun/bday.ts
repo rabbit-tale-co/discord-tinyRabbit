@@ -192,7 +192,22 @@ async function sendBirthdayAnnouncements(client: Discord.Client) {
 	}
 }
 
-function scheduleBirthdayCheck(client: Discord.Client) {
+async function scheduleBirthdayCheck(client: Discord.Client): Promise<void> {
+	// Aggregate enabled birthday plugin configurations across all guilds.
+	const guilds = [...client.guilds.cache.values()]
+	const results = await Promise.all(
+		guilds.map(async (guild) => {
+			const config = await api.getPluginConfig(
+				client.user.id,
+				guild.id,
+				'birthday'
+			)
+			return config?.enabled && config.channel_id ? 1 : 0
+		})
+	)
+	const enabledCount = results.reduce((sum, curr) => sum + curr, 0)
+	bunnyLog.server(`Birthday plugin scheduled for ${enabledCount} guild(s)`)
+
 	// Run daily at 9:00 AM UTC
 	cron.schedule('0 9 * * *', () => sendBirthdayAnnouncements(client), {
 		timezone: 'UTC',

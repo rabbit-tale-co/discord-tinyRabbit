@@ -118,8 +118,16 @@ type ConnectSocial = {
 	}
 }
 
+type Moderation = {
+	enabled: boolean
+	watch_roles: string[]
+	ban_interval: number
+	delete_message_days: number
+}
+
 type PluginTypes = {
 	levels: Level
+
 	tickets: Ticket
 	welcome: Welcome
 	starboard: Starboard
@@ -127,19 +135,13 @@ type PluginTypes = {
 	tempvc: TempVC
 	slowmode: Slowmode
 	connectSocial: ConnectSocial
+	moderation: Moderation
 }
 
-type Plugins = PluginTypes[keyof PluginTypes] | 'moderation'
+type Plugins = PluginTypes[keyof PluginTypes]
 
 type DefaultConfigs = {
 	[K in keyof PluginTypes]: PluginTypes[K]
-} & {
-	moderation: {
-		enabled: boolean
-		watch_roles: string[]
-		ban_interval: number
-		delete_message_days: number
-	}
 }
 
 type PluginResponse<T> = T & { id: string }
