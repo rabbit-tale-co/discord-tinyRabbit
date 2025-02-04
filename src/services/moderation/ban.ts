@@ -77,7 +77,7 @@ async function performSafeBan(
  * It checks each guild for the moderation config and if enabled (and with watched roles),
  * schedules a separate job per guild.
  */
-async function startModerationScheduler() {
+async function startModerationScheduler(client: Discord.Client) {
 	const scheduler = require('node-schedule')
 
 	// Cancel any existing auto moderation jobs with a prefix "auto_mod_"

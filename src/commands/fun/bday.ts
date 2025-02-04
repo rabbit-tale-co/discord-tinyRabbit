@@ -152,44 +152,46 @@ async function sendBirthdayAnnouncements(client: Discord.Client) {
 	const day = today.getDate()
 	const month = today.getMonth() + 1
 
-	for (const guild of client.guilds.cache.values()) {
-		try {
-			const config = await api.getPluginConfig(
-				client.user.id,
-				guild.id,
-				'birthday'
-			)
+	await Promise.all(
+		[...client.guilds.cache.values()].map(async (guild) => {
+			try {
+				const config = await api.getPluginConfig(
+					client.user.id,
+					guild.id,
+					'birthday'
+				)
 
-			if (!config?.enabled || !config.channel_id) return
+				if (!config?.enabled || !config.channel_id) return
 
-			const channel = guild.channels.cache.get(config.channel_id)
-			if (!channel?.isTextBased()) return
+				const channel = guild.channels.cache.get(config.channel_id)
+				if (!channel?.isTextBased()) return
 
-			const birthdays = await api.getBirthdayUsers(
-				client.user.id,
-				guild.id,
-				day,
-				month
-			)
+				const birthdays = await api.getBirthdayUsers(
+					client.user.id,
+					guild.id,
+					day,
+					month
+				)
 
-			if (!birthdays.length) return
+				if (!birthdays.length) return
 
-			const messages = await Promise.all(
-				birthdays.map(async (user) => {
-					const member = await guild.members.fetch(user.id)
-					return replacePlaceholders(
-						config.message || 'Happy birthday {user}! 🎉',
-						member,
-						guild
-					)
-				})
-			)
+				const messages = await Promise.all(
+					birthdays.map(async (user) => {
+						const member = await guild.members.fetch(user.id)
+						return replacePlaceholders(
+							config.message || 'Happy birthday {user}! 🎉',
+							member,
+							guild
+						)
+					})
+				)
 
-			channel.send(messages.join('\n'))
-		} catch (error) {
-			bunnyLog.error(`Birthday announcement failed in ${guild.name}:`, error)
-		}
-	}
+				await channel.send(messages.join('\n'))
+			} catch (error) {
+				bunnyLog.error(`Birthday announcement failed in ${guild.name}:`, error)
+			}
+		})
+	)
 }
 
 async function scheduleBirthdayCheck(client: Discord.Client): Promise<void> {

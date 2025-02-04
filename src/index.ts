@@ -110,9 +110,9 @@ client.once('ready', async (c) => {
 		API.saveBotData(c.user),
 		API.updateMissingPlugins(c),
 		Services.initializeTempChannels(c),
-		Services.startModerationScheduler(),
+		Services.startModerationScheduler(c),
+		Birthday.scheduleBirthdayCheck(c),
 	])
-	Birthday.scheduleBirthdayCheck(c)
 
 	// Update bot status every hour for all guilds
 	setInterval(async () => {
