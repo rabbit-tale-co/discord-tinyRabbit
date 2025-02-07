@@ -5,8 +5,9 @@ import { bunnyLog } from 'bunny-log'
 
 /**
  * @param {Discord.ClientUser} bot - The bot user.
+ * @returns {Promise<boolean>} - Returns true if the bot data was saved successfully, false otherwise.
  */
-async function saveBotData(bot: Discord.ClientUser) {
+async function saveBotData(bot: Discord.ClientUser): Promise<boolean> {
 	// Check if the bot is logged in or user data is unavailable
 	if (!bot) throw new Error('Bot is not logged in or user data is unavailable')
 
@@ -23,17 +24,31 @@ async function saveBotData(bot: Discord.ClientUser) {
 		},
 	}
 
-	// Try to upsert the bot data into the database
+	// Check if bot data already exists
 	try {
-		const { error } = await supabase.from('bots').upsert(botData)
+		const { data: existingBot, error: fetchError } = await supabase
+			.from('bots')
+			.select('bot_id')
+			.eq('bot_id', bot.id)
+			.maybeSingle()
 
-		// Check if there is an error upserting the bot data
-		if (error) return false
+		if (fetchError) {
+			bunnyLog.error('Error checking existing bot data:', fetchError)
+			return false
+		}
 
-		// Log the success
+		if (existingBot) {
+			bunnyLog.database('Bot data already exists, skipping update')
+			return true
+		}
+
+		// Insert the new bot data
+		const { error } = await supabase.from('bots').insert(botData)
+		if (error) {
+			return false
+		}
 		bunnyLog.database('Bot data saved successfully')
 	} catch (error) {
-		// Log the error
 		bunnyLog.error('Error saving bot data:', error)
 		return false
 	}

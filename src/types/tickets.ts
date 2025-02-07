@@ -1,5 +1,3 @@
-import type * as Discord from 'discord.js'
-
 interface Attachment {
 	url: string
 	proxyURL: string
@@ -34,7 +32,7 @@ interface ThreadMetadata {
 	opened_by: AuthorInfo
 	open_time: number
 	ticket_type: string
-	claimed_by?: AuthorInfo | "Not claimed"
+	claimed_by?: AuthorInfo | 'Not claimed'
 }
 
 export type { Transcript, Attachment, ThreadMetadata }

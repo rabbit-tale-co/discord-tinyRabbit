@@ -3,41 +3,30 @@ import { bunnyLog } from 'bunny-log'
 import * as api from '@/api/index.js'
 import type * as Discord from 'discord.js'
 import supabase from '@/db/supabase.js'
+import type { DefaultConfigs } from '@/types/plugins.js'
 
 /**
- * Bans users who are likely bots.
+ * Bans users who are likely bots in a specific guild.
  */
-async function banBotLikeUsers() {
+async function banBotLikeUsersForGuild(
+	guild: Discord.Guild,
+	config: DefaultConfigs['moderation']
+) {
 	try {
-		// Get all guilds
-		const guilds = client.guilds.cache.values()
+		// Fetch all members of the guild
+		const members = await guild.members.fetch()
 
-		// Iterate over each guild
-		for (const guild of guilds) {
-			const config = await api.getPluginConfig(
-				client.user?.id ?? '',
-				guild.id,
-				'moderation'
-			)
+		// Filter members that have one of the watched roles
+		const targets = members.filter((member) =>
+			member.roles.cache.some((role) => config.watch_roles.includes(role.id))
+		)
 
-			// Check if the plugin is enabled and if there are any watch roles
-			if (!config.enabled || !config.watch_roles?.length) continue
-
-			// Get all members with watched roles
-			const members = await guild.members.fetch()
-
-			// Filter members with watched roles
-			const targets = members.filter((member) =>
-				member.roles.cache.some((role) => config.watch_roles.includes(role.id))
-			)
-
-			// Iterate over each target member
-			for (const [_, member] of targets) {
-				await performSafeBan(guild, member.user, config.delete_message_days)
-			}
+		// Ban each target member
+		for (const [_, member] of targets) {
+			await performSafeBan(guild, member.user, config.delete_message_days)
 		}
 	} catch (error) {
-		bunnyLog.error('Error in auto moderation:', error)
+		bunnyLog.error(`Error in auto moderation for guild ${guild.id}:`, error)
 	}
 }
 
@@ -84,33 +73,56 @@ async function performSafeBan(
 }
 
 /**
- * Starts the moderation scheduler.
+ * Starts the moderation scheduler for all guilds with auto moderation enabled.
+ * It checks each guild for the moderation config and if enabled (and with watched roles),
+ * schedules a separate job per guild.
  */
-async function startModerationScheduler() {
+async function startModerationScheduler(client: Discord.Client) {
 	const scheduler = require('node-schedule')
-	const config = await api.getPluginConfig(
-		client.user?.id ?? '',
-		process.env.GUILD_ID ?? '',
-		'moderation'
+
+	// Cancel any existing auto moderation jobs with a prefix "auto_mod_"
+	for (const jobName of Object.keys(scheduler.scheduledJobs)) {
+		if (jobName.startsWith('auto_mod_')) {
+			scheduler.scheduledJobs[jobName].cancel()
+		}
+	}
+
+	const guilds = [...client.guilds.cache.values()]
+	const results = await Promise.all(
+		guilds.map(async (guild) => {
+			const config = (await api.getPluginConfig(
+				client.user?.id ?? '',
+				guild.id,
+				'moderation'
+			)) as DefaultConfigs['moderation'] | null
+			return { guild, config }
+		})
 	)
 
-	// Clear existing job if any
-	if (scheduler.scheduledJobs.auto_moderation) {
-		scheduler.scheduledJobs.auto_moderation.cancel()
+	// Aggregate logs to avoid spamming
+	let scheduledCount = 0
+	let misconfiguredCount = 0
+	for (const { guild, config } of results) {
+		if (
+			config?.enabled &&
+			config?.watch_roles?.length &&
+			config?.ban_interval
+		) {
+			const jobName = `auto_mod_${guild.id}`
+			const schedule = require('node-schedule').scheduleJob
+			schedule(jobName, `*/${config.ban_interval} * * * *`, () => {
+				banBotLikeUsersForGuild(guild, config)
+			})
+			scheduledCount++
+		} else {
+			misconfiguredCount++
+		}
 	}
 
-	// Schedule new job
-	if (config.enabled) {
-		const schedule = require('node-schedule').scheduleJob
-		schedule(
-			'auto_moderation',
-			`*/${config.ban_interval} * * * *`,
-			banBotLikeUsers
-		)
-		bunnyLog.server(
-			`Auto-moderation scheduler started (interval: ${config.ban_interval} mins)`
-		)
-	}
+	// Log the results
+	bunnyLog.server(
+		`Auto-moderation scheduler started for ${scheduledCount} guilds`
+	)
 }
 
 export { startModerationScheduler }

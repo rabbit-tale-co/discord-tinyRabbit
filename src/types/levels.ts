@@ -1,4 +1,4 @@
-import type { LevelUpResult } from '../utils/xpUtils'
+import type { LevelUpResult } from '@/utils/xpUtils.js'
 
 interface Level {
 	xp?: number
