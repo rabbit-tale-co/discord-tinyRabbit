@@ -36,11 +36,14 @@ export function replacePlaceholders(
 		.replace('{user}', `<@${user.id}>`)
 		// Replace user name
 		.replace('{username}', isGuildMember(user) ? user.user.tag : username)
+		// replace user full name
+		.replace('{display_name}', isGuildMember(user) ? displayName : username)
 		// Replace user avatar
 		.replace(
 			'{avatar}',
 			isGuildMember(user) ? user.user.displayAvatarURL() : ''
 		)
+
 		// Replace server name
 		.replace('{server_name}', guild.name)
 		// Replace server image

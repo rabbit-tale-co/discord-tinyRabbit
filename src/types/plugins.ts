@@ -55,19 +55,19 @@ type Ticket = {
 
 type Welcome = {
 	enabled?: boolean
-	type?: 'embed' | 'text'
+	type: 'embed' | 'text'
 	welcome_message?: string | null
 	welcome_channel_id?: string | null
 	leave_message?: string | null
 	leave_channel_id?: string | null
 	embed_welcome?: EmbedData | null
 	embed_leave?: EmbedData | null
-	join_role_id?: string | null
+	join_role_ids?: string[] | null
 }
 
 type Starboard = {
 	enabled?: boolean
-	emoji?: string
+	emojis?: string[]
 	watch_channels?: string[] | null
 	channel_id?: string | null
 	threshold?: number
@@ -82,9 +82,10 @@ type Birthday = {
 type TempVC = {
 	enabled?: boolean
 	channel_id?: string | null
+	title: string
 	durations?: Array<{
 		role_id: string
-		duration: number
+		minutes: number
 	}> | null
 }
 
@@ -127,7 +128,6 @@ type Moderation = {
 
 type PluginTypes = {
 	levels: Level
-
 	tickets: Ticket
 	welcome: Welcome
 	starboard: Starboard

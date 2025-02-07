@@ -1,18 +1,18 @@
-import { env, serve } from 'bun'
-import * as API from '@/api/index.js'
-import * as Services from '@/services/index.js'
-import * as Events from '@/events/index.js'
-import * as Router from '@/router/index.js'
-import * as Discord from 'discord.js'
-import chalk from 'chalk'
-import { bunnyLog } from 'bunny-log'
-import * as Birthday from './commands/fun/bday.js'
-import * as Database from './db/initDatabase.js'
-import * as OAuth from './router/oAuth.js'
+import { env, serve } from "bun";
+import * as API from "@/api/index.js";
+import * as Services from "@/services/index.js";
+import * as Events from "@/events/index.js";
+import * as Router from "@/router/index.js";
+import * as Discord from "discord.js";
+import chalk from "chalk";
+import { bunnyLog } from "bunny-log";
+import * as Birthday from "./commands/fun/bday.js";
+import * as Database from "./db/initDatabase.js";
+import * as OAuth from "./router/oAuth.js";
 
-const PORT: number = Number.parseInt(env.PORT || '5000', 10)
-const CLIENT_ID: string = env.BOT_CLIENT_ID || ''
-const REDIRECT_URI: string = 'https://api.rabbittale.co/callback'
+const PORT: number = Number.parseInt(env.PORT || "5000", 10);
+const CLIENT_ID: string = env.BOT_CLIENT_ID || "";
+const REDIRECT_URI: string = "https://api.rabbittale.co/callback";
 
 /**
  * Server setup
@@ -20,38 +20,38 @@ const REDIRECT_URI: string = 'https://api.rabbittale.co/callback'
 serve({
 	async fetch(req: Request): Promise<Response> {
 		// Get the URL from the request
-		const url: URL = new URL(req.url)
+		const url: URL = new URL(req.url);
 
 		// Handle preflight requests
-		if (req.method === 'OPTIONS') {
-			return OAuth.setCorsHeaders(new Response(null, { status: 204 }))
+		if (req.method === "OPTIONS") {
+			return OAuth.setCorsHeaders(new Response(null, { status: 204 }));
 		}
 
 		// Handle API requests
-		if (url.pathname.startsWith('/api')) {
-			return Router.router(req)
+		if (url.pathname.startsWith("/api")) {
+			return Router.router(req);
 		}
 
 		// Handle login requests
-		if (url.pathname === '/login') {
-			return OAuth.handleLogin(req, CLIENT_ID, REDIRECT_URI)
+		if (url.pathname === "/login") {
+			return OAuth.handleLogin(req, CLIENT_ID, REDIRECT_URI);
 		}
 
 		// Handle OAuth callback requests
-		if (url.pathname === '/callback') {
-			return OAuth.handleOAuthCallback(url, CLIENT_ID)
+		if (url.pathname === "/callback") {
+			return OAuth.handleOAuthCallback(url, CLIENT_ID);
 		}
 
 		// Handle 404 requests
-		return new Response('Not Found', { status: 404 })
+		return new Response("Not Found", { status: 404 });
 	},
 	port: PORT,
-})
+});
 
-bunnyLog.server(`Server is running on port ${PORT}`)
+bunnyLog.server(`Server is running on port ${PORT}`);
 
 // Initialize Firebase
-Database.initializeDatabase()
+Database.initializeDatabase();
 
 // Initialize Discord Bot
 export const client = new Discord.Client({
@@ -68,19 +68,19 @@ export const client = new Discord.Client({
 		Discord.Partials.Reaction, // Enables handling of uncached reactions
 		Discord.Partials.Channel, // Required to enable reactions in uncached channels
 	],
-})
+});
 
 /**
  * Event handler for when the bot is ready.
  * @param {Client} c - The client object from Discord.
  * @returns {Promise<void>} A promise that resolves when the bot is ready.
  */
-client.once('ready', async (c) => {
+client.once("ready", async (c) => {
 	// Check if the client is ready
-	if (!c.user) return
+	if (!c.user) return;
 
-	bunnyLog.info(`${c.user.tag} has logged in!`)
-	bunnyLog.info('Made by: @Hasiradoo - Rabbit Tale Studio')
+	bunnyLog.info(`${c.user.tag} has logged in!`);
+	bunnyLog.info("Made by: @Hasiradoo - Rabbit Tale Studio");
 	bunnyLog.info(`
         ,KWN0d;.             :kx;.
         :XMMMMWO;           lNMMNd.
@@ -101,33 +101,33 @@ client.once('ready', async (c) => {
         :XMMMMMN0OOOOO0OO0NMMMMMMMO.
         'OMMMMMMMMMMMMMMMMMMMMMMW0;
         ,ONMMMMMMMMMMMMMMMMMMWKo.
-        .l0WMMMMMMMMMMMMMWN0o.`)
+        .l0WMMMMMMMMMMMMMWN0o.`);
 
 	// Update bot status for all guilds
-	await Services.updateBotPresence(c.user)
+	await Services.updateBotPresence(c.user);
 	//await Heartbeat.handleBotStatus()
 	await Promise.all([
 		API.saveBotData(c.user),
 		API.updateMissingPlugins(c),
-		Services.initializeTempChannels(c),
+		Services.cleanupExpiredTempChannels(c),
 		Services.startModerationScheduler(c),
 		Birthday.scheduleBirthdayCheck(c),
-	])
+	]);
 
 	// Update bot status every hour for all guilds
 	setInterval(async () => {
-		await Services.updateBotPresence(c.user)
-	}, 300_000) // 1h - 3_600_000 now it's 5 min
+		await Services.updateBotPresence(c.user);
+	}, 300_000); // 1h - 3_600_000 now it's 5 min
 
 	setInterval(async () => {
 		const { bot_status: server, db_status: database } =
-			await API.checkHeartbeat()
+			await API.checkHeartbeat();
 
-		const serverStatusColor = server === 'online' ? chalk.green : chalk.red
+		const serverStatusColor = server === "online" ? chalk.green : chalk.red;
 		const databaseStatusColor =
-			database.status === 'online' ? chalk.green : chalk.red
-	}, 15_000) // 15 seconds
-})
+			database.status === "online" ? chalk.green : chalk.red;
+	}, 15_000); // 15 seconds
+});
 
 /**
  * Event handler for guild creation.
@@ -135,21 +135,21 @@ client.once('ready', async (c) => {
  * @returns {Promise<void>} A promise that resolves when the guild is initialized.
  */
 client.on(Discord.Events.GuildCreate, async (_guild) => {
-	await API.updateMissingPlugins(client)
-})
+	await API.updateMissingPlugins(client);
+});
 
-client.on('messageCreate', Events.messageHandler)
-client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler)
-client.on(Discord.Events.InteractionCreate, Events.interactionHandler)
+client.on("messageCreate", Events.messageHandler);
+client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler);
+client.on(Discord.Events.InteractionCreate, Events.interactionHandler);
 
 // Channels activity
-client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate)
+client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate);
 
 // Guild member events
-client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin)
-client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave)
+client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin);
+client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave);
 
-client.login(env.BOT_TOKEN)
+client.login(env.BOT_TOKEN);
 
 /**
  * TODO:

@@ -9,8 +9,8 @@ const default_configs: Types.DefaultConfigs = {
 		reward_message: 'Congratulations, you have leveled up to level {level}!',
 		channel_id: null, // TODO:change to reward_channel_id
 		command_channel_id: null,
-		reward_roles: null,
-		boost_3x_roles: null,
+		reward_roles: [],
+		boost_3x_roles: [],
 	},
 	tickets: {
 		enabled: false,
@@ -186,11 +186,11 @@ const default_configs: Types.DefaultConfigs = {
 				url: '{avatar}',
 			},
 		},
-		join_role_id: null,
+		join_role_ids: [], // TODO:change to join_role_ids
 	},
 	starboard: {
 		enabled: false,
-		emoji: '⭐',
+		emojis: ['⭐'], // TODO:change to emojis
 		watch_channels: null,
 		channel_id: null,
 		threshold: 15,
@@ -202,9 +202,11 @@ const default_configs: Types.DefaultConfigs = {
 	},
 	tempvc: {
 		enabled: false,
+		title: "{display_name}'s VC",
 		channel_id: null,
-		durations: null,
+		durations: [],
 	},
+
 	slowmode: {
 		enabled: false,
 		watch_channels: null,

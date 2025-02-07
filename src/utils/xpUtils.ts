@@ -1,4 +1,4 @@
-import type { Level, LevelStatus } from '../types/levels'
+import type * as Levels from '@/types/levels.js'
 
 const XP_PER_LEVEL = 3_000
 const XP_PER_MESSAGE = 150
@@ -52,12 +52,12 @@ function calculateXpForNextLevel(level: number): number {
  * @returns {LevelStatus} Updated user data, including levelUp and levelDown flags.
  */
 function updateUserXpAndLevel(
-	data: Level,
+	data: Levels.Level,
 	new_xp: number,
 	boost_multiplier: number,
 	is_direct_set = false,
-	original_data: Level | null = null
-): LevelStatus {
+	original_data: Levels.Level | null = null
+): Levels.LevelStatus {
 	// Initialize properties
 	data.xp = data.xp ?? 0
 	data.level = data.level ?? 0
@@ -112,10 +112,10 @@ export function calculateTotalXpForLevel(level: number): number {
 
 /**
  * Calculates the level and remaining XP from total XP.
- * @param {number} totalXp - The total XP.
- * @returns {Level} The level and remaining XP.
+ * @param {number} total_xp - The total XP.
+ * @returns {Levels.Level} The level and remaining XP.
  */
-function calculateLevelAndXpFromTotalXp(total_xp: number): Level {
+function calculateLevelAndXpFromTotalXp(total_xp: number): Levels.Level {
 	let level = 0
 	let xp = total_xp
 
