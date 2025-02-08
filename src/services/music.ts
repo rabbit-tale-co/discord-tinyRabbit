@@ -1,7 +1,8 @@
 import * as Discord from "discord.js";
 import { bunnyLog } from "bunny-log";
 import * as voice from "@discordjs/voice";
-import ytdl from "ytdl-core";
+import playdl from "play-dl";
+import type { Readable } from "node:stream";
 
 export class MusicService {
 	private static instances: Map<string, MusicService> = new Map();
@@ -94,17 +95,50 @@ export class MusicService {
 		const track = this.queue.shift();
 		this.currentTrack = track;
 		try {
-			// Use play-dl to stream the track (audio only)
-			const playdl = (await import("play-dl")).default;
-			const streamData = await playdl.stream(track, { quality: 2 });
-			const resource = voice.createAudioResource(streamData.stream, {
-				inputType: voice.StreamType.Arbitrary,
+			// First, retrieve video info to verify that the player response data exists.
+			const videoInfo = await playdl.video_info(track);
+			bunnyLog.info("Video Info:", videoInfo as any);
+
+			if (!videoInfo || !videoInfo.video_details) {
+				throw new Error(
+					"Video info is undefined. Check if the URL is playable.",
+				);
+			}
+
+			const details = videoInfo.video_details as {
+				player_response?: Record<string, unknown>;
+			};
+			const playerResponse = details.player_response;
+			if (!playerResponse || Object.keys(playerResponse).length === 0) {
+				bunnyLog.warn(
+					"Initial Player Response Data is undefined. Proceeding without validation.",
+				);
+			}
+
+			// Then stream the track.
+			const streamData = await playdl.stream(track, {
+				quality: 2,
+				verbose: true,
+			} as any);
+			bunnyLog.info("Stream Data:", {
+				type: streamData.type,
+				quality: 2,
 			});
+
+			const resource = voice.createAudioResource(
+				streamData.stream as Readable,
+				{
+					inputType:
+						streamData.type === "opus"
+							? voice.StreamType.Opus
+							: voice.StreamType.Arbitrary,
+				},
+			);
 			this.audioPlayer?.play(resource);
 			this.isPlaying = true;
 			bunnyLog.info(`Now playing: ${track}`);
 		} catch (error) {
-			bunnyLog.error("Error creating audio resource:", error);
+			bunnyLog.error("Error creating audio resource:", error as Error);
 			this._playNext();
 		}
 	}
@@ -161,3 +195,8 @@ export class MusicService {
 		}
 	}
 }
+
+process.on("unhandledRejection", (error) => {
+	bunnyLog.error("Unhandled Rejection:", error as Error);
+	// Optionally, implement retry logic or further error handling here.
+});

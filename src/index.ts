@@ -9,6 +9,7 @@ import { bunnyLog } from "bunny-log";
 import * as Birthday from "./commands/fun/bday.js";
 import * as Database from "./db/initDatabase.js";
 import * as OAuth from "./router/oAuth.js";
+import playdl from "play-dl";
 
 const PORT: number = Number.parseInt(env.PORT || "5000", 10);
 const CLIENT_ID: string = env.BOT_CLIENT_ID || "";
@@ -113,6 +114,29 @@ client.once("ready", async (c) => {
 		Services.startModerationScheduler(c),
 		Birthday.scheduleBirthdayCheck(c),
 	]);
+
+	playdl.setToken({
+		youtube: {
+			cookie: process.env.YOUTUBE_COOKIE as string,
+		},
+	}); // YouTube Cookies
+
+	await playdl.setToken({
+		spotify: {
+			client_id: "ID",
+			client_secret: "secret",
+			refresh_token: "token",
+			market: "US",
+		},
+	}); // Await this only when setting data for spotify
+
+	playdl.setToken({
+		useragent: [
+			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
+		],
+	}); // Use this to avoid 429 errors.
+
+	bunnyLog.info("YouTube cookie:", process.env.YOUTUBE_COOKIE);
 
 	// Update bot status every hour for all guilds
 	setInterval(async () => {
