@@ -241,6 +241,11 @@ const default_configs: Types.DefaultConfigs = {
 		ban_interval: 60, // Check every hour
 		delete_message_days: 7,
 	},
+	music: {
+		enabled: false,
+		channel_id: null,
+		role_id: null,
+	},
 }
 
 /**
@@ -335,9 +340,9 @@ async function saveGuildPlugins(
 		if (pluginError) throw pluginError
 
 		// Log the success
-		bunnyLog.database(
-			`Plugins saved successfully for guild ${guild_name} (${guild_id})`
-		)
+		// bunnyLog.database(
+		// 	`Plugins saved successfully for guild ${guild_name} (${guild_id})`
+		// )
 	} catch (error) {
 		bunnyLog.error('Error saving guild plugins:', error)
 		throw error

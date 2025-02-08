@@ -2,7 +2,6 @@ import { REST } from '@discordjs/rest'
 import { bunnyLog } from 'bunny-log'
 import { Routes } from 'discord-api-types/v10'
 import { env } from 'node:process'
-import { data as createLicenseCommand } from './commands/game/createLicense.js'
 
 const { BOT_TOKEN, BOT_CLIENT_ID } = env
 
@@ -116,10 +115,109 @@ const commands = [
 			},
 		],
 	},
-	// {
+	{
+		name: 'music',
+		description: 'Manage music playback',
+		options: [
+			{
+				type: 1, // SUB_COMMAND
+				name: 'play',
+				description: 'Play a song',
+				options: [
+					{
+						type: 3, // STRING
+						name: 'query',
+						description: 'url of the song to play',
+						required: true,
+					},
+				],
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'pause',
+				description: 'Pause the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'resume',
+				description: 'Resume the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'skip',
+				description: 'Skip the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'stop',
+				description: 'Stop the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'queue',
+				description: 'Show the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'clear',
+				description: 'Clear the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'remove',
+				description: 'Remove a song from the queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'shuffle',
+				description: 'Shuffle the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'loop',
+				description: 'Loop the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'volume',
+				description: 'Set the volume of the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'nowplaying',
+				description: 'Show the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'lyrics',
+				description: 'Show the lyrics of the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'search',
+				description: 'Search for a song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'playlist',
+				description: 'Manage your playlists',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'history',
+				description: 'Show the history of the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'help',
+				description: 'Show the help menu',
+			},
+		],
+	},
 	// 	name: 'plugin',
 	// 	description: 'Manage your Minecraft account',
 	// 	options: [
+
 	// 		{
 	// 			type: 1, // SUB_COMMAND
 	// 			name: 'game',
@@ -148,7 +246,6 @@ const commands = [
 	// 		},
 	// 	],
 	// },
-	createLicenseCommand.toJSON(),
 ]
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN)

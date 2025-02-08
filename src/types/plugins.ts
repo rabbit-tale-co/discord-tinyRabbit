@@ -126,6 +126,12 @@ type Moderation = {
 	delete_message_days: number
 }
 
+type Music = {
+	enabled: boolean // enable/disable music plugin
+	channel_id: string | null // channel id where music commands are available
+	role_id: string | null // role id who can use music commands
+}
+
 type PluginTypes = {
 	levels: Level
 	tickets: Ticket
@@ -136,12 +142,13 @@ type PluginTypes = {
 	slowmode: Slowmode
 	connectSocial: ConnectSocial
 	moderation: Moderation
+	music: Music
 }
 
 type Plugins = PluginTypes[keyof PluginTypes]
 
 type DefaultConfigs = {
-	[K in keyof PluginTypes]: PluginTypes[K]
+	[K in keyof PluginTypes]?: PluginTypes[K] // make every property optional
 }
 
 type PluginResponse<T> = T & { id: string }

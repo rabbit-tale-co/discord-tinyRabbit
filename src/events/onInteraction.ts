@@ -36,12 +36,34 @@ const commandMap: Record<string, CommandStructure> = {
 	// },
 
 	// Birthday tracking
-
 	bday: {
 		subcommands: {
 			set: commands.setBirthday,
 			show: commands.showBirthday,
 			remove: commands.removeBirthday,
+		},
+	},
+
+	// Music commands
+	music: {
+		subcommands: {
+			play: commands.music.play,
+			pause: commands.music.pause,
+			resume: commands.music.resume,
+			skip: commands.music.skip,
+			stop: commands.music.stop,
+			queue: commands.music.queue,
+			clear: commands.music.clear,
+			remove: commands.music.remove,
+			shuffle: commands.music.shuffle,
+			loop: commands.music.loop,
+			volume: commands.music.volume,
+			nowplaying: commands.music.nowPlaying,
+			lyrics: commands.music.lyrics,
+			search: commands.music.search,
+			playlist: commands.music.playlist,
+			history: commands.music.history,
+			help: commands.music.help,
 		},
 	},
 }
@@ -106,7 +128,8 @@ async function interactionHandler(
 				// Extract the selected value from the dropdown
 				const selectedValue = interaction.values[0]
 				// Override the interaction customId with the selected value so that openTicket gets the proper unique_id
-				;(interaction as any).customId = selectedValue
+				;(interaction as unknown as Discord.ButtonInteraction).customId =
+					selectedValue
 
 				// Find a corresponding button handler by matching the selected value prefix
 				const handlerEntry = Object.entries(buttonInteractionHandlers).find(

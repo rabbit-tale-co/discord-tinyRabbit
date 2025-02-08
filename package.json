@@ -1,6 +1,6 @@
 {
   "name": "tiny-rabbit-discord",
-  "version": "2.1.4",
+  "version": "2.2.0",
   "description": "",
   "scripts": {
     "start": "bun run src/index.ts",
@@ -14,18 +14,21 @@
   "author": "Hasiradoo",
   "license": "ISC",
   "dependencies": {
+    "@discordjs/voice": "^0.18.0",
     "@napi-rs/canvas": "^0.1.65",
     "@supabase/supabase-js": "^2.48.1",
     "bunny-log": "^0.1.8",
     "busboy": "^1.6.0",
     "chalk": "^5.4.1",
     "discord.js": "^14.17.3",
+    "ffmpeg-static": "^5.2.0",
     "fs-extra": "^11.3.0",
     "glob": "^10.4.5",
     "jimp": "^0.22.12",
     "js-cookie": "^3.0.5",
     "node-cron": "^3.0.3",
     "node-schedule": "^2.1.1",
+    "play-dl": "^1.9.7",
     "tiny-rabbit-discord": "file:",
     "uuid": "^9.0.1"
   },
