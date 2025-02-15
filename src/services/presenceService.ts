@@ -103,7 +103,7 @@ class PresenceService {
 
 			const stats = await api.fetchAllStats(user.id)
 
-			const description = `Rabbit Tale Bot Statistics:
+			const description = `🐇 Tiny Rabbit Stats:
 🏰 Servers: ${stats.servers.toLocaleString()}
 🎉 Birthdays: ${stats.birthday_messages.toLocaleString()}
 ⭐ Starboards: ${stats.starboard_posts.toLocaleString()}
@@ -111,7 +111,7 @@ class PresenceService {
 🎫 Tickets: ${stats.tickets_opened.toLocaleString()}
 📈 Total XP: ${stats.total_xp.toLocaleString()}
 
-Powered by Rabbit Tale Studio 🐇`
+Questions? Contact [@Hasiradoo](https://discord.com/users/569975072417251378)!`
 
 			if (this.client.application) {
 				await this.client.application.edit({ description })
