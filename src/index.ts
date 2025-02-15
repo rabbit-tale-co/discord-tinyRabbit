@@ -142,11 +142,6 @@ client.once('ready', async (c) => {
 
 	//bunnyLog.info('YouTube cookie:', process.env.YOUTUBE_COOKIE)
 
-	// Update server count
-	await API.incrementStat(c.user.id, 'servers', c.guilds.cache.size)
-
-	await API.syncServerCount(c.user.id, c.guilds.cache.size)
-
 	setInterval(async () => {
 		const { bot_status: server, db_status: database } =
 			await API.checkHeartbeat()
@@ -166,12 +161,9 @@ client.once('ready', async (c) => {
  */
 client.on(Discord.Events.GuildCreate, async (guild) => {
 	await API.updateMissingPlugins(client)
-	await API.incrementStat(client.user?.id || '', 'servers', 1)
 })
 
-client.on(Discord.Events.GuildDelete, async (guild) => {
-	await API.incrementStat(client.user?.id || '', 'servers', -1)
-})
+client.on(Discord.Events.GuildDelete, async (guild) => {})
 
 client.on('messageCreate', Events.messageHandler)
 client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler)

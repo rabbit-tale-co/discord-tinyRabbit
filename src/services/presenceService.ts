@@ -26,7 +26,8 @@ class PresenceService {
 		// Add more holidays as needed
 	]
 
-	private static readonly UPDATE_INTERVAL = 15 * 60 * 1000
+	private static readonly STATS_UPDATE_INTERVAL = 15 * 60 * 1000 // 15 minutes
+	private static readonly PRESENCE_UPDATE_INTERVAL = 24 * 60 * 60 * 1000 // 24 hours
 
 	constructor(client: Discord.Client) {
 		this.client = client
@@ -37,13 +38,19 @@ class PresenceService {
 			throw new Error('Client user not available')
 		}
 
+		// Initial load
 		this.updatePresence()
 		this.updateApplicationDescription()
 
-		setInterval(() => {
-			this.updatePresence()
-			this.updateApplicationDescription()
-		}, PresenceService.UPDATE_INTERVAL)
+		// Set up intervals
+		setInterval(
+			() => this.updateApplicationDescription(),
+			PresenceService.STATS_UPDATE_INTERVAL
+		)
+		setInterval(
+			() => this.updatePresence(),
+			PresenceService.PRESENCE_UPDATE_INTERVAL
+		)
 	}
 
 	public async updatePresence(): Promise<void> {
