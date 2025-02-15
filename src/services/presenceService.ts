@@ -60,22 +60,23 @@ class PresenceService {
 
 			const holidayPresence = this.getHolidayPresence()
 			if (holidayPresence) {
-				user.setPresence({
+				await user.setPresence({
 					activities: [holidayPresence.activity],
 					status: holidayPresence.status,
 				})
+			} else {
+				// Only set default presence if no holiday is active
+				await user.setPresence({
+					activities: [
+						{
+							name: '🐇 Hop around!',
+							type: Discord.ActivityType.Custom,
+							url: 'https://tinyrabbit.co',
+						},
+					],
+					status: DEVELOPMENT ? 'dnd' : 'online',
+				})
 			}
-
-			user.setPresence({
-				activities: [
-					{
-						name: '🐇 Hop around!',
-						type: Discord.ActivityType.Custom,
-						url: 'https://tinyrabbit.co',
-					},
-				],
-				status: DEVELOPMENT ? 'dnd' : 'online',
-			})
 		} catch (error) {
 			bunnyLog.error('Error updating bot presence:', error)
 		}
