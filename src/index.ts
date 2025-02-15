@@ -155,6 +155,8 @@ client.once('ready', async (c) => {
 		const databaseStatusColor =
 			database.status === 'online' ? chalk.green : chalk.red
 	}, 15_000) // 15 seconds
+
+	presenceService.initialize() // Restart the presence updater
 })
 
 /**

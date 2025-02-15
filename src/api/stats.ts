@@ -14,20 +14,30 @@ export async function fetchAllStats(botId: string): Promise<BotStats> {
         .from('bot_stats')
         .select('*')
         .eq('bot_id', botId)
-        .single()
+        .single();
 
     if (error || !data) {
+        // Fallback to direct counting if stats missing
+        const [servers, birthdays, starboards, tempChannels, tickets, xp] = await Promise.all([
+            supabase.from('guilds').select('*', { count: 'exact' }).eq('bot_id', botId),
+            supabase.from('user_bdays').select('*', { count: 'exact' }).eq('bot_id', botId),
+            supabase.from('starboards').select('*', { count: 'exact' }).eq('bot_id', botId),
+            supabase.from('temp_voice_channels').select('*', { count: 'exact' }).eq('bot_id', botId),
+            supabase.from('tickets').select('*', { count: 'exact' }).eq('bot_id', botId),
+            supabase.from('leaderboard').select('xp').eq('bot_id', botId)
+        ]);
+
         return {
-            servers: 0,
-            birthday_messages: 0,
-            starboard_posts: 0,
-            temp_channels: 0,
-            tickets_opened: 0,
-            total_xp: 0
-        }
+            servers: servers.count || 0,
+            birthday_messages: birthdays.count || 0,
+            starboard_posts: starboards.count || 0,
+            temp_channels: tempChannels.count || 0,
+            tickets_opened: tickets.count || 0,
+            total_xp: xp.data?.reduce((sum, { xp }) => sum + xp, 0) || 0
+        };
     }
 
-    return data as BotStats
+    return data as BotStats;
 }
 
 export async function incrementStat(
