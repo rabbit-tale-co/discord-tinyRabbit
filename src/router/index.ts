@@ -1,6 +1,4 @@
 import * as API from '@/api/index.js'
-import * as Services from '@/services/index.js'
-import * as Events from '@/events/index.js'
 import type * as Discord from 'discord.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
 import { bunnyLog } from 'bunny-log'

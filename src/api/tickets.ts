@@ -263,6 +263,13 @@ async function updateTicketMetadata(
 	}
 }
 
+export async function fetchTotalTickets(): Promise<number> {
+	const { data, error } = await supabase.from('tickets').select('*')
+
+	if (error) throw error
+	return data?.length || 0
+}
+
 export {
 	saveTicketMetadata,
 	saveTranscriptToSupabase,

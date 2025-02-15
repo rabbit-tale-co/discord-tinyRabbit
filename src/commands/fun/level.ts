@@ -182,7 +182,8 @@ async function showLevel(
 			.replace('webp', 'png')
 
 		// Get the dominant color
-		const dominantColor = await utils.getDominantColor(avatarUrl)
+		const colorThief = new utils.ColorThief()
+		const dominantColor = await colorThief.getDominantColor(avatarUrl)
 
 		// Create the fields
 		const fields = [

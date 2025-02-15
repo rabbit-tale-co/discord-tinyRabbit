@@ -25,3 +25,6 @@ export { checkHeartbeat } from './heartbeat/BotStatus.js'
 export { saveBirthday } from './bday.js'
 export { getGlobalRank, getServerRank } from './userRank.js'
 export { LicenseManager } from './licenseManager.js'
+
+// Add these exports
+export * from './stats.js'

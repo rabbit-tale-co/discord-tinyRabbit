@@ -4,39 +4,116 @@ import { bunnyLog } from 'bunny-log'
 
 const DEVELOPMENT = process.env.NODE_ENV !== 'production'
 
-/**
- * Updates the bot's presence with the total XP.
- * @param {Discord.ClientUser} client - Discord bot client.
- */
-export async function updateBotPresence(
-	client: Discord.ClientUser
-): Promise<void> {
-	try {
-		// Fetch the total XP for the bot
-		const xp = await api.fetchTotalBotXp(client.id)
+class PresenceService {
+	private readonly client: Discord.Client
+	private static readonly HOLIDAY_PRESENCES = [
+		{
+			dates: { start: '02-14', end: '02-14' }, // Valentine's Day
+			activity: {
+				type: Discord.ActivityType.Custom,
+				name: '❤️ Spread love!',
+			},
+			status: 'online' as Discord.PresenceStatusData,
+		},
+		{
+			dates: { start: '12-20', end: '12-26' }, // Christmas
+			activity: {
+				type: Discord.ActivityType.Custom,
+				name: '🎄 Merry Xmas!',
+			},
+			status: 'online' as Discord.PresenceStatusData,
+		},
+		// Add more holidays as needed
+	]
 
-		// Check if the XP is a valid number
-		if (typeof xp !== 'number' || Number.isNaN(xp)) {
-			bunnyLog.error('Invalid XP value fetched.')
-			return
+	private static readonly UPDATE_INTERVAL = 15 * 60 * 1000
+
+	constructor(client: Discord.Client) {
+		this.client = client
+	}
+
+	public initialize(): void {
+		if (!this.client.user) {
+			throw new Error('Client user not available')
 		}
 
-		// Create the presence message
-		const presenceMessage = `⭐ ${xp.toLocaleString()} XP`
+		this.updatePresence()
+		this.updateApplicationDescription()
 
-		// Set the bot's presence
-		client.setPresence({
-			activities: [
-				{
-					name: presenceMessage,
-					type: Discord.ActivityType.Custom,
-					url: 'https://tinyrabbit.co',
-					//state: presenceMessage,
-				},
-			],
-			status: DEVELOPMENT ? 'dnd' : 'online',
-		})
-	} catch (error) {
-		bunnyLog.error('Error updating bot presence:', error)
+		setInterval(() => {
+			this.updatePresence()
+			this.updateApplicationDescription()
+		}, PresenceService.UPDATE_INTERVAL)
+	}
+
+	public async updatePresence(): Promise<void> {
+		try {
+			const user = this.client.user
+			if (!user) return
+
+			const holidayPresence = this.getHolidayPresence()
+			if (holidayPresence) {
+				user.setPresence({
+					activities: [holidayPresence.activity],
+					status: holidayPresence.status,
+				})
+			}
+
+			user.setPresence({
+				activities: [
+					{
+						name: '🐇 Hop around!',
+						type: Discord.ActivityType.Custom,
+						url: 'https://tinyrabbit.co',
+					},
+				],
+				status: DEVELOPMENT ? 'dnd' : 'online',
+			})
+		} catch (error) {
+			bunnyLog.error('Error updating bot presence:', error)
+		}
+	}
+
+	private getHolidayPresence() {
+		const now = new Date()
+		return PresenceService.HOLIDAY_PRESENCES.find(({ dates }) =>
+			this.isDateInRange(now, dates.start, dates.end)
+		)
+	}
+
+	private isDateInRange(date: Date, start: string, end: string): boolean {
+		const year = date.getFullYear()
+		const current = date.getTime()
+		const startDate = new Date(`${year}-${start}`).getTime()
+		const endDate = new Date(`${year}-${end}`).getTime()
+		return current >= startDate && current <= endDate
+	}
+
+	private async updateApplicationDescription(): Promise<void> {
+		try {
+			const user = this.client.user
+			if (!user) return
+
+			const stats = await api.fetchAllStats(user.id)
+
+			const description = `Rabbit Tale Bot Statistics:
+🏰 Servers: ${stats.servers.toLocaleString()}
+🎉 Birthdays: ${stats.birthday_messages.toLocaleString()}
+⭐ Starboards: ${stats.starboard_posts.toLocaleString()}
+🔈 Temp Channels: ${stats.temp_channels.toLocaleString()}
+🎫 Tickets: ${stats.tickets_opened.toLocaleString()}
+📈 Total XP: ${stats.total_xp.toLocaleString()}
+
+Powered by Rabbit Tale Studio 🐇`
+
+			if (this.client.application) {
+				await this.client.application.edit({ description })
+				//bunnyLog.info('Updated application description')
+			}
+		} catch (error) {
+			bunnyLog.error('Error updating application description:', error)
+		}
 	}
 }
+
+export default PresenceService
