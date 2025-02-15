@@ -60,13 +60,13 @@ class PresenceService {
 
 			const holidayPresence = this.getHolidayPresence()
 			if (holidayPresence) {
-				await user.setPresence({
+				user.setPresence({
 					activities: [holidayPresence.activity],
 					status: holidayPresence.status,
 				})
 			} else {
 				// Only set default presence if no holiday is active
-				await user.setPresence({
+				user.setPresence({
 					activities: [
 						{
 							name: '🐇 Hop around!',
@@ -74,7 +74,7 @@ class PresenceService {
 							url: 'https://tinyrabbit.co',
 						},
 					],
-					status: DEVELOPMENT ? 'dnd' : 'online',
+					status: 'online',
 				})
 			}
 		} catch (error) {
