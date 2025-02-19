@@ -64,6 +64,7 @@ const errorHandler =
  */
 async function router(req: Request): Promise<Response> {
 	const url = new URL(req.url);
+	const version = url.pathname.split("/")[1];
 
 	if (req.method === "OPTIONS") {
 		return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -72,34 +73,44 @@ async function router(req: Request): Promise<Response> {
 	// Define the routes and their corresponding handlers
 	const routes: Map<string, RequestHandler> = new Map([
 		// v1 Status endpoints
-		["/v1/status", handleBotStatus],
-		["/v1/stats", handleGetStats],
+		[`/v${version}/status`, handleBotStatus],
+		[`/v${version}/stats`, handleGetStats],
 
 		// v1 Leaderboard endpoints
-		["/v1/leaderboard/total-xp", handleTotalXp],
-		["/v1/leaderboard/global", handleGlobalLeaderboard],
-		["/v1/leaderboard/server", handleServerLeaderboard],
+		[`/v${version}/leaderboard/total-xp`, handleTotalXp],
+		[`/v${version}/leaderboard/global`, handleGlobalLeaderboard],
+		[`/v${version}/leaderboard/server`, handleServerLeaderboard],
 
 		// v1 Guild endpoints
-		["/v1/guilds", handleGetBotGuilds],
-		["/v1/guilds/details", handleGetGuild],
-		["/v1/guilds/membership", handleCheckBotMembership],
-		["/v1/guilds/plugins", handleGetGuildPlugins],
+		[`/v${version}/guilds`, handleGetBotGuilds],
+		[`/v${version}/guilds/details`, handleGetGuild],
+		[`/v${version}/guilds/membership`, handleCheckBotMembership],
+		[`/v${version}/guilds/plugins`, handleGetGuildPlugins],
 
 		// v1 User endpoints
-		["/v1/users", handleGetUsers],
-		["/v1/users/details", handleGetUser],
+		[`/v${version}/users`, handleGetUsers],
+		[`/v${version}/users/details`, handleGetUser],
 
 		// v1 Plugin endpoints
-		["/v1/plugins/available", handleGetAvailablePlugins],
-		["/v1/plugins/config", handleGetPluginConfig],
+		[`/v${version}/plugins/available`, handleGetAvailablePlugins],
+		[`/v${version}/plugins/config`, handleGetPluginConfig],
 
 		// v1 Integration endpoints
-		["/v1/integrations/discord/link", handleDiscordLink],
+		[`/v${version}/integrations/discord/link`, handleDiscordLink],
 
 		// v1 License endpoints
-		["/v1/license/verify", handleLicenseVerify],
-		["/v1/license/trial", handleLicenseTrial],
+		[`/v${version}/license/verify`, handleLicenseVerify],
+		[`/v${version}/license/trial`, handleLicenseTrial],
+
+		...(version === "v2"
+			? [
+					// ["/v2/status", handleBotStatus],
+					// ["/v2/stats", handleGetStats],
+					// ["/v2/leaderboard/total-xp", handleTotalXp],
+					// ["/v2/leaderboard/global", handleGlobalLeaderboard],
+					// ["/v2/leaderboard/server", handleServerLeaderboard],
+				]
+			: []),
 	]);
 
 	// Get the handler for the requested route

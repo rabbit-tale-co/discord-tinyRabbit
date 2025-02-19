@@ -30,8 +30,8 @@ serve({
 		}
 
 		// Handle API requests
-		// TODO: change url from rabbittale.co/api/endpoint to api.rabbittale.co/endpoint
-		if (url.pathname.startsWith("/api")) {
+
+		if (url.pathname.match(/^\/v\d+/)) {
 			return Router.router(req);
 		}
 
