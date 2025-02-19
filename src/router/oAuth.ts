@@ -149,7 +149,7 @@ export function setCorsHeaders(response: Response): Response {
 	response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 	response.headers.set(
 		"Access-Control-Allow-Headers",
-		"Content-Type, Authorization",
+		"Content-Type, Authorization, Cookie",
 	);
 	return response;
 }
