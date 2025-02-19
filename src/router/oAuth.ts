@@ -31,11 +31,13 @@ export function handleLogin(
  * Handles the OAuth2 callback.
  * @param {URL} url - The URL object.
  * @param {Discord.Snowflake} client_id - The client ID.
+ * @param {Discord.Snowflake} redirect_uri - The redirect URI.
  * @returns {Promise<Response>} A promise that resolves to a response object.
  */
 export async function handleOAuthCallback(
 	url: URL,
-	client_id: Discord.Snowflake
+	client_id: Discord.Snowflake,
+	redirect_uri: Discord.Snowflake
 ): Promise<Response> {
 	// Get the code from the URL
 	const code: string | null = url.searchParams.get('code')
@@ -67,7 +69,7 @@ export async function handleOAuthCallback(
 	params.append('client_secret', CLIENT_SECRET)
 	params.append('grant_type', 'authorization_code')
 	params.append('code', code)
-	// params.append('redirect_uri', redirect)
+	params.append('redirect_uri', redirect_uri)
 
 	// Fetch the token
 	try {

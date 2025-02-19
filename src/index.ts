@@ -147,9 +147,9 @@ client.once("ready", async (c) => {
 		const { bot_status: server, db_status: database } =
 			await API.checkHeartbeat();
 
-		const serverStatusColor = server === "online" ? chalk.green : chalk.red;
+		const serverStatusColor = server === "working" ? chalk.green : chalk.red;
 		const databaseStatusColor =
-			database.status === "online" ? chalk.green : chalk.red;
+			database.status === "working" ? chalk.green : chalk.red;
 	}, 15_000); // 15 seconds
 
 	presenceService.initialize(); // Restart the presence updater
