@@ -92,10 +92,22 @@ export async function handleOAuthCallback(
 
 		// If there is an access token, redirect with the access token
 		if (data.access_token) {
+			const cookie = [
+				`access_token=${data.access_token}`,
+				`Max-Age=${data.expires_in}`,
+				'Path=/',
+				'HttpOnly',
+				process.env.NODE_ENV === 'production' ? 'Secure' : '',
+				'SameSite=Lax',
+			]
+				.filter(Boolean)
+				.join('; ')
+
 			return new Response(null, {
 				status: 302,
 				headers: {
-					Location: `${state}?access_token=${data.access_token}&expires_in=${data.expires_in}`,
+					'Set-Cookie': cookie,
+					Location: state.split('?')[0], // Remove query params from redirect
 				},
 			})
 		}
@@ -130,8 +142,12 @@ function redirectWithError(
  * @returns {Response} A response object.
  */
 export function setCorsHeaders(response: Response): Response {
-	response.headers.set('Access-Control-Allow-Origin', '*')
+	response.headers.set('Access-Control-Allow-Origin', 'http://localhost:3000')
+	response.headers.set('Access-Control-Allow-Credentials', 'true')
 	response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-	response.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+	response.headers.set(
+		'Access-Control-Allow-Headers',
+		'Content-Type, Authorization'
+	)
 	return response
 }
