@@ -137,19 +137,3 @@ function redirectWithError(
 		headers: { Location: `${state}?error=${error}` },
 	});
 }
-
-/**
- * Sets the CORS headers for the response.
- * @param {Response} response - The response object.
- * @returns {Response} A response object.
- */
-export function setCorsHeaders(response: Response): Response {
-	response.headers.set("Access-Control-Allow-Origin", "http://localhost:3000");
-	response.headers.set("Access-Control-Allow-Credentials", "true");
-	response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-	response.headers.set(
-		"Access-Control-Allow-Headers",
-		"Content-Type, Authorization, Cookie",
-	);
-	return response;
-}
