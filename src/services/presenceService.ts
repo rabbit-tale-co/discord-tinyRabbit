@@ -2,8 +2,6 @@ import * as Discord from 'discord.js'
 import * as api from '@/api/index.js'
 import { bunnyLog } from 'bunny-log'
 
-const DEVELOPMENT = process.env.NODE_ENV !== 'production'
-
 class PresenceService {
 	private readonly client: Discord.Client
 	private static readonly HOLIDAY_PRESENCES = [
