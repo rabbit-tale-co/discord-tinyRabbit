@@ -92,10 +92,15 @@ export async function handleOAuthCallback(
 
 		// If there is an access token, redirect with the access token
 		if (data.access_token) {
+			const callbackUrl = `${process.env.DASHBOARD_URL}/api/auth/callback`;
+			const redirectUrl = new URL(callbackUrl);
+			redirectUrl.searchParams.set("access_token", data.access_token);
+			redirectUrl.searchParams.set("expires_in", data.expires_in.toString());
+
 			return new Response(null, {
 				status: 302,
 				headers: {
-					Location: `${state}?access_token=${data.access_token}&expires_in=${data.expires_in}`,
+					Location: redirectUrl.toString(),
 				},
 			});
 		}
