@@ -31,7 +31,7 @@ serve({
 
 		// Handle API requests
 
-		if (url.pathname.match(/^\/v\d+/)) {
+		if (url.pathname === "/ping" || url.pathname.match(/^\/v\d+/)) {
 			return Router.router(req);
 		}
 
@@ -43,10 +43,6 @@ serve({
 		// Handle OAuth callback requests
 		if (url.pathname === "/callback") {
 			return OAuth.handleOAuthCallback(url, CLIENT_ID);
-		}
-
-		if (url.pathname === "/ping") {
-			return new Response("Pong!", { status: 200 });
 		}
 
 		// Handle 404 requests
