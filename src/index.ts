@@ -45,6 +45,10 @@ serve({
 			return OAuth.handleOAuthCallback(url, CLIENT_ID);
 		}
 
+		if (url.pathname === "/ping") {
+			return new Response("Pong!", { status: 200 });
+		}
+
 		// Handle 404 requests
 		return new Response("Not Found", { status: 404 });
 	},
