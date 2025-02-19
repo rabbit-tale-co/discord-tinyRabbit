@@ -1,6 +1,6 @@
 import { env } from 'node:process'
 import type * as Discord from 'discord.js'
-import type { OAuthTokenResponse } from '../types/oAuth'
+import type { OAuthTokenResponse } from '../types/oAuth.js'
 
 const CLIENT_SECRET: string = env.BOT_CLIENT_SECRET || ''
 
@@ -44,7 +44,7 @@ export async function handleOAuthCallback(
 
 	// Get the state from the URL
 	const state: string = decodeURIComponent(
-		url.searchParams.get('state') || 'http://dashboard.rabbittale.co'
+		url.searchParams.get('state') || 'https://dashboard.rabbittale.co'
 	)
 
 	// Get the error from the URL
