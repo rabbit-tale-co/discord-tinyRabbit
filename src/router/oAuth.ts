@@ -1,6 +1,7 @@
 import { env } from "node:process";
 import type * as Discord from "discord.js";
 import type { OAuthTokenResponse } from "../types/oAuth.js";
+import { bunnyLog } from "bunny-log";
 
 const CLIENT_SECRET: string = env.BOT_CLIENT_SECRET || "";
 
@@ -70,6 +71,8 @@ export async function handleOAuthCallback(
 	params.append("grant_type", "authorization_code");
 	params.append("code", code);
 	params.append("redirect_uri", redirect_uri);
+
+	bunnyLog.info(params.toString());
 
 	// Fetch the token
 	try {
