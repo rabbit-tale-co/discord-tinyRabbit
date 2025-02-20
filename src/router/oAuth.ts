@@ -98,6 +98,16 @@ export async function handleOAuthCallback(
 			},
 		);
 
+		// Add proper error logging
+		if (!tokenResponse.ok) {
+			const errorData = await tokenResponse.json();
+			bunnyLog.error('Token exchange failed', {
+				status: tokenResponse.status,
+				error: errorData
+			});
+			return redirectWithError(state, `token_exchange_failed_${tokenResponse.status}`);
+		}
+
 		// Get the data from the token response
 		const data: OAuthTokenResponse = await tokenResponse.json();
 
@@ -108,20 +118,10 @@ export async function handleOAuthCallback(
 
 		// If there is an access token, redirect with the access token
 		if (data.access_token) {
-			const callbackUrl = "http://localhost:3000/api/auth/callback";
-			const redirectUrl = new URL(callbackUrl);
-			redirectUrl.searchParams.set("access_token", data.access_token);
-			redirectUrl.searchParams.set("expires_in", data.expires_in.toString());
-
 			return new Response(null, {
 				status: 302,
 				headers: {
-					Location: redirectUrl.toString(),
-					"Set-Cookie": `session=${data.access_token}; Path=/; ${
-						process.env.NODE_ENV === "production"
-							? "Secure; SameSite=None"
-							: "SameSite=Lax"
-					}`,
+					Location: `${process.env.DASHBOARD_URL}/api/auth/callback?code=${data.access_token}`,
 				},
 			});
 		}
