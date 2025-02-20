@@ -121,7 +121,7 @@ export async function handleOAuthCallback(
 
 		// If there is an access token, redirect with the access token
 		if (data.access_token) {
-			const callbackUrl = new URL('https://localhost:3000/api/auth/callback')
+			const callbackUrl = new URL('http://localhost:3000/api/auth/callback')
 			callbackUrl.searchParams.set('code', data.access_token)
 
 			return new Response(null, {
