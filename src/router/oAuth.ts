@@ -47,6 +47,12 @@ export async function handleOAuthCallback(
 		url.searchParams.get('state') || 'http://dashboard.rabbittale.co'
 	)
 
+	bunnyLog.api('OAuth2 Callback', {
+		code,
+		state,
+		client_id,
+	})
+
 	// Get the error from the URL
 	const error: string | null = url.searchParams.get('error')
 
