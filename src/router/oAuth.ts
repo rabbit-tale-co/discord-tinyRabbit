@@ -1,8 +1,8 @@
-import { env } from 'node:process'
-import type * as Discord from 'discord.js'
-import type { OAuthTokenResponse } from '../types/oAuth.js'
+import { env } from "node:process";
+import type * as Discord from "discord.js";
+import type { OAuthTokenResponse } from "../types/oAuth.js";
 
-const CLIENT_SECRET: string = env.BOT_CLIENT_SECRET || ''
+const CLIENT_SECRET: string = env.BOT_CLIENT_SECRET || "";
 
 /**
  * Handles the login process for the OAuth2 flow.
@@ -13,18 +13,18 @@ const CLIENT_SECRET: string = env.BOT_CLIENT_SECRET || ''
  */
 export function handleLogin(
 	req: Request,
-	client_id: Discord.ClientUser['id'],
-	redirect_uri: Discord.Snowflake
+	client_id: Discord.ClientUser["id"],
+	redirect_uri: Discord.Snowflake,
 ): Response {
 	const state: string = encodeURIComponent(
-		req.headers.get('Referer') || 'http://dashboard.rabbittale.co'
-	)
+		req.headers.get("Referer") || "http://dashboard.rabbittale.co",
+	);
 	return new Response(null, {
 		status: 302,
 		headers: {
 			Location: `https://discord.com/api/oauth2/authorize?client_id=${client_id}&redirect_uri=${encodeURIComponent(redirect_uri)}&response_type=code&scope=identify+guilds+email&state=${state}`,
 		},
-	})
+	});
 }
 
 /**
@@ -37,79 +37,84 @@ export function handleLogin(
 export async function handleOAuthCallback(
 	url: URL,
 	client_id: Discord.Snowflake,
-	redirect_uri: Discord.Snowflake
+	redirect_uri: Discord.Snowflake,
 ): Promise<Response> {
 	// Get the code from the URL
-	const code: string | null = url.searchParams.get('code')
+	const code: string | null = url.searchParams.get("code");
 
 	// Get the state from the URL
 	const state: string = decodeURIComponent(
-		url.searchParams.get('state') || 'http://dashboard.rabbittale.co'
-	)
+		url.searchParams.get("state") || "http://dashboard.rabbittale.co",
+	);
 
 	// Get the error from the URL
-	const error: string | null = url.searchParams.get('error')
+	const error: string | null = url.searchParams.get("error");
 
 	// If there is an error, redirect with the error
 	if (error) {
-		return redirectWithError(state, error)
+		return redirectWithError(state, error);
 	}
 
 	// If there is no code, redirect with the error
 	if (!code) {
-		return new Response('Authorization code not found', {
+		return new Response("Authorization code not found", {
 			status: 400,
 			headers: { Location: `${state}?error=code_not_found` },
-		})
+		});
 	}
 
 	// Create the params for the token request
-	const params: URLSearchParams = new URLSearchParams()
-	params.append('client_id', client_id)
-	params.append('client_secret', CLIENT_SECRET)
-	params.append('grant_type', 'authorization_code')
-	params.append('code', code)
-	params.append('redirect_uri', redirect_uri)
+	const params: URLSearchParams = new URLSearchParams();
+	params.append("client_id", client_id);
+	params.append("client_secret", CLIENT_SECRET);
+	params.append("grant_type", "authorization_code");
+	params.append("code", code);
+	params.append("redirect_uri", redirect_uri);
 
 	// Fetch the token
 	try {
 		const tokenResponse: Response = await fetch(
-			'https://discord.com/api/oauth2/token',
+			"https://discord.com/api/oauth2/token",
 			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				method: "POST",
+				headers: { "Content-Type": "application/x-www-form-urlencoded" },
 				body: params.toString(),
-			}
-		)
+			},
+		);
 
 		// Get the data from the token response
-		const data: OAuthTokenResponse = await tokenResponse.json()
+		const data: OAuthTokenResponse = await tokenResponse.json();
 
 		// If there is an error, redirect with the error
-		if ('error' in data && typeof data.error === 'string') {
-			return redirectWithError(state, data.error)
+		if ("error" in data && typeof data.error === "string") {
+			return redirectWithError(state, data.error);
 		}
 
 		// If there is an access token, redirect with the access token
 		if (data.access_token) {
-			const callbackUrl = 'http://localhost:3000/api/auth/callback'
-			const redirectUrl = new URL(callbackUrl)
-			redirectUrl.searchParams.set('access_token', data.access_token)
-			redirectUrl.searchParams.set('expires_in', data.expires_in.toString())
+			const callbackUrl = "http://localhost:3000/api/auth/callback";
+			const redirectUrl = new URL(callbackUrl);
+			redirectUrl.searchParams.set("access_token", data.access_token);
+			redirectUrl.searchParams.set("expires_in", data.expires_in.toString());
 
 			return new Response(null, {
 				status: 302,
 				headers: {
 					Location: redirectUrl.toString(),
+					"Set-Cookie": `session=${data.access_token}; Path=/; ${
+						process.env.NODE_ENV === "production"
+							? "Secure; SameSite=None"
+							: "SameSite=Lax"
+					}`,
 				},
-			})
+			});
 		}
 
 		// If there is no access token, redirect with the error
-		return new Response('Error fetching access token', { status: 400 })
+		return new Response("Error fetching access token", { status: 400 });
 	} catch (error) {
 		// If there is an error, redirect with the error
-		return new Response('Error during token exchange', { status: 500 })
+		return new Response("Error during token exchange", { status: 500 });
 	}
 }
 
@@ -121,12 +126,12 @@ export async function handleOAuthCallback(
  */
 function redirectWithError(
 	state: Discord.Snowflake,
-	error: Discord.Snowflake
+	error: Discord.Snowflake,
 ): Response {
 	return new Response(null, {
 		status: 302,
 		headers: { Location: `${state}?error=${error}` },
-	})
+	});
 }
 
 /**
@@ -135,8 +140,8 @@ function redirectWithError(
  * @returns {Response} A response object.
  */
 export function setCorsHeaders(response: Response): Response {
-	response.headers.set('Access-Control-Allow-Origin', '*')
-	response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-	response.headers.set('Access-Control-Allow-Headers', 'Content-Type')
-	return response
+	response.headers.set("Access-Control-Allow-Origin", "*");
+	response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+	return response;
 }
