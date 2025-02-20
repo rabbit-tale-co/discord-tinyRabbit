@@ -17,9 +17,11 @@ export function handleLogin(
 	client_id: Discord.ClientUser["id"],
 	redirect_uri: Discord.Snowflake,
 ): Response {
+	const referer = req.headers.get("Referer");
 	const state: string = encodeURIComponent(
-		req.headers.get("Referer") ||
-			new URL(env.DASHBOARD_URL || "http://localhost:3000").origin,
+		referer && isValidState(referer)
+			? referer
+			: new URL(env.DASHBOARD_URL || "http://localhost:3000").origin,
 	);
 	return new Response(null, {
 		status: 302,
@@ -49,7 +51,7 @@ export async function handleOAuthCallback(
 			new URL(env.DASHBOARD_URL || "http://localhost:3000").origin,
 	);
 
-	// Add validation for state parameter
+	// Add state validation
 	if (!isValidState(state)) {
 		return new Response("Invalid state parameter", { status: 400 });
 	}
@@ -167,8 +169,8 @@ function isValidState(state: string): boolean {
 		const allowedOrigins = [
 			env.DASHBOARD_URL,
 			"http://localhost:3000",
-			"http://dashboard.rabbittale.co",
-		];
+			"https://dashboard.rabbittale.co",
+		].filter(Boolean);
 		return allowedOrigins.includes(stateUrl.origin);
 	} catch {
 		return false;
