@@ -50,7 +50,7 @@ serve({
 
 		// Handle OAuth callback requests
 		if (url.pathname === "/callback") {
-			return OAuth.handleOAuthCallback(url, CLIENT_ID, REDIRECT_URI);
+			return OAuth.handleOAuthCallback(url, CLIENT_ID);
 		}
 
 		// Handle 404 requests
