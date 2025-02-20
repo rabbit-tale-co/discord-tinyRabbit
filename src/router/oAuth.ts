@@ -92,15 +92,14 @@ export async function handleOAuthCallback(
 
 		// If there is an access token, redirect with the access token
 		if (data.access_token) {
-			const callbackUrl = state
+			const callbackUrl = 'http://localhost:3000/api/auth/callback'
 			const redirectUrl = new URL(callbackUrl)
-			// redirectUrl.searchParams.set('access_token', data.access_token)
-			// redirectUrl.searchParams.set('expires_in', data.expires_in.toString())
+			redirectUrl.searchParams.set('access_token', data.access_token)
+			redirectUrl.searchParams.set('expires_in', data.expires_in.toString())
 
 			return new Response(null, {
 				status: 302,
 				headers: {
-					'Set-Cookie': `access_token=${data.access_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${data.expires_in}`,
 					Location: redirectUrl.toString(),
 				},
 			})
