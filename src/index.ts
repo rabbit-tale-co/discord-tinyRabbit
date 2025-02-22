@@ -7,14 +7,11 @@ import chalk from "chalk";
 import { bunnyLog } from "bunny-log";
 import * as Birthday from "./commands/fun/bday.js";
 import * as Database from "./db/initDatabase.js";
-import * as OAuth from "./router/oAuth.js";
 import playdl from "play-dl";
 import PresenceService from "@/services/presenceService.js";
 import * as Services from "@/services/index.js";
 
 const PORT: number = Number.parseInt(env.PORT || "5000", 10);
-const CLIENT_ID: Discord.Snowflake = env.BOT_CLIENT_ID || "";
-const REDIRECT_URI: Discord.Snowflake = "https://api.rabbittale.co/callback";
 
 /**
  * Server setup
@@ -41,16 +38,6 @@ serve({
 
 		if (url.pathname === "/ping" || url.pathname.match(/^\/v\d+/)) {
 			return Router.router(req);
-		}
-
-		// Handle login requests
-		if (url.pathname === "/login") {
-			return OAuth.handleLogin(req, CLIENT_ID, REDIRECT_URI);
-		}
-
-		// Handle OAuth callback requests
-		if (url.pathname === "/callback") {
-			return OAuth.handleOAuthCallback(url, CLIENT_ID);
 		}
 
 		// Handle 404 requests
