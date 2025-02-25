@@ -102,7 +102,7 @@ class PresenceService {
 
 			const stats = await api.fetchAllStats(user.id);
 
-			const description = `website: https://discord.tinyrabbit.co
+			const description = `website: https://discord.rabbittale.co
 support: https://discord.gg/RfBydgJpmU
 
 🐇 Tiny Rabbit Stats:
