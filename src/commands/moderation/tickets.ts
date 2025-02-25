@@ -1232,7 +1232,7 @@ async function claimTicket(
 	)
 
 	// Update the message
-	await interaction.message.edit({
+    await interaction.message.edit({
 		embeds: [updatedEmbed],
 		components: updatedComponents,
 	})
