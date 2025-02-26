@@ -4,6 +4,7 @@ import type { DefaultConfigs } from "@/types/plugins.js";
 import { bunnyLog } from "bunny-log";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fetchAvailablePlugins } from "@/plugins/index.js";
 
 type RequestHandler = (req: Request) => Promise<Response>;
 
@@ -92,10 +93,6 @@ async function router(req: Request): Promise<Response> {
 		// v1 User endpoints
 		["/v1/users/me", handleGetUser],
 
-		// v1 Plugin endpoints
-		["/v1/plugins/available", handleGetAvailablePlugins],
-		["/v1/plugins/config", handleGetPluginConfig],
-
 		// v1 Integration endpoints
 		["/v1/integrations/discord/link", handleDiscordLink],
 
@@ -104,10 +101,12 @@ async function router(req: Request): Promise<Response> {
 		["/v1/license/trial", handleLicenseTrial],
 
 		// v1 Plugin endpoints
+		["/v1/plugins/available", handleGetAvailablePlugins],
 		["/v1/plugins/get", handleGetPlugins],
 		["/v1/plugins/toggle", handleTogglePlugin],
 		["/v1/plugins/enable", handleEnablePlugin],
 		["/v1/plugins/disable", handleDisablePlugin],
+		["/v1/plugins/config", handleGetPluginConfig],
 
 		// ["/v2/status", handleBotStatus],
 		// ["/v2/stats", handleGetStats],
@@ -377,31 +376,6 @@ async function handleGetUser(req: Request): Promise<Response> {
 }
 
 /**
- * Handles the available plugins request.
- * @param {Request} req - The request object.
- * @returns {Promise<Response>} A promise that resolves to a response object.
- */
-async function handleGetAvailablePlugins(req: Request): Promise<Response> {
-	// Get the bot_id and guild_id from the request
-	const bot_id = new URL(req.url).searchParams.get("bot_id");
-	const guild_id = new URL(req.url).searchParams.get("guild_id");
-
-	// Check if the bot_id and guild_id are provided
-	if (!bot_id || !guild_id)
-		return new Response("Missing bot_id or guild_id", { status: 400 });
-
-	const availablePlugins = await API.getGuildPlugins(bot_id, guild_id);
-
-	// Create the response
-	const response = new Response(JSON.stringify(availablePlugins), {
-		headers: { "Content-Type": "application/json" },
-	});
-
-	// Set the CORS headers
-	return setCorsHeaders(response);
-}
-
-/**
  * Handles the plugin config request.
  * @param {Request} req - The request object.
  * @returns {Promise<Response>} A promise that resolves to a response object.
@@ -622,4 +596,17 @@ async function handleGetPlugins(req: Request): Promise<Response> {
 	return setCorsHeaders(response);
 }
 
+/**
+ * Handles the get available plugins request.
+ * @returns {Promise<Response>} A promise that resolves to a response object.
+ */
+async function handleGetAvailablePlugins(): Promise<Response> {
+	const availablePlugins = await fetchAvailablePlugins();
+
+	const response = new Response(JSON.stringify(availablePlugins), {
+		headers: { "Content-Type": "application/json" },
+	});
+
+	return setCorsHeaders(response);
+}
 export { router };
