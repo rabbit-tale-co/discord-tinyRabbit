@@ -103,6 +103,12 @@ async function router(req: Request): Promise<Response> {
 		["/v1/license/verify", handleLicenseVerify],
 		["/v1/license/trial", handleLicenseTrial],
 
+		// v1 Plugin endpoints
+		["/v1/plugins/get", handleGetPlugins],
+		["/v1/plugins/toggle", handleTogglePlugin],
+		["/v1/plugins/enable", handleEnablePlugin],
+		["/v1/plugins/disable", handleDisablePlugin],
+
 		// ["/v2/status", handleBotStatus],
 		// ["/v2/stats", handleGetStats],
 		// ["/v2/leaderboard/total-xp", handleTotalXp],
@@ -538,6 +544,81 @@ async function handleGetStats(req: Request): Promise<Response> {
 	});
 
 	// Set the CORS headers
+	return setCorsHeaders(response);
+}
+
+// PLUGIN ENDPOINTS
+
+/**
+ * Handles the toggle plugin request.
+ * @param {Request} req - The request object.
+ * @returns {Promise<Response>} A promise that resolves to a response object.
+ */
+async function handleTogglePlugin(req: Request): Promise<Response> {
+	const { bot_id, guild_id, plugin_name, enabled } = await req.json();
+
+	if (!bot_id || !guild_id || !plugin_name)
+		return new Response("Missing bot_id, guild_id or plugin_name", {
+			status: 400,
+		});
+
+	await API.togglePlugin(bot_id, guild_id, plugin_name, enabled);
+
+	const response = new Response(JSON.stringify({ success: true }), {
+		headers: { "Content-Type": "application/json" },
+	});
+
+	return setCorsHeaders(response);
+}
+
+/**
+ * Handles the enable plugin request.
+ * @param {Request} req - The request object.
+ * @returns {Promise<Response>} A promise that resolves to a response object.
+ */
+async function handleEnablePlugin(req: Request): Promise<Response> {
+	const { bot_id, guild_id, plugin_name } = await req.json();
+
+	await API.enablePlugin(bot_id, guild_id, plugin_name);
+
+	const response = new Response(JSON.stringify({ success: true }), {
+		headers: { "Content-Type": "application/json" },
+	});
+
+	return setCorsHeaders(response);
+}
+
+/**
+ * Handles the disable plugin request.
+ * @param {Request} req - The request object.
+ * @returns {Promise<Response>} A promise that resolves to a response object.
+ */
+async function handleDisablePlugin(req: Request): Promise<Response> {
+	const { bot_id, guild_id, plugin_name } = await req.json();
+
+	await API.disablePlugin(bot_id, guild_id, plugin_name);
+
+	const response = new Response(JSON.stringify({ success: true }), {
+		headers: { "Content-Type": "application/json" },
+	});
+
+	return setCorsHeaders(response);
+}
+
+/**
+ * Handles the get plugins request.
+ * @param {Request} req - The request object.
+ * @returns {Promise<Response>} A promise that resolves to a response object.
+ */
+async function handleGetPlugins(req: Request): Promise<Response> {
+	const { bot_id, guild_id } = await req.json();
+
+	const plugins = await API.getGuildPlugins(bot_id, guild_id);
+
+	const response = new Response(JSON.stringify(plugins), {
+		headers: { "Content-Type": "application/json" },
+	});
+
 	return setCorsHeaders(response);
 }
 
