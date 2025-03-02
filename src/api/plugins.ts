@@ -431,10 +431,26 @@ async function togglePlugin(
 	enabled: boolean,
 ): Promise<void> {
 	try {
-		// Update the plugin in the database
+		// First get the current plugin config
+		const { data, error: fetchError } = await supabase
+			.from("plugins")
+			.select("config")
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("plugin_name", plugin_name)
+			.single();
+
+		if (fetchError) {
+			throw fetchError;
+		}
+
+		// Update the enabled property in the config
+		const updatedConfig = { ...data.config, enabled };
+
+		// Update the entire config object
 		const { error } = await supabase
 			.from("plugins")
-			.update({ "config.enabled": enabled })
+			.update({ config: updatedConfig })
 			.eq("bot_id", bot_id)
 			.eq("guild_id", guild_id)
 			.eq("plugin_name", plugin_name);
