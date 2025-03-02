@@ -53,7 +53,7 @@ type Ticket = {
 	}
 }
 
-type Welcome = {
+type Welcome_Goodbye = {
 	enabled?: boolean
 	type: 'embed' | 'text'
 	welcome_message?: string | null
@@ -135,7 +135,7 @@ type Music = {
 type PluginTypes = {
 	levels: Level
 	tickets: Ticket
-	welcome: Welcome
+	welcome_goodbye: Welcome_Goodbye
 	starboard: Starboard
 	birthday: Birthday
 	tempvc: TempVC
