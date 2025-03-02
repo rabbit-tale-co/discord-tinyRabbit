@@ -29,7 +29,7 @@ const availablePlugins = [
 		iconSolid: "SolidTrendingUp",
 		iconOutline: "OutlineTrendingUp",
 		badge: "SolidCarrot",
-		category: "Analytics",
+		category: "Fun",
 		premium: true,
 	},
 
