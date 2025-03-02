@@ -1,18 +1,18 @@
-import * as API from "@/api/index.js";
-import type * as Discord from "discord.js";
-import type { DefaultConfigs } from "@/types/plugins.js";
-import { bunnyLog } from "bunny-log";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { fetchAvailablePlugins } from "@/plugins/index.js";
+import * as API from '@/api/index.js'
+import type * as Discord from 'discord.js'
+import type { DefaultConfigs } from '@/types/plugins.js'
+import { bunnyLog } from 'bunny-log'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fetchAvailablePlugins } from '@/plugins/index.js'
 
-type RequestHandler = (req: Request) => Promise<Response>;
+type RequestHandler = (req: Request) => Promise<Response>
 
 const CORS_HEADERS = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-	"Access-Control-Allow-Headers": "Authorization, Content-Type, Cookie",
-};
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+	'Access-Control-Allow-Headers': 'Authorization, Content-Type, Cookie',
+}
 
 /**
  * Gets the package version from the package.json file.
@@ -20,12 +20,12 @@ const CORS_HEADERS = {
  */
 const getPackageVersion = (): string => {
 	// Get the package version from the package.json file
-	const packageJsonPath = resolve(process.cwd(), "package.json");
-	const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+	const packageJsonPath = resolve(process.cwd(), 'package.json')
+	const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
 
 	// Return the package version
-	return packageJson.version;
-};
+	return packageJson.version
+}
 
 /**
  * Sets the CORS headers for the response.
@@ -35,12 +35,12 @@ const getPackageVersion = (): string => {
 const setCorsHeaders = (response: Response): Response => {
 	// Set the CORS headers for the response
 	for (const [key, value] of Object.entries(CORS_HEADERS)) {
-		response.headers.set(key, value);
+		response.headers.set(key, value)
 	}
 
 	// Return the response with CORS headers
-	return response;
-};
+	return response
+}
 
 /**
  * Handles errors in the request handler.
@@ -51,12 +51,12 @@ const errorHandler =
 	(handler: RequestHandler): RequestHandler =>
 	async (req) => {
 		try {
-			return await handler(req);
+			return await handler(req)
 		} catch (error) {
-			bunnyLog.error("Error handling request:", error);
-			return new Response("Internal server error", { status: 500 });
+			bunnyLog.error('Error handling request:', error)
+			return new Response('Internal server error', { status: 500 })
 		}
-	};
+	}
 
 /**
  * The main router function.
@@ -64,67 +64,68 @@ const errorHandler =
  * @returns {Promise<Response>} A promise that resolves to a response object.
  */
 async function router(req: Request): Promise<Response> {
-	const url = new URL(req.url);
+	const url = new URL(req.url)
 
-	if (req.method === "OPTIONS") {
-		return new Response(null, { status: 204, headers: CORS_HEADERS });
+	if (req.method === 'OPTIONS') {
+		return new Response(null, { status: 204, headers: CORS_HEADERS })
 	}
 	// Define the routes and their corresponding handlers
 	const routes: Map<string, RequestHandler> = new Map([
 		// Base endpoints (no version)
-		["/ping", async () => new Response("Pong!", { status: 200 })],
+		['/ping', async () => new Response('Pong!', { status: 200 })],
 
 		// v1 Status endpoints
-		["/v1/status", handleBotStatus],
-		["/v1/stats", handleGetStats],
+		['/v1/status', handleBotStatus],
+		['/v1/stats', handleGetStats],
 
 		// v1 Leaderboard endpoints
-		["/v1/leaderboard/total-xp", handleTotalXp],
-		["/v1/leaderboard/global", handleGlobalLeaderboard],
-		["/v1/leaderboard/server", handleServerLeaderboard],
+		['/v1/leaderboard/total-xp', handleTotalXp],
+		['/v1/leaderboard/global', handleGlobalLeaderboard],
+		['/v1/leaderboard/server', handleServerLeaderboard],
 
 		// v1 Guild endpoints
-		["/v1/guild/all", handleGetBotGuilds],
-		["/v1/guild/details", handleGetGuild],
-		["/v1/guild/membership", handleCheckBotMembership],
-		["/v1/guild/plugins", handleGetGuildPlugins],
-		["/v1/guild/users", handleGetUsers],
+		['/v1/guild/all', handleGetBotGuilds],
+		['/v1/guild/details', handleGetGuild],
+		['/v1/guild/membership', handleCheckBotMembership],
+		['/v1/guild/plugins', handleGetGuildPlugins],
+		['/v1/guild/users', handleGetUsers],
 
 		// v1 User endpoints
-		["/v1/users/me", handleGetUser],
+		['/v1/users/me', handleGetUser],
 
 		// v1 Integration endpoints
-		["/v1/integrations/discord/link", handleDiscordLink],
+		['/v1/integrations/discord/link', handleDiscordLink],
 
 		// v1 License endpoints
-		["/v1/license/verify", handleLicenseVerify],
-		["/v1/license/trial", handleLicenseTrial],
+		['/v1/license/verify', handleLicenseVerify],
+		['/v1/license/trial', handleLicenseTrial],
 
 		// v1 Plugin endpoints
-		["/v1/plugins/available", handleGetAvailablePlugins],
-		["/v1/plugins/get", handleGetPlugins],
-		["/v1/plugins/toggle", handleTogglePlugin],
-		["/v1/plugins/enable", handleEnablePlugin],
-		["/v1/plugins/disable", handleDisablePlugin],
-		["/v1/plugins/config", handleGetPluginConfig],
+		['/v1/plugins/available', handleGetAvailablePlugins],
+		['/v1/plugins/get', handleGetPlugins],
+		['/v1/plugins/toggle', handleTogglePlugin],
+		['/v1/plugins/enable', handleEnablePlugin],
+		['/v1/plugins/disable', handleDisablePlugin],
+		['/v1/plugins/config', handleGetPluginConfig],
+		['/v1/plugins/set', handleSetPluginConfig],
 
 		// ["/v2/status", handleBotStatus],
 		// ["/v2/stats", handleGetStats],
 		// ["/v2/leaderboard/total-xp", handleTotalXp],
 		// ["/v2/leaderboard/global", handleGlobalLeaderboard],
 		// ["/v2/leaderboard/server", handleServerLeaderboard],
-	]);
+	])
 
 	// Get the handler for the requested route
-	const handler = routes.get(url.pathname);
+	const handler = routes.get(url.pathname)
 
 	// If the handler exists, call it with the request and handle any errors
 	if (handler) {
-		return errorHandler(handler)(req);
+		return errorHandler(handler)(req)
 	}
 
 	// If the handler does not exist, return a 404 response
-	return new Response("Not found", { status: 404 });
+	return new Response('Not found', { status: 404 })
 }
 
 /**
@@ -133,18 +134,18 @@ async function router(req: Request): Promise<Response> {
  */
 export async function handleBotStatus(): Promise<Response> {
 	// Get the package version
-	const version = getPackageVersion();
+	const version = getPackageVersion()
 
 	// Check the heartbeat status
-	const healthStatus = await API.checkHeartbeat();
+	const healthStatus = await API.checkHeartbeat()
 
 	// Create the response
 	const response = new Response(JSON.stringify({ version, healthStatus }), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -153,15 +154,15 @@ export async function handleBotStatus(): Promise<Response> {
  */
 async function handleTotalXp(): Promise<Response> {
 	// Fetch the total XP
-	const totalXp = await API.fetchTotalXp();
+	const totalXp = await API.fetchTotalXp()
 
 	// Create the response
 	const response = new Response(JSON.stringify({ totalXp }), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -171,35 +172,35 @@ async function handleTotalXp(): Promise<Response> {
  */
 async function handleGlobalLeaderboard(req: Request): Promise<Response> {
 	// Get the page and limit from the request
-	const url = new URL(req.url);
+	const url = new URL(req.url)
 
 	// Get the page and limit from the request
-	const page = Number.parseInt(url.searchParams.get("page") || "1", 10);
+	const page = Number.parseInt(url.searchParams.get('page') || '1', 10)
 
 	// Get the limit from the request
 	const limit = Math.min(
-		Number.parseInt(url.searchParams.get("limit") || "25", 10),
-		100,
-	);
+		Number.parseInt(url.searchParams.get('limit') || '25', 10),
+		100
+	)
 
 	// Get the global leaderboard
-	const globalLeaderboard = await API.getGlobalLeaderboard(page, limit);
+	const globalLeaderboard = await API.getGlobalLeaderboard(page, limit)
 
 	// Get the total users
-	const totalUsers = await API.getTotalUserCount();
+	const totalUsers = await API.getTotalUserCount()
 
 	// Get the total XP
-	const totalXp = await API.fetchTotalXp();
+	const totalXp = await API.fetchTotalXp()
 
 	// Create the response
 	const response = new Response(
 		JSON.stringify({ leaderboard: globalLeaderboard, totalUsers, totalXp }),
-		{ headers: { "Content-Type": "application/json" } },
+		{ headers: { 'Content-Type': 'application/json' } }
 		// TODO: put hedears with cors
-	);
+	)
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -209,23 +210,23 @@ async function handleGlobalLeaderboard(req: Request): Promise<Response> {
  */
 async function handleServerLeaderboard(req: Request): Promise<Response> {
 	// Get the bot_id and guild_id from the request
-	const bot_id = new URL(req.url).searchParams.get("bot_id");
-	const guild_id = new URL(req.url).searchParams.get("guild_id");
+	const bot_id = new URL(req.url).searchParams.get('bot_id')
+	const guild_id = new URL(req.url).searchParams.get('guild_id')
 
 	// Check if the bot_id and guild_id are provided
 	if (!bot_id || !guild_id)
-		return new Response("Missing bot_id or guild_id", { status: 400 });
+		return new Response('Missing bot_id or guild_id', { status: 400 })
 
 	// Get the server leaderboard
-	const serverLeaderboard = await API.getServerLeaderboard(bot_id, guild_id);
+	const serverLeaderboard = await API.getServerLeaderboard(bot_id, guild_id)
 
 	// Create the response
 	const response = new Response(JSON.stringify(serverLeaderboard), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -235,21 +236,21 @@ async function handleServerLeaderboard(req: Request): Promise<Response> {
  */
 async function handleGetGuild(req: Request): Promise<Response> {
 	// Get the guildId from the request
-	const guildId = new URL(req.url).searchParams.get("guildId");
+	const guildId = new URL(req.url).searchParams.get('guildId')
 
 	// Check if the guildId is provided
-	if (!guildId) return new Response("Missing guildId", { status: 400 });
+	if (!guildId) return new Response('Missing guildId', { status: 400 })
 
 	// Get the guild details
-	const guildDetails = await API.getGuildDetails(guildId);
+	const guildDetails = await API.getGuildDetails(guildId)
 
 	// Create the response
 	const response = new Response(JSON.stringify(guildDetails), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -259,21 +260,21 @@ async function handleGetGuild(req: Request): Promise<Response> {
  */
 async function handleGetGuildPlugins(req: Request): Promise<Response> {
 	// Get the bot_id and guild_id from the request
-	const bot_id = new URL(req.url).searchParams.get("bot_id");
-	const guild_id = new URL(req.url).searchParams.get("guild_id");
+	const bot_id = new URL(req.url).searchParams.get('bot_id')
+	const guild_id = new URL(req.url).searchParams.get('guild_id')
 
 	// Check if the bot_id and guild_id are provided
 	if (!bot_id || !guild_id)
-		return new Response("Missing bot_id or guild_id", { status: 400 });
+		return new Response('Missing bot_id or guild_id', { status: 400 })
 
 	// Get the guild plugins
-	const plugins = await API.getGuildPlugins(bot_id, guild_id);
+	const plugins = await API.getGuildPlugins(bot_id, guild_id)
 
 	// Create the response
 	const response = new Response(JSON.stringify(plugins), {
-		headers: { "Content-Type": "application/json" },
-	});
-	return setCorsHeaders(response);
+		headers: { 'Content-Type': 'application/json' },
+	})
+	return setCorsHeaders(response)
 }
 
 /**
@@ -283,23 +284,23 @@ async function handleGetGuildPlugins(req: Request): Promise<Response> {
  */
 async function handleCheckBotMembership(req: Request): Promise<Response> {
 	// Get the guildId from the request
-	const guildId = new URL(req.url).searchParams.get("guildId");
+	const guildId = new URL(req.url).searchParams.get('guildId')
 
 	// Check if the guildId is provided
 
 	// Get the bot membership
-	if (!guildId) return new Response("Missing guildId", { status: 400 });
+	if (!guildId) return new Response('Missing guildId', { status: 400 })
 
 	// Get the bot membership
-	const isBotMember = await API.checkBotMembership(guildId);
+	const isBotMember = await API.checkBotMembership(guildId)
 
 	// Create the response
 	const response = new Response(JSON.stringify({ isBotMember }), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -308,15 +309,15 @@ async function handleCheckBotMembership(req: Request): Promise<Response> {
  */
 async function handleGetBotGuilds(): Promise<Response> {
 	// Get the bot guilds
-	const guilds = await API.getBotGuilds();
+	const guilds = await API.getBotGuilds()
 
 	// Create the response
 	const response = new Response(JSON.stringify(guilds), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -326,23 +327,23 @@ async function handleGetBotGuilds(): Promise<Response> {
  */
 async function handleGetUsers(req: Request): Promise<Response> {
 	// Get the serverId from the request
-	const serverId = new URL(req.url).searchParams.get("serverId");
+	const serverId = new URL(req.url).searchParams.get('serverId')
 
 	// Check if the serverId is provided
 
 	// Get the user
-	if (!serverId) return new Response("Missing serverId", { status: 400 });
+	if (!serverId) return new Response('Missing serverId', { status: 400 })
 
 	// Get the users
-	const users = await API.getUsers(serverId);
+	const users = await API.getUsers(serverId)
 
 	// Create the response
 	const response = new Response(JSON.stringify(users), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -352,27 +353,27 @@ async function handleGetUsers(req: Request): Promise<Response> {
  */
 async function handleGetUser(req: Request): Promise<Response> {
 	// Get the bot_id, guild_id, and user_id from the request
-	const url = new URL(req.url);
-	const botId = url.searchParams.get("bot_id");
-	const guildId = url.searchParams.get("guild_id");
-	const userId = url.searchParams.get("user_id");
+	const url = new URL(req.url)
+	const botId = url.searchParams.get('bot_id')
+	const guildId = url.searchParams.get('guild_id')
+	const userId = url.searchParams.get('user_id')
 
 	// Check if the bot_id, guild_id, and user_id are provided
 	if (!botId || !guildId || !userId)
-		return new Response("Missing bot_id, guild_id, or user_id", {
+		return new Response('Missing bot_id, guild_id, or user_id', {
 			status: 400,
-		});
+		})
 
 	// Get the user
-	const user = await API.getUser(botId, guildId, userId);
+	const user = await API.getUser(botId, guildId, userId)
 
 	// Create the response
 	const response = new Response(JSON.stringify(user), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -382,29 +383,29 @@ async function handleGetUser(req: Request): Promise<Response> {
  */
 async function handleGetPluginConfig(req: Request): Promise<Response> {
 	// Get the bot_id, guild_id, and plugin_name from the request
-	const url = new URL(req.url);
-	const bot_id = url.searchParams.get("bot_id") as Discord.Snowflake;
-	const guild_id = url.searchParams.get("guild_id") as Discord.Snowflake;
+	const url = new URL(req.url)
+	const bot_id = url.searchParams.get('bot_id') as Discord.Snowflake
+	const guild_id = url.searchParams.get('guild_id') as Discord.Snowflake
 	const plugin_name = url.searchParams.get(
-		"plugin_name",
-	) as keyof DefaultConfigs;
+		'plugin_name'
+	) as keyof DefaultConfigs
 
 	// Check if the bot_id, guild_id, and plugin_name are provided
 	if (!bot_id || !guild_id || !plugin_name)
-		return new Response("Missing bot_id, guild_id or plugin_name", {
+		return new Response('Missing bot_id, guild_id or plugin_name', {
 			status: 400,
-		});
+		})
 
 	// Get the plugin config
-	const config = await API.getPluginConfig(bot_id, guild_id, plugin_name);
+	const config = await API.getPluginConfig(bot_id, guild_id, plugin_name)
 
 	// Create the response
 	const response = new Response(JSON.stringify(config), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -414,28 +415,28 @@ async function handleGetPluginConfig(req: Request): Promise<Response> {
  */
 async function handleDiscordLink(req: Request): Promise<Response> {
 	// Check if the request method is POST
-	if (req.method !== "POST") {
-		return new Response("Method not allowed", { status: 405 });
+	if (req.method !== 'POST') {
+		return new Response('Method not allowed', { status: 405 })
 	}
 
 	try {
 		// Get the minecraftUuid, botId, guildId, and userId from the request body
-		const { minecraftUuid, botId, guildId, userId } = await req.json();
+		const { minecraftUuid, botId, guildId, userId } = await req.json()
 
 		// Check if the minecraftUuid, botId, guildId, and userId are provided
 		if (!minecraftUuid || !botId || !guildId || !userId) {
 			return new Response(
-				"Missing minecraftUuid, botId, guildId, or userId in request body",
-				{ status: 400 },
-			);
+				'Missing minecraftUuid, botId, guildId, or userId in request body',
+				{ status: 400 }
+			)
 		}
 
 		// Check if the user is on the server
-		const isOnServer = await API.checkUserOnServer(userId, guildId);
+		const isOnServer = await API.checkUserOnServer(userId, guildId)
 
 		// Check if the user is on the server
 		if (!isOnServer) {
-			return new Response("User is not on the server", { status: 403 });
+			return new Response('User is not on the server', { status: 403 })
 		}
 
 		// Link the Minecraft account
@@ -443,20 +444,20 @@ async function handleDiscordLink(req: Request): Promise<Response> {
 			minecraftUuid,
 			botId,
 			guildId,
-			userId,
-		);
+			userId
+		)
 
 		// Create the response
 		const response = new Response(JSON.stringify({ success }), {
-			headers: { "Content-Type": "application/json" },
-		});
+			headers: { 'Content-Type': 'application/json' },
+		})
 
 		// Set the CORS headers
-		return setCorsHeaders(response);
+		return setCorsHeaders(response)
 	} catch (error) {
 		// Log the error
-		bunnyLog.error("Error linking Minecraft account:", error);
-		return new Response("Error processing request", { status: 500 });
+		bunnyLog.error('Error linking Minecraft account:', error)
+		return new Response('Error processing request', { status: 500 })
 	}
 }
 
@@ -464,25 +465,25 @@ async function handleDiscordLink(req: Request): Promise<Response> {
  * Handles the license verification request.
  */
 async function handleLicenseVerify(req: Request): Promise<Response> {
-	if (req.method !== "POST")
-		return new Response("Method Not Allowed", { status: 405 });
+	if (req.method !== 'POST')
+		return new Response('Method Not Allowed', { status: 405 })
 	try {
-		const { licenseKey, botId } = await req.json();
+		const { licenseKey, botId } = await req.json()
 		if (!licenseKey || !botId)
-			return new Response("Missing licenseKey or botId", { status: 400 });
+			return new Response('Missing licenseKey or botId', { status: 400 })
 
-		await API.LicenseManager.verifyLicense(licenseKey);
+		await API.LicenseManager.verifyLicense(licenseKey)
 		const resObj = {
 			valid: API.LicenseManager.premium,
 			trialActive: API.LicenseManager.trialActive,
-		};
+		}
 		const response = new Response(JSON.stringify(resObj), {
-			headers: { "Content-Type": "application/json" },
-		});
-		return setCorsHeaders(response);
+			headers: { 'Content-Type': 'application/json' },
+		})
+		return setCorsHeaders(response)
 	} catch (error: any) {
-		bunnyLog.error("Error in handleLicenseVerify:", error);
-		return new Response("Internal Server Error", { status: 500 });
+		bunnyLog.error('Error in handleLicenseVerify:', error)
+		return new Response('Internal Server Error', { status: 500 })
 	}
 }
 
@@ -490,35 +491,35 @@ async function handleLicenseVerify(req: Request): Promise<Response> {
  * Handles the license trial check request.
  */
 async function handleLicenseTrial(req: Request): Promise<Response> {
-	if (req.method !== "POST")
-		return new Response("Method Not Allowed", { status: 405 });
+	if (req.method !== 'POST')
+		return new Response('Method Not Allowed', { status: 405 })
 	try {
-		const { botId } = await req.json();
-		if (!botId) return new Response("Missing botId", { status: 400 });
+		const { botId } = await req.json()
+		if (!botId) return new Response('Missing botId', { status: 400 })
 
-		await API.LicenseManager.checkTrialStatus();
-		const resObj = { valid: API.LicenseManager.trialActive };
+		await API.LicenseManager.checkTrialStatus()
+		const resObj = { valid: API.LicenseManager.trialActive }
 		const response = new Response(JSON.stringify(resObj), {
-			headers: { "Content-Type": "application/json" },
-		});
-		return setCorsHeaders(response);
+			headers: { 'Content-Type': 'application/json' },
+		})
+		return setCorsHeaders(response)
 	} catch (error: any) {
-		bunnyLog.error("Error in handleLicenseTrial:", error);
-		return new Response("Internal Server Error", { status: 500 });
+		bunnyLog.error('Error in handleLicenseTrial:', error)
+		return new Response('Internal Server Error', { status: 500 })
 	}
 }
 
 async function handleGetStats(req: Request): Promise<Response> {
-	const bot_id = new URL(req.url).searchParams.get("bot_id");
-	if (!bot_id) return new Response("Missing bot_id", { status: 400 });
+	const bot_id = new URL(req.url).searchParams.get('bot_id')
+	if (!bot_id) return new Response('Missing bot_id', { status: 400 })
 
-	const stats = await API.fetchAllStats(bot_id);
+	const stats = await API.fetchAllStats(bot_id)
 	const response = new Response(JSON.stringify(stats), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
 	// Set the CORS headers
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 // PLUGIN ENDPOINTS
@@ -529,20 +530,20 @@ async function handleGetStats(req: Request): Promise<Response> {
  * @returns {Promise<Response>} A promise that resolves to a response object.
  */
 async function handleTogglePlugin(req: Request): Promise<Response> {
-	const { bot_id, guild_id, plugin_name, enabled } = await req.json();
+	const { bot_id, guild_id, plugin_name, enabled } = await req.json()
 
 	if (!bot_id || !guild_id || !plugin_name)
-		return new Response("Missing bot_id, guild_id or plugin_name", {
+		return new Response('Missing bot_id, guild_id or plugin_name', {
 			status: 400,
-		});
+		})
 
-	await API.togglePlugin(bot_id, guild_id, plugin_name, enabled);
+	await API.togglePlugin(bot_id, guild_id, plugin_name, enabled)
 
 	const response = new Response(JSON.stringify({ success: true }), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -551,15 +552,15 @@ async function handleTogglePlugin(req: Request): Promise<Response> {
  * @returns {Promise<Response>} A promise that resolves to a response object.
  */
 async function handleEnablePlugin(req: Request): Promise<Response> {
-	const { bot_id, guild_id, plugin_name } = await req.json();
+	const { bot_id, guild_id, plugin_name } = await req.json()
 
-	await API.enablePlugin(bot_id, guild_id, plugin_name);
+	await API.enablePlugin(bot_id, guild_id, plugin_name)
 
 	const response = new Response(JSON.stringify({ success: true }), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -568,15 +569,15 @@ async function handleEnablePlugin(req: Request): Promise<Response> {
  * @returns {Promise<Response>} A promise that resolves to a response object.
  */
 async function handleDisablePlugin(req: Request): Promise<Response> {
-	const { bot_id, guild_id, plugin_name } = await req.json();
+	const { bot_id, guild_id, plugin_name } = await req.json()
 
-	await API.disablePlugin(bot_id, guild_id, plugin_name);
+	await API.disablePlugin(bot_id, guild_id, plugin_name)
 
 	const response = new Response(JSON.stringify({ success: true }), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -585,15 +586,15 @@ async function handleDisablePlugin(req: Request): Promise<Response> {
  * @returns {Promise<Response>} A promise that resolves to a response object.
  */
 async function handleGetPlugins(req: Request): Promise<Response> {
-	const { bot_id, guild_id } = await req.json();
+	const { bot_id, guild_id } = await req.json()
 
-	const plugins = await API.getGuildPlugins(bot_id, guild_id);
+	const plugins = await API.getGuildPlugins(bot_id, guild_id)
 
 	const response = new Response(JSON.stringify(plugins), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
 
 /**
@@ -601,12 +602,30 @@ async function handleGetPlugins(req: Request): Promise<Response> {
  * @returns {Promise<Response>} A promise that resolves to a response object.
  */
 async function handleGetAvailablePlugins(): Promise<Response> {
-	const availablePlugins = await fetchAvailablePlugins();
+	const availablePlugins = await fetchAvailablePlugins()
 
 	const response = new Response(JSON.stringify(availablePlugins), {
-		headers: { "Content-Type": "application/json" },
-	});
+		headers: { 'Content-Type': 'application/json' },
+	})
 
-	return setCorsHeaders(response);
+	return setCorsHeaders(response)
 }
-export { router };
+
+/**
+ * Handles the set plugin config request.
+ * @param {Request} req - The request object.
+ * @returns {Promise<Response>} A promise that resolves to a response object.
+ */
+async function handleSetPluginConfig(req: Request): Promise<Response> {
+	const { bot_id, guild_id, plugin_name, config } = await req.json()
+
+	await API.setPluginConfig(bot_id, guild_id, plugin_name, config)
+
+	const response = new Response(JSON.stringify({ success: true }), {
+		headers: { 'Content-Type': 'application/json' },
+	})
+
+	return setCorsHeaders(response)
+}
+
+export { router }
