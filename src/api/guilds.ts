@@ -19,10 +19,37 @@ async function fetchDiscordAPI(endpoint: string) {
 
 async function getCustomInvite(guildId: string) {
 	try {
+		// First check if we can access guild data to verify permissions
+		try {
+			const guild = await fetchDiscordAPI(`guilds/${guildId}`)
+			// Check if bot has the MANAGE_GUILD permission (0x0020 is the bitwise flag for MANAGE_GUILD)
+			const botPermissions = BigInt(guild.permissions || '0')
+			const hasManageGuildPermission =
+				(botPermissions & BigInt(0x0020)) === BigInt(0x0020)
+
+			if (!hasManageGuildPermission) {
+				bunnyLog.info(
+					`Bot doesn't have Manage Guild permission for guild ${guildId}, skipping invite fetch`
+				)
+				return null
+			}
+		} catch (error) {
+			// If we can't even access guild data, we definitely can't access invites
+			bunnyLog.info(
+				`Cannot access guild data for ${guildId}, skipping invite fetch`
+			)
+			return null
+		}
+
 		const invites = await fetchDiscordAPI(`guilds/${guildId}/invites`)
 		return invites.length > 0 ? invites[0].code : null
 	} catch (error) {
-		bunnyLog.error('Error fetching custom invites:', error)
+		// If it's a 403 error, log it as info rather than error since it's an expected limitation
+		if (error instanceof Error && error.message.includes('Status: 403')) {
+			bunnyLog.info(`No permission to fetch invites for guild ${guildId}`)
+		} else {
+			bunnyLog.error('Error fetching custom invites:', error)
+		}
 		return null
 	}
 }
