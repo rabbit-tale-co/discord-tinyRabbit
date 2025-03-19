@@ -121,20 +121,20 @@ client.once("ready", async (c) => {
 		},
 	}); // YouTube Cookies
 
-	await playdl.setToken({
-		spotify: {
-			client_id: "ID",
-			client_secret: "secret",
-			refresh_token: "token",
-			market: "US",
-		},
-	}); // Await this only when setting data for spotify
+	// await playdl.setToken({
+	// 	spotify: {
+	// 		client_id: "ID",
+	// 		client_secret: "secret",
+	// 		refresh_token: "token",
+	// 		market: "US",
+	// 	},
+	// }); // Await this only when setting data for spotify
 
-	playdl.setToken({
-		useragent: [
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-		],
-	}); // Use this to avoid 429 errors.
+	// playdl.setToken({
+	// 	useragent: [
+	// 		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
+	// 	],
+	// }); // Use this to avoid 429 errors.
 
 	//bunnyLog.info('YouTube cookie:', process.env.YOUTUBE_COOKIE)
 
@@ -161,7 +161,7 @@ client.on(Discord.Events.GuildCreate, async (guild) => {
 
 client.on(Discord.Events.GuildDelete, async (guild) => {});
 
-client.on("messageCreate", Events.messageHandler);
+client.on(Discord.Events.MessageCreate, Events.messageHandler);
 client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler);
 client.on(Discord.Events.InteractionCreate, Events.interactionHandler);
 
