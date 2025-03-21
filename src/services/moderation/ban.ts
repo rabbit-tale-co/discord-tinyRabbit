@@ -1,34 +1,7 @@
-import { client } from '@/index.js'
 import { bunnyLog } from 'bunny-log'
 import * as api from '@/api/index.js'
-import type * as Discord from 'discord.js'
-import supabase from '@/db/supabase.js'
+import * as Discord from 'discord.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
-
-/**
- * Bans users who are likely bots in a specific guild.
- */
-async function banBotLikeUsersForGuild(
-	guild: Discord.Guild,
-	config: DefaultConfigs['moderation']
-) {
-	try {
-		// Fetch all members of the guild
-		const members = await guild.members.fetch()
-
-		// Filter members that have one of the watched roles
-		const targets = members.filter((member) =>
-			member.roles.cache.some((role) => config.watch_roles.includes(role.id))
-		)
-
-		// Ban each target member
-		for (const [_, member] of targets) {
-			await performSafeBan(guild, member.user, config.delete_message_days)
-		}
-	} catch (error) {
-		bunnyLog.error(`Error in auto moderation for guild ${guild.id}:`, error)
-	}
-}
 
 /**
  * Performs a safe ban on a user.
@@ -42,33 +15,159 @@ async function performSafeBan(
 	deleteDays: number
 ) {
 	try {
+		// Check if bot has permission to ban members
+		const botMember = await guild.members.fetchMe()
+
+		if (!botMember.permissions.has(Discord.PermissionFlagsBits.BanMembers)) {
+			bunnyLog.warn(
+				`Cannot ban users in ${guild.name}: Bot lacks BAN_MEMBERS permission`
+			)
+			return
+		}
+
+		// Detailed permission checking
+		try {
+			// Check if the bot's role can modify the server in any way
+			if (!botMember.permissions.has(Discord.PermissionFlagsBits.ManageGuild)) {
+				bunnyLog.warn(
+					`Bot may have insufficient server management permissions in ${guild.name}`
+				)
+			}
+		} catch (permCheckError) {
+			bunnyLog.warn(
+				`Error checking detailed permissions: ${permCheckError instanceof Error ? permCheckError.message : 'Unknown'}`
+			)
+			// Continue anyway - this is just extra debugging
+		}
+
 		// Check if the user is already banned
 		const banList = await guild.bans.fetch()
+		if (banList.has(user.id)) {
+			bunnyLog.info(
+				`User ${user.tag} (${user.id}) is already banned in ${guild.name}`
+			)
+			return
+		}
 
-		// If the user is already banned, skip
-		if (banList.has(user.id)) return
+		// Try to check role hierarchy if the user is in the guild
+		try {
+			const targetMember = await guild.members.fetch(user.id)
+			const botPosition = botMember.roles.highest.position
+			const targetPosition = targetMember.roles.highest.position
 
-		// Add to banned users table
-		const { error } = await supabase.from('banned_users').upsert({
-			bot_id: client.user?.id ?? '',
-			guild_id: guild.id,
-			user_id: user.id,
-			reason: 'Auto-mod: Bot-like behavior',
-			banned_at: new Date().toISOString(),
-		})
+			// Check for guild owner (cannot be banned regardless of permissions)
+			if (targetMember.id === guild.ownerId) {
+				bunnyLog.warn(
+					`Cannot ban ${user.tag} (${user.id}) in ${guild.name}: Target is the server owner`
+				)
+				return
+			}
 
-		// If there was an error, throw it
-		if (error) throw error
+			// Check role hierarchy
+			if (targetPosition >= botPosition) {
+				bunnyLog.warn(
+					`Cannot ban ${user.tag} (${user.id}) in ${guild.name}: Target has higher or equal role position. Bot's highest role is at position ${botPosition}, target's highest role is at position ${targetPosition}.`
+				)
+				return
+			}
+		} catch (memberError) {
+			// If we can't fetch the member, they might not be in the guild - proceed anyway
+			bunnyLog.info(
+				`Could not fetch member object for ${user.tag}, assuming they're not in the guild and proceeding with ban attempt`
+			)
+		}
 
-		// Ban the user
-		await guild.members.ban(user, {
-			deleteMessageDays: deleteDays,
-			reason: 'Automatic bot detection ban',
-		})
+		// Use the documented guild.bans.create() method
+		try {
+			// Debug: check if user is an owner
+			if (user.id === guild.ownerId) {
+				bunnyLog.warn(`Cannot ban ${user.tag}: user is the guild owner`)
+				return
+			}
 
-		bunnyLog.success(`Banned user ${user.tag} (${user.id}) in ${guild.name}`)
+			const banOptions = {
+				deleteMessageSeconds: deleteDays * 24 * 60 * 60, // Convert days to seconds
+				reason: 'Suspicious or spam account',
+			}
+
+			// bunnyLog.info(`Ban options: ${JSON.stringify(banOptions)}`)
+
+			try {
+				// Attempt API call within its own try/catch for better error isolation
+				const banResult = await guild.bans.create(user.id, banOptions)
+
+				bunnyLog.success(
+					`Successfully banned ${
+						typeof banResult === 'string'
+							? user.tag
+							: 'tag' in banResult
+								? banResult.tag
+								: user.tag
+					} (${user.id}) in ${guild.name}`
+				)
+			} catch (directBanError) {
+				// Show as much information as possible about the error
+				bunnyLog.error(
+					`Direct ban error: ${directBanError instanceof Error ? directBanError.message : 'Non-error object thrown'}`
+				)
+			}
+		} catch (banError) {
+			// Log detailed error information
+			bunnyLog.error(`Failed to ban ${user.tag} (${user.id}) in ${guild.name}`)
+
+			// Try to get detailed error info
+			if (banError instanceof Discord.DiscordAPIError) {
+				bunnyLog.error(
+					`API Error details: code=${banError.code}, status=${banError.status}, method=${banError.method}, message=${banError.message}`
+				)
+			} else {
+				// For completely unknown errors
+				bunnyLog.error(
+					`Unknown error type: ${typeof banError}, Value: ${String(banError)}`
+				)
+			}
+
+			throw banError // Re-throw to be caught by outer catch
+		}
 	} catch (error) {
-		bunnyLog.error(`Failed to ban ${user.tag}:`, error)
+		bunnyLog.error(
+			`Ban operation failed for ${user.tag} (${user.id}) in ${guild.name}: ${error}`
+		)
+	}
+}
+
+/**
+ * Bans users who are likely bots in a specific guild.
+ */
+async function banBotLikeUsersForGuild(
+	guild: Discord.Guild,
+	config: DefaultConfigs['moderation']
+) {
+	try {
+		// Check if bot has permission to ban members
+		const botMember = await guild.members.fetchMe()
+		if (!botMember.permissions.has(Discord.PermissionFlagsBits.BanMembers)) {
+			bunnyLog.warn(
+				`Cannot perform auto-moderation in ${guild.name}: Bot lacks BAN_MEMBERS permission`
+			)
+			return
+		}
+
+		// Fetch all members of the guild
+		const members = await guild.members.fetch()
+
+		// Filter members that have one of the watched roles
+		const targets = members.filter((member) =>
+			member.roles.cache.some((role) => config.watch_roles.includes(role.id))
+		)
+
+		for (const [_, member] of targets) {
+			await performSafeBan(guild, member.user, config.delete_message_days)
+		}
+	} catch (error) {
+		bunnyLog.error(
+			`Error in auto moderation for guild ${guild.id} (${guild.name}): ${error}`
+		)
 	}
 }
 

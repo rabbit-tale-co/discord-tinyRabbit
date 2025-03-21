@@ -1,6 +1,6 @@
 {
   "name": "tiny-rabbit-discord",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "",
   "scripts": {
     "start": "bun run src/index.ts",
@@ -29,6 +29,7 @@
     "node-cron": "^3.0.3",
     "node-schedule": "^2.1.1",
     "play-dl": "^1.9.7",
+    "prismjs": "^1.30.0",
     "tiny-rabbit-discord": "file:",
     "uuid": "^9.0.1"
   },
@@ -38,6 +39,7 @@
     "@types/node": "^20.17.16",
     "@types/node-cron": "^3.0.11",
     "@types/node-schedule": "^2.1.7",
+    "@types/prismjs": "^1.26.5",
     "rimraf": "^5.0.10"
   }
 }

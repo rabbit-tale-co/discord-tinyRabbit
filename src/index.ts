@@ -1,17 +1,17 @@
-import { env, serve } from "bun";
-import * as API from "@/api/index.js";
-import * as Events from "@/events/index.js";
-import * as Router from "@/router/index.js";
-import * as Discord from "discord.js";
-import chalk from "chalk";
-import { bunnyLog } from "bunny-log";
-import * as Birthday from "./commands/fun/bday.js";
-import * as Database from "./db/initDatabase.js";
-import playdl from "play-dl";
-import PresenceService from "@/services/presenceService.js";
-import * as Services from "@/services/index.js";
+import { env, serve } from 'bun'
+import * as API from '@/api/index.js'
+import * as Events from '@/events/index.js'
+import * as Router from '@/router/index.js'
+import * as Discord from 'discord.js'
+import chalk from 'chalk'
+import { bunnyLog } from 'bunny-log'
+import * as Birthday from './commands/fun/bday.js'
+import * as Database from './db/initDatabase.js'
+import playdl from 'play-dl'
+import PresenceService from '@/services/presenceService.js'
+import * as Services from '@/services/index.js'
 
-const PORT: number = Number.parseInt(env.PORT || "5000", 10);
+const PORT: number = Number.parseInt(env.PORT || '5000', 10)
 
 /**
  * Server setup
@@ -19,38 +19,38 @@ const PORT: number = Number.parseInt(env.PORT || "5000", 10);
 serve({
 	async fetch(req: Request): Promise<Response> {
 		// Get the URL from the request
-		const url: URL = new URL(req.url);
+		const url: URL = new URL(req.url)
 
 		// Handle preflight requests
-		if (req.method === "OPTIONS") {
+		if (req.method === 'OPTIONS') {
 			return new Response(null, {
 				status: 204,
 				headers: {
-					"Access-Control-Allow-Origin": "*",
-					"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-					"Access-Control-Allow-Headers":
-						"Content-Type, Accept, Accept-Language, Accept-Encoding",
+					'Access-Control-Allow-Origin': '*',
+					'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+					'Access-Control-Allow-Headers':
+						'Content-Type, Accept, Accept-Language, Accept-Encoding',
 				},
-			});
+			})
 		}
 
 		// Handle API requests
 
-		if (url.pathname === "/ping" || url.pathname.match(/^\/v\d+/)) {
-			return Router.router(req);
+		if (url.pathname === '/ping' || url.pathname.match(/^\/v\d+/)) {
+			return Router.router(req)
 		}
 
 		// Handle 404 requests
-		return new Response("Not Found", { status: 404 });
+		return new Response('Not Found', { status: 404 })
 	},
 	port: PORT,
-	hostname: "0.0.0.0",
-});
+	hostname: '0.0.0.0',
+})
 
-bunnyLog.server(`Server is running on port ${PORT}`);
+bunnyLog.server(`Server is running on port ${PORT}`)
 
 // Initialize Firebase
-Database.initializeDatabase();
+Database.initializeDatabase()
 
 // Initialize Discord Bot
 export const client = new Discord.Client({
@@ -67,21 +67,21 @@ export const client = new Discord.Client({
 		Discord.Partials.Reaction, // Enables handling of uncached reactions
 		Discord.Partials.Channel, // Required to enable reactions in uncached channels
 	],
-});
+})
 
-const presenceService = new PresenceService(client);
+const presenceService = new PresenceService(client)
 
 /**
  * Event handler for when the bot is ready.
  * @param {Client} c - The client object from Discord.
  * @returns {Promise<void>} A promise that resolves when the bot is ready.
  */
-client.once("ready", async (c) => {
+client.once('ready', async (c) => {
 	// Check if the client is ready
-	if (!c.user) return;
+	if (!c.user) return
 
-	bunnyLog.info(`${c.user.tag} has logged in!`);
-	bunnyLog.info("Made by: @Hasiradoo - Rabbit Tale Studio");
+	bunnyLog.info(`${c.user.tag} has logged in!`)
+	bunnyLog.info('Made by: @Hasiradoo - Rabbit Tale Studio')
 	bunnyLog.info(`
         ,KWN0d;.             :kx;.
         :XMMMMWO;           lNMMNd.
@@ -102,10 +102,10 @@ client.once("ready", async (c) => {
         :XMMMMMN0OOOOO0OO0NMMMMMMMO.
         'OMMMMMMMMMMMMMMMMMMMMMMW0;
         ,ONMMMMMMMMMMMMMMMMMMWKo.
-        .l0WMMMMMMMMMMMMMWN0o.`);
+        .l0WMMMMMMMMMMMMMWN0o.`)
 
 	// Initialize presence service
-	presenceService.initialize();
+	presenceService.initialize()
 
 	await Promise.all([
 		API.saveBotData(c.user),
@@ -113,13 +113,13 @@ client.once("ready", async (c) => {
 		Services.cleanupExpiredTempChannels(c),
 		Services.startModerationScheduler(c),
 		Birthday.scheduleBirthdayCheck(c),
-	]);
+	])
 
-	playdl.setToken({
-		youtube: {
-			cookie: process.env.YOUTUBE_COOKIE as string,
-		},
-	}); // YouTube Cookies
+	// playdl.setToken({
+	// 	youtube: {
+	// 		cookie: process.env.YOUTUBE_COOKIE as string,
+	// 	},
+	// }); // YouTube Cookies
 
 	// await playdl.setToken({
 	// 	spotify: {
@@ -140,15 +140,15 @@ client.once("ready", async (c) => {
 
 	setInterval(async () => {
 		const { bot_status: server, db_status: database } =
-			await API.checkHeartbeat();
+			await API.checkHeartbeat()
 
-		const serverStatusColor = server === "working" ? chalk.green : chalk.red;
+		const serverStatusColor = server === 'working' ? chalk.green : chalk.red
 		const databaseStatusColor =
-			database.status === "working" ? chalk.green : chalk.red;
-	}, 15_000); // 15 seconds
+			database.status === 'working' ? chalk.green : chalk.red
+	}, 15_000) // 15 seconds
 
-	presenceService.initialize(); // Restart the presence updater
-});
+	presenceService.initialize() // Restart the presence updater
+})
 
 /**
  * Event handler for guild creation.
@@ -156,23 +156,23 @@ client.once("ready", async (c) => {
  * @returns {Promise<void>} A promise that resolves when the guild is initialized.
  */
 client.on(Discord.Events.GuildCreate, async (guild) => {
-	await API.updateMissingPlugins(client);
-});
+	await API.updateMissingPlugins(client)
+})
 
-client.on(Discord.Events.GuildDelete, async (guild) => {});
+client.on(Discord.Events.GuildDelete, async (guild) => {})
 
-client.on(Discord.Events.MessageCreate, Events.messageHandler);
-client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler);
-client.on(Discord.Events.InteractionCreate, Events.interactionHandler);
+client.on(Discord.Events.MessageCreate, Events.messageHandler)
+client.on(Discord.Events.MessageReactionAdd, Events.reactionHandler)
+client.on(Discord.Events.InteractionCreate, Events.interactionHandler)
 
 // Channels activity
-client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate);
+client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate)
 
 // Guild member events
-client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin);
-client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave);
+client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin)
+client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave)
 
-client.login(env.BOT_TOKEN);
+client.login(env.BOT_TOKEN)
 
 /**
  * TODO:

@@ -1,87 +1,87 @@
-import { bunnyLog } from "bunny-log";
-import * as Discord from "discord.js";
+import { bunnyLog } from 'bunny-log'
+import * as Discord from 'discord.js'
 
 async function fetchDiscordAPI(endpoint: string) {
 	const response = await fetch(`https://discord.com/api/${endpoint}`, {
 		headers: {
 			Authorization: `Bot ${process.env.BOT_TOKEN}`,
 		},
-	});
+	})
 
 	if (!response.ok) {
 		throw new Error(
-			`Failed to fetch from endpoint: ${endpoint}, Status: ${response.status}`,
-		);
+			`Failed to fetch from endpoint: ${endpoint}, Status: ${response.status}`
+		)
 	}
 
-	return response.json();
+	return response.json()
 }
 
 async function getCustomInvite(guildId: string) {
 	try {
 		// First check if we can access guild data to verify permissions
 		try {
-			const guild = await fetchDiscordAPI(`guilds/${guildId}`);
+			const guild = await fetchDiscordAPI(`guilds/${guildId}`)
 			// Check if bot has the MANAGE_GUILD permission (0x0020 is the bitwise flag for MANAGE_GUILD)
-			const botPermissions = BigInt(guild.permissions || "0");
+			const botPermissions = BigInt(guild.permissions || '0')
 			const hasManageGuildPermission =
-				(botPermissions & BigInt(0x0020)) === BigInt(0x0020);
+				(botPermissions & BigInt(0x0020)) === BigInt(0x0020)
 
 			if (!hasManageGuildPermission) {
-				bunnyLog.info(
-					`Bot doesn't have Manage Guild permission for guild ${guildId}, skipping invite fetch`,
-				);
-				return null;
+				// bunnyLog.info(
+				// 	`Bot doesn't have Manage Guild permission for guild ${guildId}, skipping invite fetch`,
+				// );
+				return null
 			}
 		} catch (error) {
 			// If we can't even access guild data, we definitely can't access invites
 			// bunnyLog.info(
 			// 	`Cannot access guild data for ${guildId}, skipping invite fetch`
 			// )
-			return null;
+			return null
 		}
 
-		const invites = await fetchDiscordAPI(`guilds/${guildId}/invites`);
-		return invites.length > 0 ? invites[0].code : null;
+		const invites = await fetchDiscordAPI(`guilds/${guildId}/invites`)
+		return invites.length > 0 ? invites[0].code : null
 	} catch (error) {
 		// If it's a 403 error, log it as info rather than error since it's an expected limitation
-		if (error instanceof Error && error.message.includes("Status: 403")) {
-			bunnyLog.info(`No permission to fetch invites for guild ${guildId}`);
+		if (error instanceof Error && error.message.includes('Status: 403')) {
+			bunnyLog.info(`No permission to fetch invites for guild ${guildId}`)
 		} else {
-			bunnyLog.error("Error fetching custom invites:", error);
+			bunnyLog.error('Error fetching custom invites:', error)
 		}
-		return null;
+		return null
 	}
 }
 
 async function getBotGuilds() {
 	try {
-		const guilds = await fetchDiscordAPI("users/@me/guilds?with_counts=true");
+		const guilds = await fetchDiscordAPI('users/@me/guilds?with_counts=true')
 
 		const detailedGuilds = await Promise.all(
 			guilds.map(async (guild: Discord.Guild) => {
-				let invite_link = "";
+				let invite_link = ''
 				if (guild.features.includes(Discord.GuildFeature.Community)) {
-					const inviteCode = await getCustomInvite(guild.id);
-					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : "";
+					const inviteCode = await getCustomInvite(guild.id)
+					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : ''
 				}
 
 				const icon = guild.icon
 					? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
-					: null;
+					: null
 
 				return {
 					...guild,
 					icon,
 					invite_link,
-				};
-			}),
-		);
+				}
+			})
+		)
 
-		return detailedGuilds;
+		return detailedGuilds
 	} catch (error) {
-		bunnyLog.error("Error fetching bot guilds:", error);
-		throw error;
+		bunnyLog.error('Error fetching bot guilds:', error)
+		throw error
 	}
 }
 
@@ -89,27 +89,27 @@ async function getGuildDetails(guild_id: string) {
 	try {
 		const [guild, channels, roles] = await Promise.all([
 			fetchDiscordAPI(
-				`guilds/${guild_id}?with_counts=true`,
+				`guilds/${guild_id}?with_counts=true`
 			) as Promise<Discord.AnonymousGuild>,
 			fetchDiscordAPI(`guilds/${guild_id}/channels`) as Promise<
 				Discord.GuildChannel[]
 			>,
 			fetchDiscordAPI(`guilds/${guild_id}/roles`) as Promise<Discord.Role[]>,
-		]);
+		])
 
 		const category_count = channels.filter(
-			(channel) => channel.type === Discord.ChannelType.GuildCategory,
-		).length;
+			(channel) => channel.type === Discord.ChannelType.GuildCategory
+		).length
 		const text_channel_count = channels.filter(
-			(channel) => channel.type === Discord.ChannelType.GuildText,
-		).length;
+			(channel) => channel.type === Discord.ChannelType.GuildText
+		).length
 		const voice_channel_count = channels.filter(
-			(channel) => channel.type === Discord.ChannelType.GuildVoice,
-		).length;
+			(channel) => channel.type === Discord.ChannelType.GuildVoice
+		).length
 
 		const filtered_roles = roles.filter(
-			(role) => !role.managed && role.id !== guild_id,
-		);
+			(role) => !role.managed && role.id !== guild_id
+		)
 
 		return {
 			guild_details: guild,
@@ -118,41 +118,41 @@ async function getGuildDetails(guild_id: string) {
 			voice_channel_count,
 			roles: filtered_roles,
 			channels,
-		};
+		}
 	} catch (error) {
-		bunnyLog.error("Error fetching guild details:", error);
-		throw error;
+		bunnyLog.error('Error fetching guild details:', error)
+		throw error
 	}
 }
 
 async function checkBotMembership(guildId: Discord.Snowflake) {
 	try {
-		const response = await fetchDiscordAPI(`guilds/${guildId}`);
+		const response = await fetchDiscordAPI(`guilds/${guildId}`)
 
-		if (response.ok) return true;
+		if (response.ok) return true
 
-		if ([401, 403, 404].includes(response.status)) return false;
+		if ([401, 403, 404].includes(response.status)) return false
 
-		bunnyLog.error(`Unexpected status code: ${response.status}`);
-		return false;
+		bunnyLog.error(`Unexpected status code: ${response.status}`)
+		return false
 	} catch (error) {
-		bunnyLog.error("Error checking bot membership:", error);
-		return false;
+		bunnyLog.error('Error checking bot membership:', error)
+		return false
 	}
 }
 
 async function checkUserOnServer(
-	user_id: Discord.User["id"],
-	guild_id: Discord.Guild["id"],
+	user_id: Discord.User['id'],
+	guild_id: Discord.Guild['id']
 ): Promise<boolean> {
 	try {
 		return await fetchDiscordAPI(`guilds/${guild_id}/members/${user_id}`)
 			.then(() => true)
-			.catch(() => false);
+			.catch(() => false)
 	} catch (error) {
-		bunnyLog.error("Error checking user on server:", error);
-		return false;
+		bunnyLog.error('Error checking user on server:', error)
+		return false
 	}
 }
 
-export { getGuildDetails, checkBotMembership, getBotGuilds, checkUserOnServer };
+export { getGuildDetails, checkBotMembership, getBotGuilds, checkUserOnServer }

@@ -1,38 +1,45 @@
 interface Attachment {
-	url: string
-	proxyURL: string
-	name: string
-	size: number
+	url: string;
+	proxyURL: string;
+	name: string;
+	size: number;
 }
 
 interface Transcript {
-	id: string
+	id: string;
 	author: {
-		id: string
-		username: string
-		avatar: string
-	}
-	content: string | null
-	attachments: Array<Attachment> | null
-	timestamp: number
+		id: string;
+		username: string;
+		avatar: string;
+	};
+	content: string | null;
+	attachments: Array<Attachment> | null;
+	timestamp: number;
 }
 
 interface AuthorInfo {
-	id: string
-	username: string
-	avatar: string
-	displayName: string
+	id: string;
+	username: string;
+	avatar: string;
+	displayName: string;
 }
 
 interface ThreadMetadata {
-	join_ticket_message_id?: string | null
-	confirm_close_ticket_message_id?: string | null
-	admin_channel_id?: string | null
-	ticket_id: string | number
-	opened_by: AuthorInfo
-	open_time: number
-	ticket_type: string
-	claimed_by?: AuthorInfo | 'Not claimed'
+	join_ticket_message_id?: string | null;
+	confirm_close_ticket_message_id?: string | null;
+	admin_channel_id?: string | null;
+	ticket_id: string | number;
+	opened_by: AuthorInfo;
+	open_time: number;
+	ticket_type: string;
+	claimed_by?: AuthorInfo | "Not claimed";
+	closed_by?: AuthorInfo;
+	close_time?: Date;
+	reason?: string;
+	rating?: {
+		value: number;
+		submitted_at: string;
+	};
 }
 
-export type { Transcript, Attachment, ThreadMetadata }
+export type { Transcript, Attachment, ThreadMetadata };

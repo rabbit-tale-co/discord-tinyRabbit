@@ -42,6 +42,11 @@ type Ticket = {
 	counter?: number
 	transcript_channel_id?: string | null
 	mods_role_ids?: Array<string> | null
+	open_time_limit?: number | null
+	role_time_limits?: Array<{
+		role_id: string
+		limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
+	}> | null
 	embeds?: {
 		open_ticket?: TicketEmbed | null
 		opened_ticket?: TicketEmbed | null
@@ -124,6 +129,7 @@ type Moderation = {
 	watch_roles: string[]
 	ban_interval: number
 	delete_message_days: number
+	exclude_bots: boolean // Whether to exclude Discord bots from auto-moderation
 }
 
 type Music = {
