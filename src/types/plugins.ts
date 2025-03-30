@@ -129,7 +129,6 @@ type Moderation = {
 	watch_roles: string[]
 	ban_interval: number
 	delete_message_days: number
-	exclude_bots: boolean // Whether to exclude Discord bots from auto-moderation
 }
 
 type Music = {
