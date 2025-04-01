@@ -6,7 +6,7 @@ class PresenceService {
 	private readonly client: Discord.Client;
 	private static readonly HOLIDAY_PRESENCES = [
 		{
-			dates: { start: "04-01", end: "04-01" }, // April Fools
+			dates: { start: "04-01", end: "04-02" }, // April Fools
 			activity: {
 				type: Discord.ActivityType.Custom,
 				name: "Jokes around!",
