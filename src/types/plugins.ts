@@ -43,6 +43,11 @@ type Ticket = {
 	transcript_channel_id?: string | null
 	mods_role_ids?: Array<string> | null
 	open_time_limit?: number | null
+	auto_close?: Array<{
+		enabled: boolean
+		threshold: number
+		reason: string
+	}> | null
 	role_time_limits?: Array<{
 		role_id: string
 		limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
@@ -72,7 +77,7 @@ type Welcome_Goodbye = {
 
 type Starboard = {
 	enabled?: boolean
-	emojis?: string[]
+	emoji?: string
 	watch_channels?: string[] | null
 	channel_id?: string | null
 	threshold?: number
@@ -137,6 +142,29 @@ type Music = {
 	role_id: string | null // role id who can use music commands
 }
 
+type Economy = {
+	enabled: boolean
+	currency_name: string
+	currency_symbol: string
+	currency_emoji: string
+	is_custom_emoji: boolean
+	starting_balance: number
+	multipliers: {
+		enabled: boolean
+		default: number
+		roles: Array<{
+			role_id: string
+			multiplier: number
+		}>
+	}
+	leaderboard: {
+		enabled: boolean
+		channel_id: string | null
+		update_interval: number // in minutes
+		top_count: number
+	}
+}
+
 type PluginTypes = {
 	levels: Level
 	tickets: Ticket
@@ -148,6 +176,7 @@ type PluginTypes = {
 	connectSocial: ConnectSocial
 	moderation: Moderation
 	music: Music
+	economy: Economy
 }
 
 type Plugins = PluginTypes[keyof PluginTypes]

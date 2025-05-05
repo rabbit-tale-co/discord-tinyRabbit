@@ -1,5 +1,6 @@
-export * from "./fun/bday.js";
-export * from "./fun/level.js";
-export * from "./moderation/clean.js";
-export * as ticket from "./moderation/tickets.js";
-export * as music from './music.js';
+export * from './fun/bday.js'
+export * from './fun/level.js'
+export * from './moderation/clean.js'
+export * as ticket from './moderation/tickets.js'
+export * as music from './music.js'
+export * as economy from './fun/economy.js'

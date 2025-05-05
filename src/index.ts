@@ -10,6 +10,7 @@ import * as Database from './db/initDatabase.js'
 import playdl from 'play-dl'
 import PresenceService from '@/services/presenceService.js'
 import * as Services from '@/services/index.js'
+import * as Tickets from './commands/moderation/tickets.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5000', 10)
 
@@ -113,6 +114,7 @@ client.once('ready', async (c) => {
 		Services.cleanupExpiredTempChannels(c),
 		Services.startModerationScheduler(c),
 		Birthday.scheduleBirthdayCheck(c),
+		Tickets.initTicketInactivityChecker(c),
 	])
 
 	// playdl.setToken({

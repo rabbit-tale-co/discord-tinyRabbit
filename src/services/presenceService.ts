@@ -54,6 +54,7 @@ class PresenceService {
 			PresenceService.STATS_UPDATE_INTERVAL,
 		);
 		setInterval(
+			// FIXME: sometimes custom status is empty
 			() => this.updatePresence(),
 			PresenceService.PRESENCE_UPDATE_INTERVAL,
 		);
