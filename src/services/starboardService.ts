@@ -5,6 +5,7 @@ import type { UniversalEmbedOptions } from '@/types/embed.js'
 import type { StarboardEntry } from '@/types/starboard.js'
 import { hexToNumber } from '@/utils/formatter.js'
 import { bunnyLog } from 'bunny-log'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js'
 
 /**
  * Watches for starboard reactions and updates the starboard accordingly.
@@ -149,52 +150,60 @@ async function watchStarboard(
 		}
 
 		// If no existing entry or if the entry was deleted, create a new one
-		const attachments = reaction.message.attachments.map(
-			(attachment) => attachment.url
-		)
+		const attachments = reaction.message.attachments.map((attachment) => ({
+			url: attachment.url,
+			spoiler: attachment.spoiler,
+		}))
 
-		// Create the embed data
-		const embedData: UniversalEmbedOptions = {
-			color: hexToNumber('#fec676'),
-			description: `${reaction.message.content}\n\n[Jump to message](${reaction.message.url})\nIn <#${reaction.message.channel.id}>`,
-			author: {
-				name: reaction.message.author?.tag || 'Unknown',
-				iconURL: reaction.message.author?.displayAvatarURL(),
-			},
-			timestamp: new Date(reaction.message.createdTimestamp).toISOString(),
-			footer: {
-				text: `${reaction.count} ${config.emoji}`,
-			},
-			image: attachments.length > 0 ? { url: attachments[0] } : undefined,
-			//TODO: if post have more than 1 image, add them all (as separate messages)
+		let emojiDisplay: string
+		if (reaction.emoji.id) {
+			emojiDisplay = `<:${reaction.emoji.name}:${reaction.emoji.id}`
+
+			if (reaction.emoji.animated) {
+				emojiDisplay = `<a:${reaction.emoji.name}:${reaction.emoji.id}`
+			}
+		} else {
+			emojiDisplay = reaction.emoji.name
 		}
 
-		// Create the embed
-		const { embed } = createUniversalEmbed(embedData)
+		const content = [
+			'✨ **Starboard Highlight!** ✨',
+			`> ${reaction.message.content || '*No text content*'}`,
+			'',
+			`👤 **Author:** <@${reaction.message.author?.id}>`,
+			`#️⃣ **Channel:** <#${reaction.message.channel.id}>`,
+			`${emojiDisplay} **Count:** ${reaction.count ?? 0}`,
+		].join('\n')
 
-		// Create the message payload
-		const messagePayload = {
-			embeds: [embed],
-		}
+		const jumpButton = new ButtonBuilder()
+			.setLabel('Jump to message')
+			.setStyle(ButtonStyle.Link)
+			.setURL(reaction.message.url)
 
-		// Send the message to the starboard channel
-		const starboardMessage = await starboardChannel.send(messagePayload)
+		const actionRow = new ActionRowBuilder().addComponents(jumpButton)
+
+		await starboardChannel.send({
+			content,
+			components: [actionRow.toJSON()],
+			files: attachments.map((a) => a.url),
+		})
 
 		// Create the new starboard entry
 		const newEntry: StarboardEntry = {
-			starboard_message_id: starboardMessage.id,
+			starboard_message_id: reaction.message.id,
 			star_count: reaction.count ?? 0,
 			original_message_id: reaction.message.id,
 		}
 
-		// Create the new starboard entry
-		await api.createStarboardEntry(
-			reaction.client.user.id,
-			reaction.message.guildId ?? '',
-			reaction.message.id,
-			starboardMessage.id,
-			reaction.count ?? 0
-		)
+		if (!existingStarboardEntry) {
+			await api.createStarboardEntry(
+				reaction.client.user.id,
+				reaction.message.guildId ?? '',
+				reaction.message.id,
+				reaction.message.id,
+				reaction.count ?? 0
+			)
+		}
 
 		// Return the new starboard entry
 		return newEntry

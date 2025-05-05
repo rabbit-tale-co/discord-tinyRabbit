@@ -84,12 +84,31 @@ export const handleResponse = async (
 ): Promise<void> => {
 	const {
 		code,
-		ephemeral = true,
+		ephemeral = type === 'error', // Set ephemeral to true for errors by default
 		includeSupport = type === 'error',
 		error,
 	} = options || {}
 
-	// Create base embed
+	// For ChatInputCommandInteraction, defer the reply if not already done
+	if (
+		interaction.isChatInputCommand() &&
+		!interaction.deferred &&
+		!interaction.replied
+	) {
+		await interaction.deferReply({ flags: ephemeral ? 64 : undefined })
+	}
+
+	// For success messages, send as plain text
+	if (type === 'success') {
+		if (interaction.deferred) {
+			await interaction.followUp({ content: message })
+		} else {
+			await interaction.reply({ content: message })
+		}
+		return
+	}
+
+	// For other types (error, warning, info), create and send embed
 	const embed = createResponseEmbed(type, message, code)
 
 	// Add error information if provided
@@ -117,15 +136,12 @@ export const handleResponse = async (
 	const responseOptions = {
 		content: contentParts.join('\n\n'),
 		embeds: [embed],
-		ephemeral,
+		flags: ephemeral ? 64 : undefined,
 	}
 
 	if (interaction.deferred) {
 		await interaction.followUp(responseOptions)
 	} else {
-		await interaction.reply({
-			content: message,
-			flags: ephemeral ? Discord.MessageFlags.Ephemeral : undefined,
-		})
+		await interaction.reply(responseOptions)
 	}
 }

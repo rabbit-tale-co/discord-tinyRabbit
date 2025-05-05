@@ -5,6 +5,9 @@
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
+      "@/classes/*": [
+        "src/classes/*"
+      ],
       "@/*": [
         "src/*"
       ],
