@@ -407,6 +407,56 @@ async function getUserTickets(
 	}
 }
 
+/**
+ * Gets all active tickets for a specific guild or across all guilds.
+ * @param {string} bot_id - The bot's user ID.
+ * @param {string} [guild_id] - Optional guild ID to filter by. If not provided, returns tickets from all guilds.
+ * @returns {Promise<Array<{ thread_id: string, metadata: ThreadMetadata, guild_id: string }>>} - Array of active tickets with metadata.
+ */
+async function getAllActiveTickets(
+	bot_id: string,
+	guild_id?: string
+): Promise<
+	Array<{ thread_id: string; metadata: ThreadMetadata; guild_id: string }>
+> {
+	try {
+		// Base query
+		let query = supabase
+			.from('tickets')
+			.select('thread_id, metadata, guild_id')
+			.eq('bot_id', bot_id)
+
+		// Add guild filter if specified
+		if (guild_id) {
+			query = query.eq('guild_id', guild_id)
+		}
+
+		// Get the data
+		const { data, error } = await query
+
+		if (error) {
+			bunnyLog.error('Error fetching active tickets:', error)
+			return []
+		}
+
+		if (!data || data.length === 0) {
+			return []
+		}
+
+		// Filter to only include active tickets (not marked as closed)
+		const activeTickets = data.filter((ticket) => {
+			if (!ticket.metadata) return false
+			const metadata = ticket.metadata as ThreadMetadata
+			// Check the optional status field to exclude closed tickets
+			return metadata.status !== 'closed'
+		})
+		return activeTickets
+	} catch (error) {
+		bunnyLog.error('Failed to get active tickets:', error)
+		return []
+	}
+}
+
 export async function fetchTotalTickets(): Promise<number> {
 	const { data, error } = await supabase.from('tickets').select('*')
 
@@ -425,4 +475,5 @@ export {
 	updateTicketMetadata,
 	updateTicketRating,
 	getUserTickets,
+	getAllActiveTickets,
 }

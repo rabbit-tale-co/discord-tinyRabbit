@@ -39,6 +39,7 @@ interface ThreadMetadata {
 	transcript_message_id?: string
 	transcript_channel_id?: string
 	guild_id?: string
+	status?: string
 }
 
 export type { Transcript, Attachment, ThreadMetadata }

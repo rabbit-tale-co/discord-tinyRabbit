@@ -16,6 +16,14 @@ const default_configs: Types.DefaultConfigs = {
 		enabled: false,
 		admin_channel_id: null,
 		transcript_channel_id: null,
+		auto_close: [
+			{
+				enabled: false,
+				threshold: 72 * 60 * 60 * 1000, //72 hours
+				reason:
+					'Tickets are automatically closed after {threshold} of inactivity to help us manage support requests efficiently.',
+			},
+		],
 		embeds: {
 			open_ticket: {
 				title: 'Click to open a ticket',
@@ -196,7 +204,7 @@ const default_configs: Types.DefaultConfigs = {
 	},
 	starboard: {
 		enabled: false,
-		emojis: ['⭐'],
+		emoji: '⭐',
 		watch_channels: null,
 		channel_id: null,
 		threshold: 15,
@@ -251,6 +259,25 @@ const default_configs: Types.DefaultConfigs = {
 		enabled: false,
 		channel_id: null,
 		role_id: null,
+	},
+	economy: {
+		enabled: false,
+		currency_name: 'Coins',
+		currency_symbol: '💰',
+		currency_emoji: '💰',
+		is_custom_emoji: false,
+		starting_balance: 100,
+		multipliers: {
+			enabled: true,
+			default: 1,
+			roles: [],
+		},
+		leaderboard: {
+			enabled: true,
+			channel_id: null,
+			update_interval: 60,
+			top_count: 10,
+		},
 	},
 }
 
