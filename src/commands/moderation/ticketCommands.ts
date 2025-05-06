@@ -556,6 +556,7 @@ async function resetConfigPanel(
 			? ticketUtils.formatTimeThreshold(ticketConfig.auto_close[0].threshold)
 			: 'Not set'
 
+		// TODO: add edit button
 		// Format role time limits for display
 		const roleTimeLimits = ticketConfig.role_time_limits?.length
 			? `${ticketConfig.role_time_limits.length} roles configured`
@@ -3873,45 +3874,39 @@ function generateTimeValueOptions(
  * @returns The time value in milliseconds
  */
 function parseTimeValue(timeValue: string): number {
+	const input = String(timeValue || '')
+	if (!input) return 0
+
 	// Ensure the time value has a clean format before parsing
 	// Extract the numeric part and unit with a more flexible regex
 	const cleanTimeRegex = /(\d+)\s*([smhdwy])/i
-	const cleanMatch = String(timeValue || '').match(cleanTimeRegex)
+	const cleanMatch = input.match(cleanTimeRegex)
 
-	let cleanedTimeValue = timeValue
 	if (cleanMatch) {
 		const [_, value, unit] = cleanMatch
-		cleanedTimeValue = `${value}${unit.toLowerCase()}`
-	} else {
-		// If no match with standard regex, try handling just a plain number
-		// or check if there's a number anywhere in the string
-		const justNumberMatch = String(timeValue || '').match(/(\d+)/)
-		if (justNumberMatch?.[1]) {
-			// If we just got a number without a unit, default to days (most common use case)
-			// This helps when dropdown selections don't include the unit in the value
-			cleanedTimeValue = `${justNumberMatch[1]}d`
-		}
+		const cleanedTimeValue = `${value}${unit.toLowerCase()}`
+		const result = ticketUtils.parseTimeLimit(cleanedTimeValue)
+		if (result > 0) return result
 	}
 
-	// Parse the time value with the cleaned format
-	let timeLimitMs = ticketUtils.parseTimeLimit(cleanedTimeValue)
+	const justNumberMatch = input.match(/(\d+)/)
+	if (justNumberMatch?.[1]) {
+		const cleanedTimeValue = `${justNumberMatch[1]}d`
+		const result = ticketUtils.parseTimeLimit(cleanedTimeValue)
+		if (result > 0) return result
+	}
 
-	// If parsing failed, try a more direct approach for specific units
-	if (timeLimitMs === 0 && timeValue) {
-		// Try a direct conversion for days
-		const timeValueStr = String(timeValue)
-		if (timeValueStr.includes('d')) {
-			const dayMatch = timeValueStr.match(/(\d+)\s*d/i)
-			if (dayMatch?.[1]) {
-				const days = Number(dayMatch[1])
-				if (!Number.isNaN(days) && days > 0) {
-					timeLimitMs = days * 24 * 60 * 60 * 1000
-				}
+	if (input.includes('d')) {
+		const dayMatch = input.match(/(\d+)\s*d/i)
+		if (dayMatch?.[1]) {
+			const days = Number(dayMatch[1])
+			if (!Number.isNaN(days) && days > 0) {
+				return days * 24 * 60 * 60 * 1000
 			}
 		}
 	}
 
-	return timeLimitMs
+	return 0
 }
 
 /**
