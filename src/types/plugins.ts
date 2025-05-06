@@ -1,4 +1,23 @@
-import type { ButtonStyle, ComponentType, EmbedData } from 'discord.js'
+import type {
+	ButtonStyle,
+	EmbedData,
+	APIEmbed,
+	ActionRowComponent,
+	ButtonComponent,
+	StringSelectMenuComponent,
+	TextInputComponent,
+	UserSelectMenuComponent,
+	RoleSelectMenuComponent,
+	MentionableSelectMenuComponent,
+	SectionComponent,
+	TextDisplayComponent,
+	ThumbnailComponent,
+	MediaGalleryComponent,
+	FileComponent,
+	SeparatorComponent,
+	ChannelSelectMenuComponent,
+	ContainerComponent,
+} from 'discord.js'
 
 type Level = {
 	enabled?: boolean
@@ -14,29 +33,140 @@ type Level = {
 	}> | null
 }
 
-type TicketEmbed = {
-	title?: string
-	description?: string
-	color?: number
-	footer?: string
-	thumbnail?: string
-	image?: string
-	fields?: Array<{
-		name: string
-		value: string
-		inline?: boolean
-	}>
+// Definicja mapy przycisków dla embedów
+interface ButtonsMap {
 	buttons_map?: Array<{
 		unique_id: string
 		label: string
 		style: ButtonStyle
-		type: ComponentType
 		url?: string
 		disabled?: boolean
 	}>
 }
 
-type Ticket = {
+// Rozszerzony typ APIEmbed z mapą przycisków
+type TicketEmbed = APIEmbed & ButtonsMap
+
+// Discord UI components namespace
+export namespace API {
+	export interface MessageComponent {
+		type: number
+	}
+
+	export interface ActionRow extends MessageComponent {
+		type: 1
+		components: MessageComponent[]
+	}
+
+	export interface Button extends MessageComponent {
+		type: 2
+		style: ButtonStyle
+		label?: string
+		emoji?: {
+			id?: string
+			name?: string
+			animated?: boolean
+		}
+		customId?: string
+		url?: string
+		disabled?: boolean
+	}
+
+	export interface TextDisplay extends MessageComponent {
+		type: 2
+		text: string
+	}
+
+	export interface SelectMenu extends MessageComponent {
+		type: 3
+		customId: string
+		options: SelectOption[]
+		placeholder?: string
+		minValues?: number
+		maxValues?: number
+		disabled?: boolean
+	}
+
+	export interface SelectOption {
+		label: string
+		value: string
+		description?: string
+		emoji?: {
+			id?: string
+			name?: string
+			animated?: boolean
+		}
+		default?: boolean
+	}
+}
+
+// Components supported by our tickets system
+export type ComponentsV2 =
+	| API.ActionRow
+	| API.Button
+	| API.TextDisplay
+	| API.SelectMenu
+	| ActionRowComponent
+	| ButtonComponent
+	| StringSelectMenuComponent
+	| TextInputComponent
+	| UserSelectMenuComponent
+	| RoleSelectMenuComponent
+	| MentionableSelectMenuComponent
+	| ChannelSelectMenuComponent
+	| SectionComponent
+	| TextDisplayComponent
+	| ThumbnailComponent
+	| MediaGalleryComponent
+	| FileComponent
+	| SeparatorComponent
+	| ContainerComponent
+
+// Display mode for ticket messages
+export enum TicketDisplayMode {
+	Embed = 'embed',
+	Text = 'text',
+}
+
+// Define the structure for a single ticket message template
+export type TicketMessageTemplate = {
+	type: TicketDisplayMode | string
+	components?: ComponentsV2[]
+	embed?: TicketEmbed | null
+}
+
+// Define the structure for all ticket message types
+export type TicketTemplates = {
+	open_ticket?: TicketMessageTemplate | null
+	opened_ticket?: TicketMessageTemplate | null
+	user_ticket?: TicketMessageTemplate | null
+	closed_ticket?: TicketMessageTemplate | null
+	confirm_close_ticket?: TicketMessageTemplate | null
+	admin_ticket?: TicketMessageTemplate | null
+	transcript?: TicketMessageTemplate | null
+	// System messages
+	inactivity_notice?: TicketMessageTemplate | null
+	rating_survey?: TicketMessageTemplate | null
+	ticket_claimed?: TicketMessageTemplate | null
+	close_confirmation?: TicketMessageTemplate | null // Displayed when a ticket is closed
+	close_reason_modal?: TicketMessageTemplate | null // Text for the close reason modal
+	no_permission?: TicketMessageTemplate | null // No permission to perform action
+	auto_close_warning?: TicketMessageTemplate | null // Warning about upcoming auto-close
+}
+
+// Define the separate embed templates for backward compatibility
+export type TicketEmbedTemplates = {
+	open_ticket?: TicketEmbed | null
+	opened_ticket?: TicketEmbed | null
+	user_ticket?: TicketEmbed | null
+	closed_ticket?: TicketEmbed | null
+	confirm_close_ticket?: TicketEmbed | null
+	admin_ticket?: TicketEmbed | null
+	transcript?: TicketEmbed | null
+}
+
+// TODO: UPDATE TO COMPONENTSV2
+export type Ticket = {
 	enabled?: boolean
 	admin_channel_id?: string | null
 	counter?: number
@@ -52,15 +182,9 @@ type Ticket = {
 		role_id: string
 		limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
 	}> | null
-	embeds?: {
-		open_ticket?: TicketEmbed | null
-		opened_ticket?: TicketEmbed | null
-		user_ticket?: TicketEmbed | null
-		closed_ticket?: TicketEmbed | null
-		confirm_close_ticket?: TicketEmbed | null
-		admin_ticket?: TicketEmbed | null
-		transcript?: TicketEmbed | null
-	}
+	display_type?: TicketDisplayMode | string // Global display mode preference
+	components?: TicketTemplates
+	embeds?: TicketEmbedTemplates
 }
 
 type Welcome_Goodbye = {
@@ -187,6 +311,6 @@ type DefaultConfigs = {
 
 type PluginResponse<T> = T & { id: string }
 
-export type { DefaultConfigs, PluginResponse, Plugins }
+export type { DefaultConfigs, PluginResponse, Plugins, TicketEmbed, ButtonsMap }
 
 export * from './tempvc.js'

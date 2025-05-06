@@ -3,8 +3,9 @@ import * as api from '@/api/index.js'
 import * as utils from '@/utils/index.js'
 import { bunnyLog } from 'bunny-log'
 import type { ThreadMetadata } from '@/types/tickets.js'
+import { TicketDisplayMode } from '@/types/plugins.js'
+import type { TicketTemplates, ComponentsV2, API } from '@/types/plugins.js'
 import type { PluginResponse, DefaultConfigs } from '@/types/plugins.js'
-import supabase from '@/db/supabase.js'
 
 // Extended interfaces for auto-close feature
 interface TicketConfig {
@@ -18,11 +19,50 @@ interface TicketConfig {
 	}>
 }
 
-interface ExtendedThreadMetadata extends ThreadMetadata {
+// Extended type for ticket metadata
+type ExtendedThreadMetadata = {
 	thread_id?: string
 	status?: string
 	close_reason?: string
 	guild_id?: string
+	ticket_id?: string | number
+	opened_by?: {
+		id: string
+		username: string
+		displayName: string
+		avatar: string
+	}
+	claimed_by?:
+		| {
+				id: string
+				username: string
+				displayName: string
+				avatar: string
+		  }
+		| string
+	claimed_time?: Date
+	open_time?: number
+	close_time?: Date
+	ticket_type?: string
+	reason?: string
+	closed_by?: {
+		id: string
+		username: string
+		displayName: string
+		avatar: string
+	}
+	join_ticket_message_id?: string
+	admin_channel_id?: string
+	rating?: {
+		value: number
+		submitted_at?: string
+		review_message_id?: string
+		user_id?: string
+		timestamp?: number
+	}
+	transcript_message_id?: string
+	transcript_channel_id?: string
+	// Add any other fields that are used in the code
 }
 
 const thread_metadata_store = new Map<string, ExtendedThreadMetadata>()
@@ -38,39 +78,74 @@ function parseTimeLimit(timeStr: string): number {
 	// Default to 0 if invalid
 	if (!timeStr || typeof timeStr !== 'string') return 0
 
-	const regex = /^(\d+)([smhdy])$/
+	// Log the input for debugging
+	console.log(`Parsing time limit: "${timeStr}"`)
+
+	// Convert the string to a debug-friendly representation
+	const debugChars = Array.from(timeStr)
+		.map((c) => `${c}(${c.charCodeAt(0)})`)
+		.join('')
+	console.log(`Time limit characters: ${debugChars}`)
+
+	// More robust regex that handles potential invisible characters
+	const regex = /^(\d+)\s*([smhdwy])$/i
 	const match = timeStr.match(regex)
 
-	if (!match) return 0
+	if (!match) {
+		console.log(`Failed to match time format: "${timeStr}"`)
+
+		// Try an alternative match without any restrictions on characters between number and unit
+		const altRegex = /(\d+).*?([smhdwy])/i
+		const altMatch = timeStr.match(altRegex)
+
+		if (altMatch) {
+			console.log(
+				`Alternative match succeeded: value=${altMatch[1]}, unit=${altMatch[2]}`
+			)
+			const value = Number.parseInt(altMatch[1], 10)
+			const unit = altMatch[2].toLowerCase()
+
+			// Convert to milliseconds using the alternative match
+			return convertToMilliseconds(value, unit)
+		}
+
+		return 0
+	}
 
 	const value = Number.parseInt(match[1], 10)
-	const unit = match[2]
+	const unit = match[2].toLowerCase()
+
+	console.log(`Matched time format: value=${value}, unit=${unit}`)
 
 	// Convert to milliseconds based on unit
+	return convertToMilliseconds(value, unit)
+}
+
+// Helper function to convert value and unit to milliseconds
+function convertToMilliseconds(value: number, unit: string): number {
 	let result = 0
 	switch (unit) {
 		case 's':
-			result = value * 1000 // seconds
+			result = value * 1000 // seconds to ms
 			break
 		case 'm':
-			result = value * 60 * 1000 // minutes
+			result = value * 60 * 1000 // minutes to ms
 			break
 		case 'h':
-			result = value * 60 * 60 * 1000 // hours
+			result = value * 60 * 60 * 1000 // hours to ms
 			break
 		case 'd':
-			result = value * 24 * 60 * 60 * 1000 // days
+			result = value * 24 * 60 * 60 * 1000 // days to ms
+			break
+		case 'w':
+			result = value * 7 * 24 * 60 * 60 * 1000 // weeks to ms
 			break
 		case 'y':
-			result = value * 365 * 24 * 60 * 60 * 1000 // years (approximate)
+			result = value * 365 * 24 * 60 * 60 * 1000 // years to ms (simplified)
 			break
 		default:
 			result = 0
 	}
-
-	// console.log(
-	// 	`Parsed time limit: "${timeStr}" => ${result}ms (${value} ${unit})`,
-	// );
 	return result
 }
 
@@ -133,18 +208,6 @@ async function canUserOpenTicket(
 			}
 		}
 	}
-
-	// Debug logging for roles
-	// console.log("User roles check:", {
-	// 	user_id: interaction.user.id,
-	// 	user_roles: Array.from(member.roles.cache.keys()),
-	// 	time_limit_roles: config.role_time_limits?.map((r) => r.role_id) || [],
-	// 	matched_roles:
-	// 		config.role_time_limits
-	// 			?.filter((r) => member.roles.cache.has(r.role_id))
-	// 			.map((r) => r.role_id) || [],
-	// 	strictest_limit: strictestLimit,
-	// });
 
 	// If no applicable role limit found, allow opening
 	if (!strictestLimit) return { canOpen: true }
@@ -333,8 +396,8 @@ const createButton = (
 }
 
 /**
- * Sends an embed to a specified channel
- * @param interaction - The interaction to send the embed to
+ * Sends a ticket message to a specified channel
+ * @param interaction - The interaction to respond to
  */
 async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
 	// Defer the reply
@@ -379,39 +442,88 @@ async function sendEmbed(interaction: Discord.ChatInputCommandInteraction) {
 		return
 	}
 
+	// Get the type option from the command
+	const specifiedType = interaction.options.getString(
+		'type'
+	) as TicketDisplayMode
+
+	// If type is specified in the command, update the component configuration
+	if (
+		specifiedType &&
+		(specifiedType === TicketDisplayMode.Text ||
+			specifiedType === TicketDisplayMode.Embed)
+	) {
+		// Make sure components and open_ticket exist
+		if (!config.components) {
+			config.components = {}
+		}
+
+		if (!config.components.open_ticket) {
+			config.components.open_ticket = {
+				type: specifiedType,
+				components: [],
+			}
+		} else {
+			// Update the type in the existing component
+			config.components.open_ticket.type = specifiedType
+		}
+
+		// If type is embed but no embed is defined, try to use legacy embed
+		if (
+			specifiedType === TicketDisplayMode.Embed &&
+			!config.components.open_ticket.embed &&
+			config.embeds?.open_ticket
+		) {
+			config.components.open_ticket.embed = config.embeds.open_ticket
+		}
+	}
+
 	// Get the placeholders
 	const placeholders = {
 		user: interaction.user.toString(),
+		guild_name: interaction.guild?.name || 'Server',
+		guild_id: interaction.guild?.id || '',
 	}
 
-	// Create the embed and action rows
-	const { embed, action_rows } = createEmbed(
-		config.embeds?.open_ticket as unknown as TicketEmbedConfig,
-		placeholders
-	)
-
 	try {
-		// Send the embed to the target channel
-		await target_channel.send({
-			embeds: [embed],
-			components: action_rows.length > 0 ? action_rows : [],
+		// Get the actual type that will be used
+		const usedType = config.components?.open_ticket?.type || 'default'
+
+		// Log what we're about to send
+		bunnyLog.info('Sending ticket message', {
+			type: usedType,
+			has_embed: !!config.components?.open_ticket?.embed,
+			has_components: !!config.components?.open_ticket?.components,
 		})
 
-		// Send a success message
+		// Create message options based on component-based or embed-based format
+		const messageOptions = await createTicketMessage(
+			config,
+			'open_ticket',
+			placeholders
+		)
+
+		// Send the message to the target channel
+		const sentMessage = await target_channel.send(messageOptions)
+
+		// Send a success message with details
 		await utils.handleResponse(
 			interaction,
 			'success',
-			'Embed sent successfully.',
+			`Ticket message sent successfully using ${usedType} template. [Jump to message](${sentMessage.url})`,
 			{
 				code: 'SE001',
 			}
 		)
 	} catch (error) {
+		// Log the error
+		bunnyLog.error('Error sending ticket message:', error)
+
 		// Send an error message
 		await utils.handleResponse(
 			interaction,
 			'error',
-			"Failed to send the embed. Please check the bot's permissions in the target channel and try again.",
+			"Failed to send the message. Please check the bot's permissions in the target channel and try again.",
 			{
 				code: 'SE001',
 			}
@@ -678,94 +790,77 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 			open_time: Math.floor(Date.now() / 1000),
 		}
 
-		// Get the opened_ticket embed config and ensure it has a close ticket button for the opener
-		const opened_ticket_config = {
-			...(config.embeds?.opened_ticket as unknown as TicketEmbedConfig),
-		}
-
-		// If the buttons_map doesn't exist or doesn't have a close button, add one
-		if (!opened_ticket_config.buttons_map) {
-			opened_ticket_config.buttons_map = []
-		}
-
-		// Check if there's already a close ticket button
-		const hasCloseButton = opened_ticket_config.buttons_map.some(
-			(button) =>
-				button.unique_id === 'close_ticket' ||
-				button.label.toLowerCase().includes('close')
+		// Get the opened_ticket message options using the new function
+		const threadMessageOptions = await createTicketMessage(
+			config,
+			'opened_ticket',
+			placeholders
 		)
 
-		// Add a close button if it doesn't exist
-		if (!hasCloseButton) {
-			opened_ticket_config.buttons_map.push({
-				unique_id: 'close_ticket',
-				label: 'Close Ticket',
-				style: Discord.ButtonStyle.Danger,
-			})
-		}
+		// If no message options were returned, create a default welcome message
+		if (!threadMessageOptions.content && !threadMessageOptions.embeds?.length) {
+			// Create a formatted welcome message with markdown formatting
+			const welcomeContent = [
+				`# 🎫 Ticket #${ticket_id} - ${ticket_type}`,
+				'',
+				`## 👋 Welcome ${interaction.user.toString()}!`,
+				'',
+				'Thank you for reaching out! A support representative will be with you shortly.',
+				'',
+				'Please provide as much detail as possible to help us assist you better.',
+				'',
+				'---',
+				'*You can close this ticket using the button below when your issue is resolved.*',
+			].join('\n')
 
-		// Create the action rows with buttons from the config
-		const ticket_action_rows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
-			[]
+			threadMessageOptions.content = welcomeContent
 
-		// If there are buttons defined, arrange them in action rows
-		if (
-			opened_ticket_config.buttons_map &&
-			opened_ticket_config.buttons_map.length > 0
-		) {
-			let actionRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+			// Create a close button if no components exist
+			if (
+				!threadMessageOptions.components ||
+				threadMessageOptions.components.length === 0
+			) {
+				const closeButton = new Discord.ButtonBuilder()
+					.setCustomId(`close_ticket_${thread.id}_0`)
+					.setLabel('Close Ticket')
+					.setStyle(Discord.ButtonStyle.Danger)
 
-			// Add the close ticket button and any additional buttons
-			opened_ticket_config.buttons_map.forEach((buttonConfig, idx) => {
-				const button = createButton(buttonConfig, placeholders, idx)
-				if (button) {
-					// Create a new action row if the current one is full
-					if (actionRow.components.length >= 5) {
-						ticket_action_rows.push(actionRow)
-						actionRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
-					}
-					actionRow.addComponents(button)
-				}
-			})
+				const actionRow =
+					new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+						closeButton
+					)
 
-			// Add the last action row if it has components
-			if (actionRow.components.length > 0) {
-				ticket_action_rows.push(actionRow)
+				threadMessageOptions.components = [actionRow]
 			}
 		}
 
-		// Create a formatted welcome message with markdown formatting
-		const welcomeContent = [
-			`# 🎫 Ticket #${ticket_id} - ${ticket_type}`,
-			'',
-			`## 👋 Welcome ${interaction.user.toString()}!`,
-			'',
-			'Thank you for reaching out! A support representative will be with you shortly.',
-			'',
-			'Please provide as much detail as possible to help us assist you better.',
-			'',
-			'---',
-			'*You can close this ticket using the button below when your issue is resolved.*',
-		].join('\n')
-
 		// Send the welcome message to the thread
-		await thread.send({
-			content: welcomeContent,
-			components: ticket_action_rows.length > 0 ? ticket_action_rows : [],
-		})
+		await thread.send(threadMessageOptions)
 
-		// Create a confirmation message for the user with markdown formatting
-		const confirmationContent = [
-			'# 🎫 Ticket Created Successfully!',
-			'',
-			`Your ticket #${ticket_id} has been created.`,
-			'',
-			`Please click here to view: <#${thread.id}>`,
-		].join('\n')
+		// Create a confirmation message for the user using the user_ticket template or fallback to default
+		const userMessageOptions = await createTicketMessage(
+			config,
+			'user_ticket',
+			placeholders
+		)
+
+		// If no message options were returned, create a default confirmation message
+		if (!userMessageOptions.content && !userMessageOptions.embeds?.length) {
+			// Create a confirmation message for the user with markdown formatting
+			const confirmationContent = [
+				'# 🎫 Ticket Created Successfully!',
+				'',
+				`Your ticket #${ticket_id} has been created.`,
+				'',
+				`Please click here to view: <#${thread.id}>`,
+			].join('\n')
+
+			userMessageOptions.content = confirmationContent
+		}
 
 		// Send a new ephemeral follow-up message notifying that the ticket was created
 		await interaction.followUp({
-			content: confirmationContent,
+			...userMessageOptions,
 			ephemeral: true,
 		})
 
@@ -966,7 +1061,7 @@ async function closeTicketWithReason(
 		return
 	}
 
-	// Get the metadata to check if the user is the ticket opener
+	// Get the metadata
 	let metadata = thread_metadata_store.get(thread.id) as ExtendedThreadMetadata
 	// Fallback: if not found in memory, try to fetch it from the database
 	if (!metadata) {
@@ -1008,22 +1103,57 @@ async function closeTicketWithReason(
 		return
 	}
 
-	// Create the modal
-	const reasonInput = new Discord.TextInputBuilder()
-		.setCustomId('close_reason')
-		.setLabel('Reason for closing the ticket')
-		.setStyle(Discord.TextInputStyle.Paragraph)
-		.setRequired(true)
+	// Get the plugin config for customized modal title/label
+	const config = await api.getPluginConfig(
+		interaction.client.user.id,
+		interaction.guild.id,
+		'tickets'
+	)
 
-	// Create the modal
+	// Create placeholders
+	const placeholders = {
+		user: interaction.user.username,
+		user_id: interaction.user.id,
+		user_mention: `<@${interaction.user.id}>`,
+		ticket_id: metadata.ticket_id || 'Unknown',
+		channel_name: thread.name,
+	}
+
+	// Try to get custom modal text from template
+	const closeReasonTemplate = await createTicketMessage(
+		config,
+		'close_reason_modal',
+		placeholders
+	)
+
+	// Modal title (from template or default)
+	const modalTitle =
+		closeReasonTemplate.content?.split('\n')[0]?.replace('# ', '') ||
+		'Close Reason'
+
+	// Create a modal
 	const modal = new Discord.ModalBuilder()
 		.setCustomId('close_ticket_modal')
-		.setTitle('Close Ticket with Reason')
-		.addComponents(
-			new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
-				reasonInput
-			)
+		.setTitle(modalTitle)
+
+	// Create the text input for the reason
+	const reasonInput = new Discord.TextInputBuilder()
+		.setCustomId('close_reason')
+		.setLabel('Why are you closing this ticket?')
+		.setStyle(Discord.TextInputStyle.Paragraph)
+		.setRequired(true)
+		.setMinLength(3)
+		.setMaxLength(1000)
+		.setPlaceholder('Please enter your reason...')
+
+	// Create the action row
+	const firstActionRow =
+		new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
+			reasonInput
 		)
+
+	// Add the action row to the modal
+	modal.addComponents(firstActionRow)
 
 	// Show the modal
 	await interaction.showModal(modal)
@@ -1122,39 +1252,51 @@ async function closeTicket(
 	// Get the placeholders
 	const placeholders = {
 		user: interaction.user.toString(),
+		thread_id: thread.id,
+		ticket_id: metadata?.ticket_id || 'Unknown',
 	}
 
-	// Create confirmation message with markdown formatting
-	const confirmCloseContent = [
-		'# ❓ Close Confirmation',
-		'',
-		'Please confirm that you want to close this ticket.',
-		'',
-		'*This action will lock the thread and save a transcript.*',
-	].join('\n')
+	// Use the component-based message if available
+	const messageOptions = await createTicketMessage(
+		config,
+		'confirm_close_ticket',
+		placeholders
+	)
 
-	// Create buttons
-	const confirmButton = new Discord.ButtonBuilder()
-		.setCustomId(`confirm_close_ticket_${thread.id}_0`)
-		.setLabel('Confirm Close')
-		.setStyle(Discord.ButtonStyle.Success)
+	// If no message options were generated, use a default message
+	if (!messageOptions.content && !messageOptions.embeds?.length) {
+		// Create confirmation message with markdown formatting
+		const confirmCloseContent = [
+			'# ❓ Close Confirmation',
+			'',
+			'Please confirm that you want to close this ticket.',
+			'',
+			'*This action will lock the thread and save a transcript.*',
+		].join('\n')
 
-	const cancelButton = new Discord.ButtonBuilder()
-		.setCustomId(`cancel_close_ticket_${thread.id}_1`)
-		.setLabel('Cancel')
-		.setStyle(Discord.ButtonStyle.Secondary)
+		// Create buttons
+		const confirmButton = new Discord.ButtonBuilder()
+			.setCustomId(`confirm_close_ticket_${thread.id}_0`)
+			.setLabel('Confirm Close')
+			.setStyle(Discord.ButtonStyle.Success)
 
-	const actionRow =
-		new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-			confirmButton,
-			cancelButton
-		)
+		const cancelButton = new Discord.ButtonBuilder()
+			.setCustomId(`cancel_close_ticket_${thread.id}_1`)
+			.setLabel('Cancel')
+			.setStyle(Discord.ButtonStyle.Secondary)
+
+		const actionRow =
+			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+				confirmButton,
+				cancelButton
+			)
+
+		messageOptions.content = confirmCloseContent
+		messageOptions.components = [actionRow]
+	}
 
 	// Send the confirmation message
-	await interaction.editReply({
-		content: confirmCloseContent,
-		components: [actionRow],
-	})
+	await interaction.editReply(messageOptions)
 }
 
 /**
@@ -1169,8 +1311,14 @@ async function sendRatingSurvey(
 	threadId: string
 ): Promise<void> {
 	try {
-		// Create the rating buttons
-		const components = [
+		// Try to get the guild from the thread ID through cache
+		const thread = user.client.channels.cache.get(
+			threadId
+		) as Discord.ThreadChannel
+		const guildId = thread?.guildId
+
+		// Create rating buttons
+		const ratingButtons =
 			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
 				new Discord.ButtonBuilder()
 					.setCustomId(`rating_1_${threadId}`)
@@ -1192,10 +1340,46 @@ async function sendRatingSurvey(
 					.setCustomId(`rating_5_${threadId}`)
 					.setLabel('⭐ 5')
 					.setStyle(Discord.ButtonStyle.Success)
-			),
-		]
+			)
 
-		// Create survey message with markdown formatting
+		// If we can find the guild, try to use the template from config
+		if (guildId) {
+			// Get the plugin config
+			const config = await api.getPluginConfig(
+				user.client.user.id,
+				guildId,
+				'tickets'
+			)
+
+			// Use the rating_survey template from components if available
+			const ratingMessage = await createTicketMessage(config, 'rating_survey', {
+				ticket_id: ticketId,
+				thread_id: threadId,
+			})
+
+			// If template is not empty, use it
+			if (
+				ratingMessage.content ||
+				ratingMessage.embeds?.length ||
+				ratingMessage.components?.length
+			) {
+				// Add the rating buttons to the message
+				if (ratingMessage.components) {
+					ratingMessage.components = [
+						...ratingMessage.components,
+						ratingButtons,
+					]
+				} else {
+					ratingMessage.components = [ratingButtons]
+				}
+
+				// Send the survey
+				await user.send(ratingMessage)
+				return
+			}
+		}
+
+		// Fallback to default content if no template or guild found
 		const content = [
 			'# 📊 Support Ticket Feedback',
 			'',
@@ -1207,7 +1391,7 @@ async function sendRatingSurvey(
 		].join('\n')
 
 		// Send the survey to the user
-		await user.send({ content, components })
+		await user.send({ content, components: [ratingButtons] })
 	} catch (error) {
 		bunnyLog.error('Failed to send rating survey:', error)
 	}
@@ -1336,15 +1520,17 @@ async function closeThread(
 			reason: reason,
 			close_time: new Date().toLocaleString(),
 			category: metadata?.ticket_type || 'Unknown',
+			thread_id: thread.id,
 		}
 
-		// Create the embed
-		const { embed: closeEmbed } = createEmbed(
-			config.embeds?.closed_ticket as unknown as TicketEmbedConfig,
+		// Create and send the closed ticket message
+		const closeMessageOptions = await createTicketMessage(
+			config,
+			'closed_ticket',
 			placeholders
 		)
 
-		await thread.send({ embeds: [closeEmbed] })
+		await thread.send(closeMessageOptions)
 
 		// Update metadata with closed status
 		if (metadata) {
@@ -1361,7 +1547,7 @@ async function closeThread(
 				interaction.client.user.id,
 				interaction.guild.id,
 				thread.id,
-				metadata
+				metadata as ThreadMetadata
 			)
 		}
 
@@ -1507,44 +1693,73 @@ async function sendTranscript(
 		close_time: new Date(),
 		reason: reason,
 		rating: metadata.rating,
+		thread_id: channel.id,
+		guild_id: interaction.guild?.id,
 	}
 
-	// Create the content with markdown formatting
-	const content = [
-		`# 🎫 Ticket #${metadata.ticket_id} - ${metadata.ticket_type || 'Support'}`,
-		'',
-		'## 📋 Ticket Information',
-		`> **Opened by:** <@${metadata.opened_by?.id}>`,
-		`> **Opened at:** <t:${metadata.open_time}:F>`,
-		'',
-		'## 👥 Handling',
-		`> **Claimed by:** ${typeof metadata.claimed_by === 'object' ? `<@${metadata.claimed_by.id}>` : metadata.claimed_by || 'Not claimed'}`,
-		`> **Closed by:** <@${interaction.user.id}>`,
-		`> **Closed at:** <t:${Math.floor(Date.now() / 1000)}:F>`,
-		'',
-		'## 📝 Resolution',
-		`> **Reason:** ${reason}`,
-		`> **Rating:** ${metadata.rating?.value ? '⭐'.repeat(metadata.rating.value) : 'No rating yet'}`,
-		'',
-		'---',
-		'*Click the button below to view the full ticket conversation:*',
-	].join('\n')
+	// Create the transcript message using the component-based format
+	const messageOptions = await createTicketMessage(config, 'transcript', {
+		ticket_id: metadata.ticket_id?.toString() || 'Unknown',
+		opened_by: metadata?.opened_by ? `<@${metadata.opened_by.id}>` : 'Unknown',
+		closed_by: `<@${interaction.user.id}>`,
+		open_time: metadata?.open_time
+			? Math.floor(metadata.open_time).toString()
+			: 'Unknown',
+		claimed_by:
+			typeof metadata?.claimed_by === 'object'
+				? `<@${metadata.claimed_by.id}>`
+				: metadata?.claimed_by || 'Not claimed',
+		reason: reason,
+		close_time: Math.floor(Date.now() / 1000).toString(),
+		category: metadata?.ticket_type || 'Unknown',
+		rating: metadata.rating?.value
+			? '⭐'.repeat(metadata.rating.value)
+			: 'No rating yet',
+		thread_id: channel.id,
+		guild_id: interaction.guild?.id,
+	})
 
-	// Create buttons
-	const row =
-		new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-			new Discord.ButtonBuilder()
-				.setLabel('View Ticket')
-				.setStyle(Discord.ButtonStyle.Link)
-				.setURL(channel.url)
-		)
+	// If no message options were generated, use a default transcript format
+	if (!messageOptions.content && !messageOptions.embeds?.length) {
+		// Create the content with markdown formatting
+		const content = [
+			`# 🎫 Ticket #${metadata.ticket_id} - ${metadata.ticket_type || 'Support'}`,
+			'',
+			'## 📋 Ticket Information',
+			`> **Opened by:** <@${metadata.opened_by?.id}>`,
+			`> **Opened at:** <t:${metadata.open_time}:F>`,
+			'',
+			'## 👥 Handling',
+			`> **Claimed by:** ${typeof metadata.claimed_by === 'object' ? `<@${metadata.claimed_by.id}>` : metadata.claimed_by || 'Not claimed'}`,
+			`> **Closed by:** <@${interaction.user.id}>`,
+			`> **Closed at:** <t:${Math.floor(Date.now() / 1000)}:F>`,
+			'',
+			'## 📝 Resolution',
+			`> **Reason:** ${reason}`,
+			`> **Rating:** ${metadata.rating?.value ? '⭐'.repeat(metadata.rating.value) : 'No rating yet'}`,
+			'',
+			'---',
+			'*Click the button below to view the full ticket conversation:*',
+		].join('\n')
+
+		// Create buttons
+		const viewButton = new Discord.ButtonBuilder()
+			.setLabel('View Ticket')
+			.setStyle(Discord.ButtonStyle.Link)
+			.setURL(channel.url)
+
+		const actionRow =
+			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+				viewButton
+			)
+
+		messageOptions.content = content
+		messageOptions.components = [actionRow]
+	}
 
 	try {
-		// Send the transcript message with the button
-		const transcriptMessage = await transcriptChannel.send({
-			content,
-			components: [row],
-		})
+		// Send the transcript message
+		const transcriptMessage = await transcriptChannel.send(messageOptions)
 
 		// Update metadata with transcript message ID and channel ID
 		transcriptMetadata.transcript_message_id = transcriptMessage.id
@@ -1581,70 +1796,97 @@ async function sendTranscript(
 async function confirmCloseTicket(
 	interaction: Discord.ButtonInteraction
 ): Promise<void> {
-	// Defer the reply
-	await interaction.deferUpdate()
-
-	// Get the thread
-	const thread = interaction.channel as Discord.ThreadChannel
-
-	// Check if the thread is a thread
-	if (!thread?.isThread()) {
-		// Send an error if the thread is not a thread
-		await utils.handleResponse(
-			interaction,
-			'error',
-			'The found channel is not a thread.',
-			{
-				code: 'CT007',
-			}
-		)
-		return
-	}
-
-	// Get the metadata to check if the user is the ticket opener
-	let metadata = thread_metadata_store.get(thread.id) as ExtendedThreadMetadata
-	// Fallback: if not found in memory, try to fetch it from the database
-	if (!metadata) {
-		metadata = (await api.getTicketMetadata(
-			interaction.client.user.id,
-			interaction.guild?.id as Discord.Guild['id'],
-			thread.id
-		)) as ExtendedThreadMetadata
-
-		// If still not found, handle accordingly
-		if (!metadata) {
+	try {
+		// Check if the interaction is in a guild channel
+		if (!interaction.inGuild()) {
 			await utils.handleResponse(
 				interaction,
 				'error',
-				'No metadata found for the ticket.',
-				{
-					code: 'CT007',
-				}
+				'This command can only be used in a server channel.'
 			)
 			return
 		}
-	}
 
-	// Check if the user is a moderator or the ticket opener
-	const isTicketOpener = metadata.opened_by?.id === interaction.user.id
-	const hasModerationPermission = interaction.memberPermissions?.has(
-		Discord.PermissionFlagsBits.ManageThreads
-	)
+		// Check if the channel is a thread
+		if (
+			!interaction.channel ||
+			!('isThread' in interaction.channel) ||
+			!interaction.channel.isThread()
+		) {
+			await utils.handleResponse(
+				interaction,
+				'error',
+				'This command can only be used in a ticket thread.'
+			)
+			return
+		}
 
-	if (!isTicketOpener && !hasModerationPermission) {
+		// Get the plugin config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild.id,
+			'tickets'
+		)
+
+		// Create placeholders for the message
+		const placeholders = {
+			user: interaction.user.username,
+			user_id: interaction.user.id,
+			user_mention: `<@${interaction.user.id}>`,
+			thread_name: interaction.channel.name,
+			thread_id: interaction.channel.id,
+		}
+
+		// Use the confirm_close_ticket template from components
+		const confirmMessage = await createTicketMessage(
+			config,
+			'confirm_close_ticket',
+			placeholders
+		)
+
+		// Check if template is available
+		if (
+			!confirmMessage.content &&
+			!confirmMessage.embeds?.length &&
+			!confirmMessage.components?.length
+		) {
+			// Create confirm and close buttons as fallback
+			const row =
+				new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+					new Discord.ButtonBuilder()
+						.setCustomId('confirm_close_ticket')
+						.setLabel('Confirm Close')
+						.setStyle(Discord.ButtonStyle.Success),
+					new Discord.ButtonBuilder()
+						.setCustomId('cancel_close_ticket')
+						.setLabel('Cancel')
+						.setStyle(Discord.ButtonStyle.Secondary)
+				)
+
+			// Send confirmation message
+			await interaction.reply({
+				content:
+					'# ❓ Close Confirmation\n\nPlease confirm that you want to close this ticket.\n\n*This action will lock the thread and save a transcript.*',
+				components: [row],
+				ephemeral: true,
+			})
+		} else {
+			// Make sure the message is ephemeral
+			await interaction.reply({
+				...confirmMessage,
+				ephemeral: true,
+			})
+		}
+	} catch (error) {
+		// Handle errors
+		bunnyLog.error('Error confirming ticket close:', error)
 		await utils.handleResponse(
 			interaction,
 			'error',
-			"You don't have permission to close this ticket. Only moderators or the ticket opener can close tickets.",
-			{
-				code: 'CT012',
-			}
+			'Failed to create close confirmation.',
+			{ code: 'CT028' }
 		)
-		return
 	}
-
-	// Close the thread
-	await closeThread(interaction)
 }
 
 /**
@@ -1730,43 +1972,11 @@ async function joinTicket(
 async function claimTicket(
 	interaction: Discord.ButtonInteraction
 ): Promise<void> {
-	// Defer the reply
+	// Defer the reply until we have processed the data
 	await interaction.deferUpdate()
 
-	// Get the thread id
-	const parts = interaction.customId.split('_')
-	const threadChannelId = parts[parts.length - 2]
-
-	// Check if the thread id is valid
-	if (!threadChannelId || Number.isNaN(Number(threadChannelId))) {
-		await utils.handleResponse(interaction, 'error', 'Invalid thread ID.', {
-			code: 'CT004',
-		})
-		return
-	}
-
 	// Get the thread
-	let thread: Discord.ThreadChannel | null = null
-
-	// Try to get the thread
-	try {
-		// Fetch the thread
-		thread = (await interaction.guild?.channels.fetch(
-			threadChannelId
-		)) as Discord.ThreadChannel
-	} catch (error) {
-		// Send an error if an error occurs
-		await utils.handleResponse(
-			interaction,
-			'error',
-			'An error occurred while trying to find the thread.',
-			{
-				code: 'CT005',
-				error: error,
-			}
-		)
-		return
-	}
+	const thread = interaction.channel as Discord.ThreadChannel
 
 	// Check if the thread is a thread
 	if (!thread?.isThread()) {
@@ -1776,108 +1986,192 @@ async function claimTicket(
 			'error',
 			'The found channel is not a thread.',
 			{
-				code: 'CT006',
+				code: 'CT007',
 			}
 		)
 		return
 	}
 
-	// Get the metadata from the in-memory store or fallback to the database
-	let metadata = thread_metadata_store.get(thread.id) as
-		| ExtendedThreadMetadata
-		| undefined
+	// Get the config
+	const config = await api.getPluginConfig(
+		interaction.client.user.id,
+		interaction.guild?.id as Discord.Guild['id'],
+		'tickets'
+	)
+
+	// Get mods role IDs
+	const modRoleIds = config.mods_role_ids || []
+
+	// Check if the user has a mod role or has ManageThreads permission
+	const member = await interaction.guild?.members.fetch(interaction.user.id)
+	const hasModerationPermission =
+		interaction.memberPermissions?.has(
+			Discord.PermissionFlagsBits.ManageThreads
+		) ||
+		(member && modRoleIds.some((roleId) => member.roles.cache.has(roleId)))
+
+	// Get the metadata
+	let metadata = thread_metadata_store.get(thread.id) as ExtendedThreadMetadata
+	// Fallback: if not found in memory, try to fetch it from the database
 	if (!metadata) {
 		metadata = (await api.getTicketMetadata(
 			interaction.client.user.id,
-			interaction.guild.id,
+			interaction.guild?.id as Discord.Guild['id'],
 			thread.id
-		)) as ExtendedThreadMetadata | null
+		)) as ExtendedThreadMetadata
+
+		// If still not found, handle accordingly
 		if (!metadata) {
 			await utils.handleResponse(
 				interaction,
 				'error',
-				'No metadata found for the thread.',
+				'No metadata found for the ticket.',
 				{
 					code: 'CT007',
 				}
 			)
 			return
 		}
-		thread_metadata_store.set(thread.id, metadata)
 	}
 
-	// Set the claimed by as message author info
-	metadata.claimed_by = {
+	// Only allow moderators to claim tickets
+	if (!hasModerationPermission) {
+		// Use the no_permission template for permission errors
+		const noPermissionMessage = await createTicketMessage(
+			config,
+			'no_permission',
+			{
+				action: 'claim this ticket',
+				user: interaction.user.username,
+				user_id: interaction.user.id,
+			}
+		)
+
+		// If template is not found, use fallback message
+		if (
+			!noPermissionMessage.content &&
+			!noPermissionMessage.embeds?.length &&
+			!noPermissionMessage.components?.length
+		) {
+			await utils.handleResponse(
+				interaction,
+				'error',
+				"You don't have permission to claim this ticket. Only moderators can claim tickets.",
+				{
+					code: 'CT012',
+				}
+			)
+		} else {
+			// Send the custom no permission message as an ephemeral reply
+			await interaction.followUp({
+				...noPermissionMessage,
+				ephemeral: true,
+			})
+		}
+		return
+	}
+
+	// Check if the ticket is already claimed
+	if (metadata.claimed_by) {
+		// Don't allow re-claiming if already claimed by someone else
+		// Check if the claimer is the current user
+		const alreadyClaimedByUser =
+			typeof metadata.claimed_by === 'object' &&
+			metadata.claimed_by.id === interaction.user.id
+
+		if (!alreadyClaimedByUser) {
+			await utils.handleResponse(
+				interaction,
+				'info',
+				`This ticket is already claimed by <@${
+					typeof metadata.claimed_by === 'object'
+						? metadata.claimed_by.id
+						: metadata.claimed_by
+				}>. Only they can handle this ticket.`,
+				{
+					code: 'CT014',
+				}
+			)
+			return
+		}
+		await utils.handleResponse(
+			interaction,
+			'info',
+			'You have already claimed this ticket.',
+			{
+				code: 'CT015',
+			}
+		)
+		return
+	}
+
+	// Get the member as a GuildMember with additional info
+	const fullMemberInfo = await interaction.guild?.members.fetch({
+		user: interaction.user.id,
+		force: true,
+	})
+
+	// Get the claimed by as full message author info
+	const claimedByInfo = {
 		id: interaction.user.id,
 		avatar: interaction.user.displayAvatarURL({
 			extension: interaction.user.avatar?.startsWith('a_') ? 'gif' : 'png',
 		}),
 		username: interaction.user.username,
-		displayName:
-			interaction.member && 'displayName' in interaction.member
-				? (interaction.member as Discord.GuildMember).displayName
-				: interaction.user.username,
+		displayName: fullMemberInfo?.displayName ?? interaction.user.username,
 	}
 
-	// Set the metadata in memory and update the database
-	thread_metadata_store.set(thread.id, metadata)
-	await api.updateTicketMetadata(
-		interaction.client.user.id,
-		interaction.guild.id,
-		thread.id,
-		metadata
+	// Create placeholders for ticket claimed message
+	const placeholders = {
+		claimed_by: `<@${claimedByInfo.id}>`,
+		user: claimedByInfo.username,
+		display_name: claimedByInfo.displayName,
+	}
+
+	// Get ticket claimed message template
+	const ticketClaimedMessage = await createTicketMessage(
+		config,
+		'ticket_claimed',
+		placeholders
 	)
 
-	// Add the user to the thread
-	try {
-		// Add the user to the thread
-		await thread.members.add(interaction.user.id)
+	// Update the metadata
+	metadata.claimed_by = claimedByInfo
+	metadata.claimed_time = new Date()
 
-		// Send a welcome message to the thread
+	// Update in memory
+	thread_metadata_store.set(thread.id, metadata)
+	// Update in database
+	await api.updateTicketMetadata(
+		interaction.client.user.id,
+		interaction.guild?.id as Discord.Guild['id'],
+		thread.id,
+		metadata as ThreadMetadata
+	)
+
+	// Send claimed message to thread
+	if (
+		!ticketClaimedMessage.content &&
+		!ticketClaimedMessage.embeds?.length &&
+		!ticketClaimedMessage.components?.length
+	) {
+		// Fallback message
 		await thread.send({
-			content: `# 🛡️ Ticket Claimed\n\n${interaction.user.toString()} has claimed this ticket and will be assisting you.`,
+			content: `# 🛡️ Ticket Claimed\n\n<@${claimedByInfo.id}> has claimed this ticket and will be assisting you.`,
 		})
-	} catch (error) {
-		// Log error but continue with the claim process
-		bunnyLog.error('Error adding user to thread while claiming:', error)
+	} else {
+		await thread.send(ticketClaimedMessage)
 	}
 
-	// Get the message
-	const message = await interaction.message.fetch()
-
-	// Create updated admin message content
-	const updatedContent = [
-		`# 📬 Ticket #${metadata.ticket_id}`,
-		'',
-		'## Ticket Information',
-		`**Opened by:** <@${metadata.opened_by.id}>`,
-		`**Category:** ${metadata.ticket_type || 'Support'}`,
-		`**Claimed by:** ${interaction.user.toString()}`,
-		'',
-		'*This ticket has been claimed by a staff member*',
-	].join('\n')
-
-	// Update the components - disable the claim button
-	const components = message.components.map((actionRow) => {
-		// Cast to the appropriate ActionRow type first
-		const row = actionRow as Discord.ActionRow<Discord.ButtonComponent>
-		return new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-			row.components.map((button) => {
-				const btn = button as Discord.ButtonComponent
-				// Disable the claim button, keep others enabled
-				return Discord.ButtonBuilder.from(btn).setDisabled(
-					btn.customId === interaction.customId
-				)
-			})
-		)
-	})
-
-	// Update the message
-	await interaction.message.edit({
-		content: updatedContent,
-		embeds: [], // Remove any embeds
-		components: components,
-	})
+	// Send success message to user
+	await utils.handleResponse(
+		interaction,
+		'success',
+		'Ticket claimed successfully! You will now be the point of contact for this ticket.',
+		{
+			code: 'CT016',
+		}
+	)
 }
 
 /**
@@ -2407,22 +2701,8 @@ async function checkInactiveTickets(
 				const lastActivityTime = lastMessage.createdTimestamp
 				const timeSinceLastActivity = now - lastActivityTime
 
-				// Add more debug logging
-				// bunnyLog.info(`Ticket #${ticketData.ticket_id} activity check`, {
-				// 	threadId: ticketData.thread_id,
-				// 	lastActivityTime: new Date(lastActivityTime).toISOString(),
-				// 	timeSinceLastActivity,
-				// 	inactivityThreshold,
-				// 	isInactive: timeSinceLastActivity > inactivityThreshold,
-				// 	humanReadableInactiveTime: formatTimeThreshold(timeSinceLastActivity),
-				// })
-
 				// Check if thread is inactive
 				if (timeSinceLastActivity > inactivityThreshold) {
-					// bunnyLog.info(`Closing inactive ticket #${ticketData.ticket_id}`, {
-					// 	threadId: ticketData.thread_id,
-					// 	inactiveFor: formatTimeThreshold(timeSinceLastActivity),
-					// })
 					await closeInactiveTicket(client, threadChannel, ticketData)
 				}
 			} catch (error) {
@@ -2484,7 +2764,7 @@ async function closeInactiveTicket(
 			client.user.id,
 			thread.guild.id,
 			'tickets'
-		)) as PluginResponse<TicketConfig>
+		)) as PluginResponse<DefaultConfigs['tickets']>
 
 		// Get the threshold from config or use default
 		const inactivityThreshold =
@@ -2514,19 +2794,40 @@ async function closeInactiveTicket(
 			)
 		}
 
-		// Send an inactivity notice message
-		const inactivityNotice = [
-			'# ⏰ Ticket Auto-Closed',
-			'',
-			'This ticket has been automatically closed due to inactivity.',
-			'',
-			'If you still need assistance, please open a new ticket.',
-			'',
-			'---',
-			`*${reason}*`,
-		].join('\n')
+		// Use the inactivity_notice template from components
+		const inactivityMessage = await createTicketMessage(
+			config,
+			'inactivity_notice',
+			{
+				reason,
+				threshold: formattedThreshold,
+				ticket_id: ticketData.ticket_id || 'Unknown',
+			}
+		)
 
-		await thread.send({ content: inactivityNotice })
+		// If no template was found or it's empty, use a fallback message
+		if (
+			!inactivityMessage.content &&
+			!inactivityMessage.embeds?.length &&
+			!inactivityMessage.components?.length
+		) {
+			// Fallback to default content
+			const fallbackContent = [
+				'# ⏰ Ticket Auto-Closed',
+				'',
+				'This ticket has been automatically closed due to inactivity.',
+				'',
+				'If you still need assistance, please open a new ticket.',
+				'',
+				'---',
+				`*${reason}*`,
+			].join('\n')
+
+			await thread.send({ content: fallbackContent })
+		} else {
+			// Send the formatted template as BaseMessageOptions
+			await thread.send(inactivityMessage)
+		}
 
 		// Get bot user as the interaction user for the close process
 		const botUser = await client.users.fetch(client.user.id)
@@ -2587,7 +2888,7 @@ async function closeInactiveTicket(
 				client.user.id,
 				thread.guild.id,
 				thread.id,
-				metadata
+				metadata as ThreadMetadata
 			)
 
 			// Delete admin channel message if exists
@@ -2647,6 +2948,398 @@ async function closeInactiveTicket(
 	}
 }
 
+/**
+ * Processes message components by replacing placeholders and building action rows
+ * @param components - The components to process
+ * @param placeholders - The placeholders to replace
+ * @returns The processed action rows and any text content
+ */
+function processMessageComponents(
+	components: ComponentsV2[],
+	placeholders: Record<string, string | number>
+): {
+	actionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[]
+	content: string
+} {
+	// Build content from text display components
+	const contentParts: string[] = []
+
+	// Process action rows and buttons to Discord.js components
+	const actionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] = []
+
+	for (const component of components) {
+		if (component.type === Discord.ComponentType.ActionRow) {
+			// ActionRow
+			// For action rows, we need to process its components
+			const actionRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+
+			if (Array.isArray(component.components)) {
+				for (const subComponent of component.components) {
+					if (
+						subComponent.type === Discord.ComponentType.Button ||
+						subComponent.type === Discord.ComponentType.TextDisplay
+					) {
+						// Could be Button or TextDisplay
+						if ('text' in subComponent) {
+							// This is a TextDisplay component
+							contentParts.push(
+								replacePlaceholders(subComponent.text as string, placeholders)
+							)
+						} else {
+							// This is a Button component
+							const buttonBuilder = createButtonFromComponent(
+								subComponent as unknown as API.Button,
+								placeholders,
+								actionRow.components.length
+							)
+							if (buttonBuilder) {
+								actionRow.addComponents(buttonBuilder)
+							}
+						}
+					}
+				}
+			}
+
+			// Add the action row if it has any buttons
+			if (actionRow.components.length > 0) {
+				actionRows.push(actionRow)
+			}
+		}
+	}
+
+	// Join content parts with newlines to form a single content string
+	const content = contentParts.join('\n')
+
+	return { actionRows, content }
+}
+
+/**
+ * Creates a button from a component definition
+ * @param button - The button component
+ * @param placeholders - The placeholders to replace in the button
+ * @param index - The index of the button
+ * @returns The button builder or null if the button is not valid
+ */
+function createButtonFromComponent(
+	button: API.Button | API.TextDisplay,
+	placeholders: Record<string, string | number>,
+	index: number
+): Discord.ButtonBuilder | null {
+	try {
+		// Make sure it's a button (type 2)
+		if (!button || button.type !== Discord.ComponentType.Button) return null
+
+		// Different component types have different properties
+		// TextDisplay has 'text', Button has 'label' and 'style'
+		if ('text' in button) {
+			// This is a TextDisplay component, not a button
+			return null
+		}
+
+		// Now we know it's a Button component
+		const buttonComponent = button as API.Button
+
+		if (!buttonComponent.label) return null
+		if (!buttonComponent.style) return null
+
+		// Parse values and replace placeholders
+		const customId = buttonComponent.customId
+			? replacePlaceholders(buttonComponent.customId, placeholders)
+			: `button_${index}_${Date.now()}`
+		const label = replacePlaceholders(buttonComponent.label, placeholders)
+
+		// Create button using the correct style
+		const buttonBuilder = new Discord.ButtonBuilder()
+			.setLabel(label)
+			.setStyle(buttonComponent.style as Discord.ButtonStyle)
+
+		// Set custom ID or URL based on button style
+		if (buttonComponent.style === Discord.ButtonStyle.Link) {
+			if (!buttonComponent.url) return null
+			const url = replacePlaceholders(buttonComponent.url, placeholders)
+			buttonBuilder.setURL(url)
+		} else {
+			// For non-link buttons, we MUST set a customId
+			buttonBuilder.setCustomId(customId)
+		}
+
+		return buttonBuilder
+	} catch (error) {
+		bunnyLog.error('Failed to create button from component:', error)
+		return null
+	}
+}
+
+/**
+ * Creates a ticket message using either embed or component-based format
+ * @param config - The ticket plugin configuration
+ * @param templateKey - The key for the message template (e.g., 'open_ticket', 'closed_ticket')
+ * @param placeholders - The placeholders to replace in the message
+ * @returns The message options with embeds and components
+ */
+async function createTicketMessage(
+	config: PluginResponse<DefaultConfigs['tickets']>,
+	templateKey: keyof TicketTemplates,
+	placeholders: Record<string, string | number>
+): Promise<Discord.BaseMessageOptions> {
+	// Default empty message if no templates are found
+	const defaultMessageOptions: Discord.BaseMessageOptions = {}
+
+	// Check for component-based template first
+	if (config.components?.[templateKey]) {
+		const template = config.components[templateKey]
+
+		if (!template) {
+			return defaultMessageOptions
+		}
+
+		// Check template type and process accordingly
+		if (template.type === TicketDisplayMode.Embed) {
+			// Check if embed exists in template
+			if (!template.embed) {
+				// Try to fall back to legacy format if available
+				if (config.embeds?.[templateKey]) {
+					bunnyLog.info('Using legacy embed for template', {
+						template_key: templateKey,
+						guild_id: config.id,
+					})
+					// Use legacy embed as fallback
+					const { embed, action_rows } = createEmbed(
+						config.embeds[templateKey] as unknown as TicketEmbedConfig,
+						placeholders
+					)
+					return {
+						embeds: [embed],
+						components: action_rows,
+					}
+				}
+
+				// No embed available, fall back to text mode
+				bunnyLog.warn(
+					'Embed type specified but no embed found, falling back to text mode',
+					{
+						template_key: templateKey,
+						guild_id: config.id,
+					}
+				)
+
+				// Process any components as text
+				const { actionRows, content } = processMessageComponents(
+					template.components || [],
+					placeholders
+				)
+
+				return {
+					content: content || 'Ticket Panel',
+					components: actionRows,
+				}
+			}
+
+			// Create an embed from the template's embed definition
+			const { embed, action_rows } = createEmbed(
+				template.embed as unknown as TicketEmbedConfig,
+				placeholders
+			)
+
+			// Return the embed with any action rows
+			return {
+				embeds: [embed],
+				components: action_rows,
+			}
+		}
+
+		if (template.type === TicketDisplayMode.Text) {
+			// For text type, process the components (which may include TextDisplay components)
+			const { actionRows, content } = processMessageComponents(
+				template.components || [],
+				placeholders
+			)
+
+			// Return both content and components
+			return {
+				content: content || undefined, // Only set if not empty
+				components: actionRows,
+			}
+		}
+
+		// For any other types, just process the components
+		const { actionRows, content } = processMessageComponents(
+			template.components || [],
+			placeholders
+		)
+
+		return {
+			content: content || undefined, // Only set if not empty
+			components: actionRows,
+		}
+	}
+
+	// If no component template, fall back to legacy embed format if available
+	if (config.embeds?.[templateKey]) {
+		bunnyLog.warn('Using deprecated embeds format for ticket messages', {
+			guild_id: config.id,
+			template_key: templateKey,
+			message: 'Consider migrating to the new component-based format',
+		})
+
+		const { embed, action_rows } = createEmbed(
+			config.embeds[templateKey] as unknown as TicketEmbedConfig,
+			placeholders
+		)
+
+		return {
+			embeds: [embed],
+			components: action_rows,
+		}
+	}
+
+	// Return empty message if no templates found
+	bunnyLog.warn('No template found for ticket message', {
+		guild_id: config.id,
+		template_key: templateKey,
+	})
+
+	return defaultMessageOptions
+}
+
+/**
+ * Creates and sends a ticket panel to a specified channel
+ * @param interaction - The interaction to respond to
+ */
+async function createTicketPanel(
+	interaction: Discord.ChatInputCommandInteraction
+) {
+	// Defer the reply
+	await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+
+	// Get the target channel
+	const target_channel = interaction.options.getChannel(
+		'channel'
+	) as Discord.TextChannel
+
+	// Check if the channel is a valid text channel
+	if (!target_channel?.isTextBased()) {
+		// If the channel is not a valid text channel, send an error
+		await utils.handleResponse(
+			interaction,
+			'error',
+			'The specified channel is not a valid text channel. Please select a text channel where messages can be sent.',
+			{
+				code: 'TP001',
+			}
+		)
+		return
+	}
+
+	// Get the plugin config
+	const config = await api.getPluginConfig(
+		interaction.client.user.id,
+		interaction.guild?.id as Discord.Guild['id'],
+		'tickets'
+	)
+
+	// Check if the config is valid
+	if (!config) {
+		await utils.handleResponse(
+			interaction,
+			'warning',
+			'No configuration found for the tickets plugin.',
+			{
+				code: 'TP002',
+			}
+		)
+		return
+	}
+
+	// Get type parameter directly from the command (text or embed)
+	const specifiedType = interaction.options.getString(
+		'type'
+	) as TicketDisplayMode
+
+	// If user specified a type, update the template
+	if (
+		specifiedType &&
+		(specifiedType === TicketDisplayMode.Text ||
+			specifiedType === TicketDisplayMode.Embed)
+	) {
+		// Check if open_ticket component exists
+		if (!config.components?.open_ticket) {
+			// Create an empty open_ticket component if it doesn't exist
+			if (!config.components) {
+				config.components = {}
+			}
+			config.components.open_ticket = {
+				type: specifiedType,
+				components: [],
+			}
+		} else {
+			// Update existing component type
+			config.components.open_ticket.type = specifiedType
+		}
+
+		// If using embed type but no embed is defined, try to use legacy embed
+		if (
+			specifiedType === TicketDisplayMode.Embed &&
+			!config.components.open_ticket.embed &&
+			config.embeds?.open_ticket
+		) {
+			config.components.open_ticket.embed = config.embeds.open_ticket
+		}
+	}
+
+	// Get the placeholders
+	const placeholders = {
+		user: interaction.user.toString(),
+		guild_name: interaction.guild?.name || 'Server',
+		guild_id: interaction.guild?.id || '',
+	}
+
+	try {
+		// Log the configuration we're using
+		bunnyLog.info('Creating ticket panel', {
+			type: config.components?.open_ticket?.type || 'default',
+			has_embed: !!config.components?.open_ticket?.embed,
+			has_components: !!config.components?.open_ticket?.components,
+		})
+
+		// Create message options based on component-based or embed-based format
+		const messageOptions = await createTicketMessage(
+			config,
+			'open_ticket',
+			placeholders
+		)
+
+		// Send the message to the target channel
+		const sentMessage = await target_channel.send(messageOptions)
+
+		// Get the actual type that was used
+		const usedType = config.components?.open_ticket?.type || 'default'
+
+		// Send a success message with details
+		await utils.handleResponse(
+			interaction,
+			'success',
+			`Ticket panel sent successfully using ${usedType} template. [Jump to message](${sentMessage.url})`,
+			{
+				code: 'TP003',
+			}
+		)
+	} catch (error) {
+		// Log the error
+		bunnyLog.error('Error sending ticket panel:', error)
+
+		// Send an error message
+		await utils.handleResponse(
+			interaction,
+			'error',
+			"Failed to send the ticket panel. Please check the bot's permissions in the target channel and try again.",
+			{
+				code: 'TP004',
+			}
+		)
+	}
+}
+
 export {
 	sendEmbed,
 	openTicket,
@@ -2661,4 +3354,8 @@ export {
 	canUserOpenTicket,
 	initTicketInactivityChecker,
 	formatTimeThreshold,
+	createTicketMessage,
+	createButtonFromComponent,
+	processMessageComponents,
+	createTicketPanel,
 }
