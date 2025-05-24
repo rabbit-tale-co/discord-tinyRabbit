@@ -2,152 +2,44 @@ import * as Discord from 'discord.js'
 import * as api from '@/api/index.js'
 import * as utils from '@/utils/index.js'
 import { bunnyLog } from 'bunny-log'
-import type { ThreadMetadata } from '@/types/tickets.js'
+import type { ThreadMetadata, TicketConfig } from '@/types/tickets.js'
 import { TicketDisplayMode } from '@/types/plugins.js'
 import type { TicketTemplates, ComponentsV2, API } from '@/types/plugins.js'
 import type { PluginResponse, DefaultConfigs } from '@/types/plugins.js'
+import * as ticketsUtils from '@/utils/tickets.js'
+import {
+	UI_BUILDERS,
+	CONTENT_BUILDERS,
+	formatTimeThreshold,
+	createAutoCloseSettingsComponents,
+	getDefaultAutoCloseSettings,
+	getAutoCloseSettings,
+} from '@/utils/tickets.js'
 
-// Extended interfaces for auto-close feature
-interface TicketConfig {
-	auto_close_inactive?: boolean // Legacy format - keeping for backward compatibility
-	inactivity_threshold?: string // Legacy format - keeping for backward compatibility
-	enabled?: boolean
-	auto_close?: Array<{
-		enabled: boolean
-		threshold: number
-		reason: string
-	}>
-}
+/**
+ * TODO:
+ * - Refactor the code to be more readable and modular
+ */
 
-// Extended type for ticket metadata
-type ExtendedThreadMetadata = {
-	thread_id?: string
-	status?: string
-	close_reason?: string
-	guild_id?: string
-	ticket_id?: string | number
-	opened_by?: {
-		id: string
-		username: string
-		displayName: string
-		avatar: string
-	}
-	claimed_by?:
-		| {
-				id: string
-				username: string
-				displayName: string
-				avatar: string
-		  }
-		| string
-	claimed_time?: Date
-	open_time?: number
-	close_time?: Date
-	ticket_type?: string
-	reason?: string
-	closed_by?: {
-		id: string
-		username: string
-		displayName: string
-		avatar: string
-	}
-	join_ticket_message_id?: string
-	admin_channel_id?: string
-	rating?: {
-		value: number
-		submitted_at?: string
-		review_message_id?: string
-		user_id?: string
-		timestamp?: number
-	}
-	transcript_message_id?: string
-	transcript_channel_id?: string
-	// Add any other fields that are used in the code
-}
-
+// Create a reference to the thread metadata store from tickets.ts
+// This is a workaround since we can't directly access the variable from the module
 const thread_metadata_store = new Map<string, ExtendedThreadMetadata>()
 const ACTIVITY_CHECK_INTERVAL = 60 * 1000 // Check every minute (for testing)
 const INACTIVITY_THRESHOLD = 72 * 60 * 60 * 1000 // 72 hours (3 days) of inactivity
 
-/**
- * Parse a time string in format like "15m", "1h", "7d" to milliseconds
- * @param timeStr - The time string to parse (e.g. "15m", "1h", "7d", "1y")
- * @returns The time in milliseconds
- */
-function parseTimeLimit(timeStr: string): number {
-	// Default to 0 if invalid
-	if (!timeStr || typeof timeStr !== 'string') return 0
+const COMPONENT_IDS = Object.freeze({
+	ROLE_TIME_LIMIT_ADD_BUTTON_ID: 'add_role_time_limit_component',
+	ROLE_TIME_LIMIT_REMOVE_BUTTON_ID: 'remove_role_time_limit',
+	ROLE_TIME_LIMIT_REMOVE_SELECT_ID: 'remove_role_time_limit_select',
+})
 
-	// Log the input for debugging
-	console.log(`Parsing time limit: "${timeStr}"`)
-
-	// Convert the string to a debug-friendly representation
-	const debugChars = Array.from(timeStr)
-		.map((c) => `${c}(${c.charCodeAt(0)})`)
-		.join('')
-	console.log(`Time limit characters: ${debugChars}`)
-
-	// More robust regex that handles potential invisible characters
-	const regex = /^(\d+)\s*([smhdwy])$/i
-	const match = timeStr.match(regex)
-
-	if (!match) {
-		console.log(`Failed to match time format: "${timeStr}"`)
-
-		// Try an alternative match without any restrictions on characters between number and unit
-		const altRegex = /(\d+).*?([smhdwy])/i
-		const altMatch = timeStr.match(altRegex)
-
-		if (altMatch) {
-			console.log(
-				`Alternative match succeeded: value=${altMatch[1]}, unit=${altMatch[2]}`
-			)
-			const value = Number.parseInt(altMatch[1], 10)
-			const unit = altMatch[2].toLowerCase()
-
-			// Convert to milliseconds using the alternative match
-			return convertToMilliseconds(value, unit)
-		}
-
-		return 0
-	}
-
-	const value = Number.parseInt(match[1], 10)
-	const unit = match[2].toLowerCase()
-
-	console.log(`Matched time format: value=${value}, unit=${unit}`)
-
-	// Convert to milliseconds based on unit
-	return convertToMilliseconds(value, unit)
-}
-
-// Helper function to convert value and unit to milliseconds
-function convertToMilliseconds(value: number, unit: string): number {
-	let result = 0
-	switch (unit) {
-		case 's':
-			result = value * 1000 // seconds to ms
-			break
-		case 'm':
-			result = value * 60 * 1000 // minutes to ms
-			break
-		case 'h':
-			result = value * 60 * 60 * 1000 // hours to ms
-			break
-		case 'd':
-			result = value * 24 * 60 * 60 * 1000 // days to ms
-			break
-		case 'w':
-			result = value * 7 * 24 * 60 * 60 * 1000 // weeks to ms
-			break
-		case 'y':
-			result = value * 365 * 24 * 60 * 60 * 1000 // years to ms (simplified)
-			break
-		default:
-			result = 0
-	}
-	return result
-}
+/* Preserve the original constant names for external imports */
+export const ROLE_TIME_LIMIT_ADD_BUTTON_ID =
+	COMPONENT_IDS.ROLE_TIME_LIMIT_ADD_BUTTON_ID
+export const ROLE_TIME_LIMIT_REMOVE_BUTTON_ID =
+	COMPONENT_IDS.ROLE_TIME_LIMIT_REMOVE_BUTTON_ID
+export const ROLE_TIME_LIMIT_REMOVE_SELECT_ID =
+	COMPONENT_IDS.ROLE_TIME_LIMIT_REMOVE_SELECT_ID
 
 /**
  * Check if a user can open a ticket based on role time limits
@@ -159,23 +51,24 @@ async function canUserOpenTicket(
 	interaction: Discord.ButtonInteraction,
 	config: PluginResponse<DefaultConfigs['tickets']>
 ): Promise<{ canOpen: boolean; nextAllowedTime?: number; timeLimit?: string }> {
-	// If no role time limits are set, allow by default
-	if (!config.role_time_limits || config.role_time_limits.length === 0) {
-		return { canOpen: true }
+	// Default response when user can open a ticket
+	const allowOpenTicket = { canOpen: true }
+
+	// Skip role time limit checks if no limits are configured
+	if (!config.role_time_limits?.length) {
+		return allowOpenTicket
 	}
 
 	// Get the member's roles
 	const member = interaction.member as Discord.GuildMember
-	if (!member) return { canOpen: true } // If no member, allow by default
+	if (!member) return allowOpenTicket
 
-	// Check if user has admin permissions - bypass time limits for admins
+	// Admins can always open tickets regardless of time limits
 	const hasAdminPermission =
 		member.permissions.has(Discord.PermissionFlagsBits.Administrator) ||
 		member.permissions.has(Discord.PermissionFlagsBits.ManageGuild)
-
-	// Admins can always open tickets regardless of time limits
 	if (hasAdminPermission) {
-		return { canOpen: true }
+		return allowOpenTicket
 	}
 
 	// Get the user's existing tickets
@@ -185,21 +78,64 @@ async function canUserOpenTicket(
 		interaction.user.id
 	)
 
-	if (!tickets || tickets.length === 0) return { canOpen: true } // No previous tickets
+	// No previous tickets means no time limit to enforce
+	if (!tickets?.length) return allowOpenTicket
 
-	// Get the latest ticket's open time
-	const latestTicket = tickets.reduce((latest, current) => {
-		return !latest || current.open_time > latest.open_time ? current : latest
-	}, null)
+	// Find the latest ticket by open_time
+	const latestTicket = tickets.reduce(
+		(latest, current) =>
+			!latest || current.open_time > latest.open_time ? current : latest,
+		null
+	)
 
-	if (!latestTicket || !latestTicket.open_time) return { canOpen: true } // No previous tickets with open_time or invalid open_time
+	// No valid latest ticket with open_time
+	if (!latestTicket?.open_time) return allowOpenTicket
 
-	// Find the most restrictive role limit that applies to this user
+	// Find the strictest time limit that applies to this user based on roles
+	const strictestLimit = findStrictestTimeLimit(member, config.role_time_limits)
+	if (!strictestLimit) return allowOpenTicket
+
+	// Calculate when the user can open a new ticket
+	const nextAllowedTime =
+		latestTicket.open_time * 1000 + strictestLimit.milliseconds
+	const currentTime = Date.now()
+	const canOpen = currentTime >= nextAllowedTime
+
+	// Log the time limit check results for debugging
+	logTimeCheckResults(
+		interaction.user.id,
+		member,
+		config.role_time_limits,
+		latestTicket.open_time,
+		strictestLimit,
+		nextAllowedTime,
+		currentTime,
+		canOpen
+	)
+
+	// Return whether they can open and when they'll be allowed to if not
+	return {
+		canOpen,
+		nextAllowedTime,
+		timeLimit: strictestLimit.limit,
+	}
+}
+
+/**
+ * Find the strictest (shortest) time limit that applies to a member
+ * @param member - The guild member to check
+ * @param roleLimits - The role time limits configuration
+ * @returns The strictest limit or null if none apply
+ */
+function findStrictestTimeLimit(
+	member: Discord.GuildMember,
+	roleLimits: Array<{ role_id: string; limit: string }>
+): { limit: string; milliseconds: number } | null {
 	let strictestLimit: { limit: string; milliseconds: number } | null = null
 
-	for (const roleLimit of config.role_time_limits) {
+	for (const roleLimit of roleLimits) {
 		if (member.roles.cache.has(roleLimit.role_id)) {
-			const limitMs = parseTimeLimit(roleLimit.limit)
+			const limitMs = ticketsUtils.parseTimeLimit(roleLimit.limit)
 			if (!strictestLimit || limitMs < strictestLimit.milliseconds) {
 				strictestLimit = {
 					limit: roleLimit.limit,
@@ -209,50 +145,54 @@ async function canUserOpenTicket(
 		}
 	}
 
-	// If no applicable role limit found, allow opening
-	if (!strictestLimit) return { canOpen: true }
+	return strictestLimit
+}
 
-	// Calculate when the user can open a new ticket
-	const nextAllowedTime =
-		latestTicket.open_time * 1000 + strictestLimit.milliseconds
-	const currentTime = Date.now()
-
-	// Debug logging
+/**
+ * Log the results of a time limit check for debugging
+ */
+function logTimeCheckResults(
+	userId: string,
+	member: Discord.GuildMember,
+	roleLimits: Array<{ role_id: string; limit: string }>,
+	latestTicketTime: number,
+	strictestLimit: { limit: string; milliseconds: number },
+	nextAllowedTime: number,
+	currentTime: number,
+	canOpen: boolean
+): void {
 	bunnyLog.info('Ticket time limit check', {
-		user_id: interaction.user.id,
+		user_id: userId,
 		has_roles: Array.from(member.roles.cache.keys()),
 		time_limit_role: {
-			role_id: config.role_time_limits.find((r) =>
-				member.roles.cache.has(r.role_id)
-			)?.role_id,
+			role_id: roleLimits.find((r) => member.roles.cache.has(r.role_id))
+				?.role_id,
 			limit: strictestLimit.limit,
 		},
-		latest_ticket_time: new Date(latestTicket.open_time * 1000).toISOString(),
+		latest_ticket_time: new Date(latestTicketTime * 1000).toISOString(),
 		next_allowed_time: new Date(nextAllowedTime).toISOString(),
 		current_time: new Date(currentTime).toISOString(),
-		can_open: currentTime >= nextAllowedTime,
+		can_open: canOpen,
 	})
-
-	// Return whether they can open and when they'll be allowed to if not
-	return {
-		canOpen: currentTime >= nextAllowedTime,
-		nextAllowedTime: nextAllowedTime,
-		timeLimit: strictestLimit.limit,
-	}
 }
 
 /**
  * Replace placeholders in a string with values from a dictionary
  * @param text - The string to replace placeholders in
- * @param placeholders - The dictionary of placeholders and theicanr values
+ * @param placeholders - The dictionary of placeholders and their values
  * @returns The string with placeholders replaced
  */
-const replacePlaceholders = (
+function replacePlaceholders(
 	text: string,
 	placeholders: Record<string, string | number>
-): string => {
-	return text.replace(/\{(\w+)\}/g, (_, key) =>
-		key in placeholders ? String(placeholders[key]) : `{${key}}`
+): string {
+	if (!text) return text
+
+	return text.replace(/\\?\{(\w+)}/g, (match, key) =>
+		// keep escaped tokens and unknown keys intact
+		match.startsWith('\\') || !(key in placeholders)
+			? match.replace(/^\\/, '') // strip the escape backslash
+			: String(placeholders[key])
 	)
 }
 
@@ -610,7 +550,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 					null
 				for (const roleLimit of config.role_time_limits) {
 					if (member.roles.cache.has(roleLimit.role_id)) {
-						const limitMs = parseTimeLimit(roleLimit.limit)
+						const limitMs = ticketsUtils.parseTimeLimit(roleLimit.limit)
 						if (!strictestLimit || limitMs < strictestLimit.milliseconds) {
 							strictestLimit = {
 								limit: roleLimit.limit,
@@ -683,7 +623,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 				// Find applicable time limit
 				for (const roleLimit of config.role_time_limits) {
 					if (member.roles.cache.has(roleLimit.role_id)) {
-						const limitMs = parseTimeLimit(roleLimit.limit)
+						const limitMs = ticketsUtils.parseTimeLimit(roleLimit.limit)
 						if (!strictestLimit || limitMs < strictestLimit.milliseconds) {
 							strictestLimit = {
 								limit: roleLimit.limit,
@@ -861,7 +801,7 @@ async function openTicket(interaction: Discord.ButtonInteraction) {
 		// Send a new ephemeral follow-up message notifying that the ticket was created
 		await interaction.followUp({
 			...userMessageOptions,
-			ephemeral: true,
+			flags: Discord.MessageFlags.Ephemeral,
 		})
 
 		await api.incrementTicketCounter(
@@ -1868,13 +1808,13 @@ async function confirmCloseTicket(
 				content:
 					'# ❓ Close Confirmation\n\nPlease confirm that you want to close this ticket.\n\n*This action will lock the thread and save a transcript.*',
 				components: [row],
-				ephemeral: true,
+				flags: Discord.MessageFlags.Ephemeral,
 			})
 		} else {
 			// Make sure the message is ephemeral
 			await interaction.reply({
 				...confirmMessage,
-				ephemeral: true,
+				flags: Discord.MessageFlags.Ephemeral,
 			})
 		}
 	} catch (error) {
@@ -2065,7 +2005,7 @@ async function claimTicket(
 			// Send the custom no permission message as an ephemeral reply
 			await interaction.followUp({
 				...noPermissionMessage,
-				ephemeral: true,
+				flags: Discord.MessageFlags.Ephemeral,
 			})
 		}
 		return
@@ -2722,32 +2662,6 @@ async function checkInactiveTickets(
 }
 
 /**
- * Formats milliseconds to a human-readable time format.
- * @param ms - The time in milliseconds
- * @returns A string representing the time in a human-readable format
- */
-function formatTimeThreshold(ms: number): string {
-	const seconds = Math.floor(ms / 1000)
-	const minutes = Math.floor(seconds / 60)
-	const hours = Math.floor(minutes / 60)
-	const days = Math.floor(hours / 24)
-
-	if (days > 0) {
-		return `${days} ${days === 1 ? 'day' : 'days'}`
-	}
-
-	if (hours > 0) {
-		return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
-	}
-
-	if (minutes > 0) {
-		return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
-	}
-
-	return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`
-}
-
-/**
  * Closes an inactive ticket
  * @param client - The Discord client
  * @param thread - The thread channel
@@ -2776,7 +2690,8 @@ async function closeInactiveTicket(
 				: INACTIVITY_THRESHOLD
 
 		// Format the threshold into human-readable format
-		const formattedThreshold = formatTimeThreshold(inactivityThreshold)
+		const formattedThreshold =
+			ticketsUtils.formatTimeThreshold(inactivityThreshold)
 
 		// Create a reason for inactivity using format from config
 		let reason = 'Ticket automatically closed due to inactivity.'
@@ -3085,96 +3000,18 @@ async function createTicketMessage(
 	// Default empty message if no templates are found
 	const defaultMessageOptions: Discord.BaseMessageOptions = {}
 
-	// Check for component-based template first
-	if (config.components?.[templateKey]) {
-		const template = config.components[templateKey]
-
-		if (!template) {
-			return defaultMessageOptions
-		}
-
-		// Check template type and process accordingly
-		if (template.type === TicketDisplayMode.Embed) {
-			// Check if embed exists in template
-			if (!template.embed) {
-				// Try to fall back to legacy format if available
-				if (config.embeds?.[templateKey]) {
-					bunnyLog.info('Using legacy embed for template', {
-						template_key: templateKey,
-						guild_id: config.id,
-					})
-					// Use legacy embed as fallback
-					const { embed, action_rows } = createEmbed(
-						config.embeds[templateKey] as unknown as TicketEmbedConfig,
-						placeholders
-					)
-					return {
-						embeds: [embed],
-						components: action_rows,
-					}
-				}
-
-				// No embed available, fall back to text mode
-				bunnyLog.warn(
-					'Embed type specified but no embed found, falling back to text mode',
-					{
-						template_key: templateKey,
-						guild_id: config.id,
-					}
-				)
-
-				// Process any components as text
-				const { actionRows, content } = processMessageComponents(
-					template.components || [],
-					placeholders
-				)
-
-				return {
-					content: content || 'Ticket Panel',
-					components: actionRows,
-				}
-			}
-
-			// Create an embed from the template's embed definition
-			const { embed, action_rows } = createEmbed(
-				template.embed as unknown as TicketEmbedConfig,
-				placeholders
-			)
-
-			// Return the embed with any action rows
-			return {
-				embeds: [embed],
-				components: action_rows,
-			}
-		}
-
-		if (template.type === TicketDisplayMode.Text) {
-			// For text type, process the components (which may include TextDisplay components)
-			const { actionRows, content } = processMessageComponents(
-				template.components || [],
-				placeholders
-			)
-
-			// Return both content and components
-			return {
-				content: content || undefined, // Only set if not empty
-				components: actionRows,
-			}
-		}
-
-		// For any other types, just process the components
-		const { actionRows, content } = processMessageComponents(
-			template.components || [],
+	// Try component-based template first
+	const template = config.components?.[templateKey]
+	if (template) {
+		return createMessageFromTemplate(
+			config,
+			template,
+			templateKey,
 			placeholders
 		)
-
-		return {
-			content: content || undefined, // Only set if not empty
-			components: actionRows,
-		}
 	}
 
-	// If no component template, fall back to legacy embed format if available
+	// Fall back to legacy embed format if available
 	if (config.embeds?.[templateKey]) {
 		bunnyLog.warn('Using deprecated embeds format for ticket messages', {
 			guild_id: config.id,
@@ -3193,13 +3030,131 @@ async function createTicketMessage(
 		}
 	}
 
-	// Return empty message if no templates found
+	// No template found
 	bunnyLog.warn('No template found for ticket message', {
 		guild_id: config.id,
 		template_key: templateKey,
 	})
 
 	return defaultMessageOptions
+}
+
+// Let's add a proper template type definition first
+interface TicketTemplate {
+	type: TicketDisplayMode | string // Allow either enum or string for compatibility
+	embed?: unknown
+	components?: ComponentsV2[]
+}
+
+/**
+ * Creates a message from a template based on its type
+ */
+function createMessageFromTemplate(
+	config: PluginResponse<DefaultConfigs['tickets']>,
+	template: TicketTemplate,
+	templateKey: keyof TicketTemplates,
+	placeholders: Record<string, string | number>
+): Discord.BaseMessageOptions {
+	// Handle embed template type
+	if (template.type === TicketDisplayMode.Embed) {
+		return createEmbedMessage(config, template, templateKey, placeholders)
+	}
+
+	// Handle text template type
+	if (template.type === TicketDisplayMode.Text) {
+		return createTextMessage(template, placeholders)
+	}
+
+	// Handle any other template type
+	return createDefaultComponentMessage(template, placeholders)
+}
+
+/**
+ * Creates an embed message from a template
+ */
+function createEmbedMessage(
+	config: PluginResponse<DefaultConfigs['tickets']>,
+	template: TicketTemplate,
+	templateKey: keyof TicketTemplates,
+	placeholders: Record<string, string | number>
+): Discord.BaseMessageOptions {
+	// Check if embed exists in template
+	if (template.embed) {
+		const { embed, action_rows } = createEmbed(
+			template.embed as TicketEmbedConfig,
+			placeholders
+		)
+
+		return {
+			embeds: [embed],
+			components: action_rows,
+		}
+	}
+
+	// Try to fall back to legacy format if available
+	if (config.embeds?.[templateKey]) {
+		bunnyLog.info('Using legacy embed for template', {
+			template_key: templateKey,
+			guild_id: config.id,
+		})
+
+		const { embed, action_rows } = createEmbed(
+			config.embeds[templateKey] as unknown as TicketEmbedConfig,
+			placeholders
+		)
+
+		return {
+			embeds: [embed],
+			components: action_rows,
+		}
+	}
+
+	// No embed available, fall back to text mode
+	bunnyLog.warn(
+		'Embed type specified but no embed found, falling back to text mode',
+		{
+			template_key: templateKey,
+			guild_id: config.id,
+		}
+	)
+
+	return createTextMessage(template, placeholders)
+}
+
+/**
+ * Creates a text message from a template
+ */
+function createTextMessage(
+	template: TicketTemplate,
+	placeholders: Record<string, string | number>
+): Discord.BaseMessageOptions {
+	const { actionRows, content } = processMessageComponents(
+		template.components || [],
+		placeholders
+	)
+
+	return {
+		content: content || undefined, // Only set if not empty
+		components: actionRows,
+	}
+}
+
+/**
+ * Creates a default component message
+ */
+function createDefaultComponentMessage(
+	template: TicketTemplate,
+	placeholders: Record<string, string | number>
+): Discord.BaseMessageOptions {
+	const { actionRows, content } = processMessageComponents(
+		template.components || [],
+		placeholders
+	)
+
+	return {
+		content: content || undefined, // Only set if not empty
+		components: actionRows,
+	}
 }
 
 /**
@@ -3350,12 +3305,2095 @@ export {
 	joinTicket,
 	modalSubmit,
 	handleTicketRating,
-	parseTimeLimit,
 	canUserOpenTicket,
 	initTicketInactivityChecker,
-	formatTimeThreshold,
 	createTicketMessage,
 	createButtonFromComponent,
 	processMessageComponents,
 	createTicketPanel,
+}
+
+// Store original configuration message and interaction for each guild
+const original_config_interactions = new Map<
+	string,
+	| Discord.ChatInputCommandInteraction
+	| Discord.StringSelectMenuInteraction
+	| Discord.ButtonInteraction
+>()
+const original_config_messages = new Map<string, Discord.Message>()
+
+/**
+ * Handles the selected configuration option
+ * @param interaction - The select menu interaction
+ */
+export async function handleConfigSelectMenu(
+	interaction: Discord.StringSelectMenuInteraction
+): Promise<void> {
+	try {
+		const selectedOption = interaction.values[0]
+		const ticketConfig = (await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)) as PluginResponse<DefaultConfigs['tickets']>
+
+		// Defer update first to avoid timeout
+		await interaction.deferUpdate().catch((err) => {
+			bunnyLog.error(`Failed to defer update: ${err.message}`)
+			// If deferred fails, we'll try to continue anyway
+		})
+
+		// For auto-close settings, use regular components instead of modal
+		if (selectedOption === 'auto_close') {
+			// Get current auto-close settings
+			const autoClose = ticketConfig.auto_close?.[0] || {
+				enabled: false,
+				threshold: 72 * 60 * 60 * 1000, // 72 hours default
+				reason: 'Ticket automatically closed due to inactivity.',
+			}
+
+			// Create toggle buttons for enabled/disabled with Set Reason in the same row
+			const toggleRow =
+				new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+					new Discord.ButtonBuilder()
+						.setCustomId('autoclose_enable')
+						.setLabel('Enable')
+						.setStyle(
+							autoClose.enabled
+								? Discord.ButtonStyle.Success
+								: Discord.ButtonStyle.Secondary
+						)
+						.setDisabled(autoClose.enabled), // Disable the Enable button if already enabled
+					new Discord.ButtonBuilder()
+						.setCustomId('autoclose_disable')
+						.setLabel('Disable')
+						.setStyle(
+							!autoClose.enabled
+								? Discord.ButtonStyle.Danger
+								: Discord.ButtonStyle.Secondary
+						)
+						.setDisabled(!autoClose.enabled), // Disable the Disable button if already disabled
+					new Discord.ButtonBuilder()
+						.setCustomId('autoclose_set_reason')
+						.setLabel('Set Reason')
+						.setStyle(Discord.ButtonStyle.Primary)
+				)
+
+			// Format the current threshold for display
+			const formattedThreshold = ticketsUtils.formatTimeThreshold(
+				autoClose.threshold
+			)
+
+			// Create time unit selection menu for threshold
+			const timeUnitOptions = [
+				{ label: 'Seconds', value: 'seconds' },
+				{ label: 'Minutes', value: 'minutes' },
+				{ label: 'Hours', value: 'hours' },
+				{ label: 'Days', value: 'days' },
+				{ label: 'Weeks', value: 'weeks' },
+				{ label: 'Predefined Values', value: 'predefined' },
+			]
+
+			const timeUnitSelectRow =
+				new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+					new Discord.StringSelectMenuBuilder()
+						.setCustomId('autoclose_time_unit_select')
+						.setPlaceholder('Select time unit for threshold')
+						.addOptions(timeUnitOptions)
+				)
+
+			// Add back button
+			const backRow =
+				new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+					new Discord.ButtonBuilder()
+						.setCustomId('ticket_config_back')
+						.setLabel('Back to Main Menu')
+						.setStyle(Discord.ButtonStyle.Secondary)
+				)
+
+			// Update the message with auto-close configuration panel
+			await interaction
+				.editReply({
+					content: [
+						'# Auto-close Settings',
+						'',
+						'Configure when inactive tickets should be automatically closed.',
+						'',
+						'## Current Settings',
+						`**Status:** ${autoClose.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+						`**Threshold:** ${formattedThreshold}`,
+						`**Close Reason:** ${autoClose.reason}`,
+						'',
+						'Use the controls below to update these settings:',
+					].join('\n'),
+					components: [toggleRow, timeUnitSelectRow, backRow],
+				})
+				.catch((err) => {
+					bunnyLog.error(
+						`Failed to update with auto-close settings: ${err.message}`
+					)
+					throw err
+				})
+
+			return
+		}
+
+		// For role time limits option
+		if (selectedOption === 'role_time_limits') {
+			await handleRoleTimeLimitsConfig(interaction, ticketConfig)
+			return
+		}
+
+		// Handle other options
+		switch (selectedOption) {
+			case 'admin_channel': {
+				// Create channel select for admin channel
+				const adminRow =
+					new Discord.ActionRowBuilder<Discord.ChannelSelectMenuBuilder>().addComponents(
+						new Discord.ChannelSelectMenuBuilder()
+							.setCustomId('ticket_admin_channel')
+							.setPlaceholder('Select admin notification channel')
+							.setChannelTypes([Discord.ChannelType.GuildText])
+					)
+
+				// Add back button
+				const backRow =
+					new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+						new Discord.ButtonBuilder()
+							.setCustomId('ticket_config_back')
+							.setLabel('Back to Main Menu')
+							.setStyle(Discord.ButtonStyle.Secondary)
+					)
+
+				await interaction
+					.editReply({
+						content:
+							'## Select Admin Channel\nChoose a channel where ticket notifications will be sent to moderators.',
+						components: [adminRow, backRow],
+					})
+					.catch((err) =>
+						bunnyLog.error(`Failed to edit reply: ${err.message}`)
+					)
+				break
+			}
+
+			case 'transcript_channel': {
+				// Create channel select for transcript channel
+				const transcriptRow =
+					new Discord.ActionRowBuilder<Discord.ChannelSelectMenuBuilder>().addComponents(
+						new Discord.ChannelSelectMenuBuilder()
+							.setCustomId('ticket_transcript_channel')
+							.setPlaceholder('Select transcript archive channel')
+							.setChannelTypes([Discord.ChannelType.GuildText])
+					)
+
+				// Add back button
+				const backRow =
+					new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+						new Discord.ButtonBuilder()
+							.setCustomId('ticket_config_back')
+							.setLabel('Back to Main Menu')
+							.setStyle(Discord.ButtonStyle.Secondary)
+					)
+
+				await interaction
+					.editReply({
+						content:
+							'## Select Transcript Channel\nChoose a channel where closed ticket transcripts will be archived.',
+						components: [transcriptRow, backRow],
+					})
+					.catch((err) =>
+						bunnyLog.error(`Failed to edit reply: ${err.message}`)
+					)
+				break
+			}
+
+			case 'mod_roles': {
+				// Create role select for moderator roles
+				const rolesRow =
+					new Discord.ActionRowBuilder<Discord.RoleSelectMenuBuilder>().addComponents(
+						new Discord.RoleSelectMenuBuilder()
+							.setCustomId('ticket_mod_roles')
+							.setPlaceholder('Select moderator roles')
+							.setMinValues(0)
+							.setMaxValues(10)
+					)
+
+				// Add clear roles button and back button
+				const backRow =
+					new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+						new Discord.ButtonBuilder()
+							.setCustomId('ticket_clear_mod_roles')
+							.setLabel('Clear All Roles')
+							.setStyle(Discord.ButtonStyle.Danger),
+						new Discord.ButtonBuilder()
+							.setCustomId('ticket_config_back')
+							.setLabel('Back to Main Menu')
+							.setStyle(Discord.ButtonStyle.Secondary)
+					)
+
+				await interaction
+					.editReply({
+						content:
+							'## Select Moderator Roles\nChoose roles that can manage tickets (claim, close, etc.).',
+						components: [rolesRow, backRow],
+					})
+					.catch((err) =>
+						bunnyLog.error(`Failed to edit reply: ${err.message}`)
+					)
+				break
+			}
+
+			default:
+				await interaction
+					.followUp({
+						content: 'Invalid option selected.',
+						ephemeral: true,
+					})
+					.catch((err) =>
+						bunnyLog.error(`Failed to send followUp: ${err.message}`)
+					)
+		}
+	} catch (error) {
+		bunnyLog.error(
+			`Error handling ticket config selection: ${error.message || error}`,
+			error
+		)
+
+		// Only try to respond if we haven't already
+		try {
+			if (!interaction.replied && !interaction.deferred) {
+				await interaction.deferUpdate().catch(() => {}) // Ignore any errors
+
+				await interaction
+					.followUp({
+						content:
+							'An error occurred while processing your selection. Please try again.',
+						ephemeral: true,
+					})
+					.catch(() => {}) // Ignore any errors
+			} else if (!interaction.replied) {
+				// If deferred but not replied
+				await interaction
+					.followUp({
+						content:
+							'An error occurred while processing your selection. Please try again.',
+						ephemeral: true,
+					})
+					.catch(() => {}) // Ignore any errors
+			}
+		} catch (e) {
+			bunnyLog.error(`Failed to send error response: ${e.message || e}`)
+		}
+	}
+}
+
+export const handleComponentInteraction = async (
+	interaction:
+		| Discord.ButtonInteraction
+		| Discord.StringSelectMenuInteraction
+		| Discord.ChannelSelectMenuInteraction
+		| Discord.RoleSelectMenuInteraction
+		| Discord.ModalSubmitInteraction
+) => {
+	const customId = interaction.customId
+
+	try {
+		// Basic ticket operation button handlers
+		if (interaction.isButton()) {
+			// Handle pagination buttons from ticket list
+			if (customId === 'prev_page' || customId === 'next_page') {
+				// These are handled by the collector in the list function
+				// We need to return here to prevent the default handler from executing
+				return
+			}
+
+			if (customId.startsWith('close_ticket_')) {
+				await closeTicketWithReason(interaction)
+				return
+			}
+			if (customId.startsWith('claim_ticket_')) {
+				await claimTicket(interaction)
+				return
+			}
+			if (customId.startsWith('join_ticket_')) {
+				await joinTicket(interaction)
+				return
+			}
+			if (customId.startsWith('confirm_close_ticket_')) {
+				await confirmCloseTicket(interaction)
+				return
+			}
+
+			// Handle ticket config back button
+			if (customId === 'ticket_config_back') {
+				await handleBackToMainConfig(interaction)
+				return
+			}
+
+			// Handle auto-close related buttons
+			if (customId === 'autoclose_enable' || customId === 'autoclose_disable') {
+				await handleAutoCloseToggle(
+					interaction,
+					customId === 'autoclose_enable'
+				)
+				return
+			}
+
+			if (customId === 'autoclose_set_reason') {
+				await handleSetAutoCloseReason(interaction)
+				return
+			}
+
+			if (customId === 'autoclose_back') {
+				await handleAutoCloseBack(interaction)
+				return
+			}
+
+			// Handle role time limit buttons
+			if (customId === ROLE_TIME_LIMIT_ADD_BUTTON_ID) {
+				await handleAddRoleTimeLimitComponent(interaction)
+				return
+			}
+
+			if (customId === ROLE_TIME_LIMIT_REMOVE_BUTTON_ID) {
+				await handleRemoveRoleTimeLimit(interaction)
+				return
+			}
+
+			// Handle Clear All Mod Roles button
+			if (customId === 'ticket_clear_mod_roles') {
+				try {
+					await interaction.deferUpdate()
+
+					// Get current config
+					const config = await api.getPluginConfig(
+						interaction.client.user.id,
+						interaction.guild?.id as Discord.Guild['id'],
+						'tickets'
+					)
+
+					// Clear the mod roles
+					config.mods_role_ids = []
+
+					// Save the updated config
+					await api.updatePluginConfig(
+						interaction.client.user.id,
+						interaction.guild?.id as Discord.Guild['id'],
+						'tickets',
+						config
+					)
+
+					// Return to the main config panel first
+					await handleBackToMainConfig(interaction)
+
+					// Show confirmation
+					await utils.handleResponse(
+						interaction,
+						'success',
+						'All moderator roles have been cleared.',
+						{
+							renderAsText: true,
+							ephemeral: true,
+						}
+					)
+				} catch (error) {
+					bunnyLog.error('Failed to clear moderator roles:', error)
+					await utils.handleResponse(
+						interaction,
+						'error',
+						'Failed to clear moderator roles. Please try again.',
+						{ code: 'TCH004' }
+					)
+				}
+				return
+			}
+
+			// Default to opening a ticket for other buttons
+			await openTicket(interaction)
+			return
+		}
+
+		// Handle ticket config select menu
+		if (
+			interaction.isStringSelectMenu() &&
+			customId === 'ticket_config_select'
+		) {
+			await handleConfigSelectMenu(interaction)
+			return
+		}
+
+		// Handle auto-close time selection menus
+		if (
+			interaction.isStringSelectMenu() &&
+			(customId === 'autoclose_time_unit_select' ||
+				customId === 'autoclose_predefined_select' ||
+				customId.startsWith('autoclose_value_'))
+		) {
+			await handleAutoCloseTimeSelect(interaction)
+			return
+		}
+
+		// Handle role time limit selection
+		if (
+			interaction.isStringSelectMenu() &&
+			customId === ROLE_TIME_LIMIT_REMOVE_SELECT_ID
+		) {
+			await handleRemoveRoleTimeLimitSelect(interaction)
+			return
+		}
+
+		// Handle time limit selection for role time limits
+		if (
+			interaction.isStringSelectMenu() &&
+			(customId === 'time_limit_unit_select' ||
+				customId === 'time_limit_predefined_select' ||
+				customId.startsWith('time_limit_value_'))
+		) {
+			// These are handled by collectors in their respective functions
+			return
+		}
+
+		// Modal submit handlers
+		if (interaction.isModalSubmit()) {
+			if (customId === 'close_ticket_modal') {
+				await modalSubmit(interaction)
+				return
+			}
+
+			if (customId === 'autoclose_reason_modal') {
+				await handleAutoCloseReasonModal(interaction)
+				return
+			}
+
+			if (customId === 'autoclose_custom_time_modal') {
+				const customTime =
+					interaction.fields.getTextInputValue('custom_time_input')
+				await handleAutoCloseCustomTime(interaction, customTime)
+				return
+			}
+
+			if (customId === 'ticket_autoclose_modal') {
+				await handleTicketAutocloseModal(interaction)
+				return
+			}
+		}
+
+		// Channel select handlers for ticket configuration
+		if (interaction.isChannelSelectMenu()) {
+			if (
+				customId === 'ticket_admin_channel' ||
+				customId === 'ticket_transcript_channel'
+			) {
+				try {
+					await interaction.deferUpdate()
+
+					bunnyLog.info(
+						`Channel selected for ${customId}:`,
+						interaction.values[0]
+					)
+
+					// Get current config
+					const config = await api.getPluginConfig(
+						interaction.client.user.id,
+						interaction.guild?.id as Discord.Guild['id'],
+						'tickets'
+					)
+
+					// Update the appropriate channel ID
+					if (customId === 'ticket_admin_channel') {
+						config.admin_channel_id = interaction.values[0]
+					} else if (customId === 'ticket_transcript_channel') {
+						config.transcript_channel_id = interaction.values[0]
+					}
+
+					// Save the updated config
+					await api.updatePluginConfig(
+						interaction.client.user.id,
+						interaction.guild?.id as Discord.Guild['id'],
+						'tickets',
+						config
+					)
+
+					// Return to the main config panel first
+					await handleBackToMainConfig(
+						interaction as unknown as Discord.ButtonInteraction
+					)
+
+					// Create friendly name for the channel
+					const channel = await interaction.guild?.channels.fetch(
+						interaction.values[0]
+					)
+					const channelName = channel
+						? `#${channel.name}`
+						: interaction.values[0]
+
+					// Show success message
+					await utils.handleResponse(
+						interaction,
+						'success',
+						`${customId === 'ticket_admin_channel' ? 'Admin' : 'Transcript'} channel updated to ${channelName}.`,
+						{ ephemeral: true }
+					)
+				} catch (error) {
+					bunnyLog.error(`Failed to update ${customId}:`, error)
+					await utils.handleResponse(
+						interaction,
+						'error',
+						`Failed to update ${customId === 'ticket_admin_channel' ? 'admin' : 'transcript'} channel. Please try again.`,
+						{ code: 'CT005' }
+					)
+				}
+				return
+			}
+		}
+
+		// Role select handlers for ticket configuration
+		if (interaction.isRoleSelectMenu()) {
+			if (customId === 'ticket_mod_roles') {
+				try {
+					await interaction.deferUpdate()
+					// bunnyLog.info('Mod roles selected:', interaction.values)
+
+					// Get current config
+					const config = await api.getPluginConfig(
+						interaction.client.user.id,
+						interaction.guild?.id as Discord.Guild['id'],
+						'tickets'
+					)
+
+					// Update the mod roles
+					config.mods_role_ids = interaction.values
+
+					// Save the updated config
+					await api.updatePluginConfig(
+						interaction.client.user.id,
+						interaction.guild?.id as Discord.Guild['id'],
+						'tickets',
+						config
+					)
+
+					// Return to the main config panel first
+					await handleBackToMainConfig(
+						interaction as unknown as Discord.ButtonInteraction
+					)
+
+					const rolesText =
+						interaction.values.length > 0
+							? interaction.values.map((id) => `<@&${id}>`).join(', ')
+							: 'None (using server permissions)'
+
+					// Show confirmation AFTER returning to main menu to avoid race conditions
+					await utils.handleResponse(
+						interaction,
+						'success',
+						`Moderator roles set to: ${rolesText}`,
+						{ ephemeral: true }
+					)
+				} catch (error) {
+					bunnyLog.error('Failed to update moderator roles:', error)
+					await utils.handleResponse(
+						interaction,
+						'error',
+						'Failed to update moderator roles.',
+						{ code: 'TCH003' }
+					)
+				}
+				return
+			}
+
+			if (customId === 'time_limit_role_select') {
+				// This is handled by the collector in handleAddRoleTimeLimitComponent
+				return
+			}
+		}
+
+		// Log any unhandled interactions
+		bunnyLog.info(`Unhandled interaction with customId: ${customId}`)
+	} catch (error) {
+		bunnyLog.error(
+			`Error in component interaction handler: ${error.message}`,
+			error
+		)
+
+		// Try to respond with an error if possible
+		try {
+			if (!interaction.replied && !interaction.deferred) {
+				// For button interactions and similar, just defer
+				if ('deferUpdate' in interaction) {
+					await interaction.deferUpdate().catch(() => {})
+				}
+
+				// Try to send an ephemeral message
+				if ('followUp' in interaction) {
+					await interaction
+						.followUp({
+							content: 'An error occurred processing your request.',
+							ephemeral: true,
+						})
+						.catch(() => {})
+				}
+			}
+		} catch (e) {
+			// Silently fail if we can't respond
+			bunnyLog.error(`Failed to send error response: ${e.message}`)
+		}
+	}
+}
+
+/**
+ * Handles role time limits configuration
+ * @param interaction - The select menu interaction
+ * @param config - The ticket configuration
+ */
+export async function handleRoleTimeLimitsConfig(
+	interaction: Discord.ButtonInteraction | Discord.StringSelectMenuInteraction,
+	config: PluginResponse<DefaultConfigs['tickets']>
+): Promise<void> {
+	try {
+		await interaction.deferUpdate().catch(() => {
+			// Ignore if already deferred
+		})
+
+		// Format current role time limits
+		const roleTimeLimits = config.role_time_limits || []
+
+		// Create buttons for add/remove role limits
+		const actionRow =
+			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+				new Discord.ButtonBuilder()
+					.setCustomId(ROLE_TIME_LIMIT_ADD_BUTTON_ID)
+					.setLabel('Add Limit')
+					.setStyle(Discord.ButtonStyle.Primary),
+				new Discord.ButtonBuilder()
+					.setCustomId(ROLE_TIME_LIMIT_REMOVE_BUTTON_ID)
+					.setLabel('Remove Limit')
+					.setStyle(Discord.ButtonStyle.Danger)
+					.setDisabled(roleTimeLimits.length === 0),
+				new Discord.ButtonBuilder()
+					.setCustomId('ticket_config_back')
+					.setLabel('Back to Main Menu')
+					.setStyle(Discord.ButtonStyle.Secondary)
+			)
+
+		// Prepare list of limits for display
+		let limitsText = '> No role time limits configured yet.'
+		if (roleTimeLimits.length > 0) {
+			// Fetch role information for each time limit
+			const guildRoles = await interaction.guild?.roles.fetch()
+			const limitsInfo = roleTimeLimits.map((limit, index) => {
+				const role = guildRoles?.get(limit.role_id)
+				return {
+					roleName: role ? `<@&${role.id}>` : `Role ID: ${limit.role_id}`,
+					limit: limit.limit,
+					index: index + 1,
+				}
+			})
+
+			// Format the limits info
+			const limitLines = limitsInfo.map(
+				(info) => `**${info.index}.** ${info.roleName}: ${info.limit}`
+			)
+			limitsText = limitLines.join('\n')
+		}
+
+		// Create content with better formatting and explanations
+		const content = [
+			'# Role Time Limits Configuration',
+			'',
+			'Role time limits allow you to control how frequently users with specific roles can create new tickets.',
+			'For example, you can set that users with @Member role can only create a new ticket every 24 hours.',
+			'',
+			'## Current Limits',
+			limitsText,
+			'',
+			'## Format',
+			'Time limits use the format: `Xm` (minutes), `Xh` (hours), `Xd` (days), or `Xw` (weeks)',
+			'Example: `12h` = 12 hours, `3d` = 3 days, `1w` = 1 week',
+			'',
+			'Use the buttons below to manage role time limits:',
+		].join('\n')
+
+		// Update the message with role time limits configuration panel
+		await interaction.editReply({
+			content,
+			components: [actionRow],
+		})
+
+		// Store the original interaction for later updates
+		const cacheKey = `${interaction.guild.id}_role_time_limits`
+		original_config_interactions.set(cacheKey, interaction)
+	} catch (error) {
+		bunnyLog.error('Error handling role time limits config:', error)
+		await interaction.followUp({
+			content:
+				'Failed to load role time limits configuration. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles the back button to return to the main configuration panel
+ * @param interaction - The button interaction
+ */
+export async function handleBackToMainConfig(
+	interaction: Discord.ButtonInteraction
+) {
+	// Only try to defer if the interaction hasn't already been responded to
+	// Use a try-catch to handle the case where the interaction has already been deferred
+	try {
+		// Check if the interaction has been responded to
+		if (!interaction.deferred && !interaction.replied) {
+			await interaction.deferUpdate()
+		}
+	} catch (e) {
+		bunnyLog.error(`Failed to defer update in back button: ${e.message}`)
+		// Continue attempt anyway - the operation might still work
+	}
+
+	try {
+		// Get current configuration
+		const ticketConfig = (await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)) as PluginResponse<DefaultConfigs['tickets']>
+
+		// Create main configuration select menu
+		const configOptions = [
+			{
+				label: 'Admin Channel',
+				description: 'Set the channel for admin notifications',
+				value: 'admin_channel',
+			},
+			{
+				label: 'Transcript Channel',
+				description: 'Set the channel for ticket transcripts',
+				value: 'transcript_channel',
+			},
+			{
+				label: 'Moderator Roles',
+				description: 'Set roles that can manage tickets',
+				value: 'mod_roles',
+			},
+			{
+				label: 'Auto-close Settings',
+				description: 'Configure auto-closing inactive tickets',
+				value: 'auto_close',
+			},
+			{
+				label: 'Role Time Limits',
+				description: 'Set time limits between tickets for specific roles',
+				value: 'role_time_limits',
+			},
+		]
+
+		const selectMenu = new Discord.StringSelectMenuBuilder()
+			.setCustomId('ticket_config_select')
+			.setPlaceholder('Select a configuration option')
+			.addOptions(configOptions)
+
+		const row =
+			new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+				selectMenu
+			)
+
+		// Get current values for display
+		const adminChannel = ticketConfig.admin_channel_id
+			? `<#${ticketConfig.admin_channel_id}>`
+			: 'Not set'
+		const transcriptChannel = ticketConfig.transcript_channel_id
+			? `<#${ticketConfig.transcript_channel_id}>`
+			: 'Not set'
+		const modRoles = ticketConfig.mods_role_ids?.length
+			? ticketConfig.mods_role_ids.map((id) => `<@&${id}>`).join(', ')
+			: 'None'
+		const autoCloseEnabled = ticketConfig.auto_close?.[0]?.enabled
+			? '✅ Enabled'
+			: '❌ Disabled'
+		const autoCloseThreshold = ticketConfig.auto_close?.[0]?.threshold
+			? ticketsUtils.formatTimeThreshold(ticketConfig.auto_close[0].threshold)
+			: 'Not set'
+
+		// Format role time limits for display
+		const roleTimeLimits = ticketConfig.role_time_limits?.length
+			? `${ticketConfig.role_time_limits.length} roles configured`
+			: 'None'
+
+		// Create the main config content using the content builder
+		const configContent = CONTENT_BUILDERS.createMainConfigContent({
+			Status: ticketConfig.enabled ? '✅ Enabled' : '❌ Disabled',
+			'Admin Channel': adminChannel,
+			'Transcript Channel': transcriptChannel,
+			'Moderator Roles': modRoles,
+			'Auto-close': `${autoCloseEnabled} (${autoCloseThreshold})`,
+			'Role Time Limits': roleTimeLimits,
+		})
+
+		// Send the config panel
+		await interaction.editReply({
+			content: configContent,
+			components: [row],
+		})
+	} catch (error) {
+		bunnyLog.error('Error returning to main config:', error)
+		await interaction
+			.followUp({
+				content:
+					'Failed to return to main configuration. Please try using the command again.',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			.catch(() => {}) // Ignore errors here
+	}
+}
+
+interface TicketData {
+	ticket_id: string | number
+	status?: string
+	thread_id?: string
+	opened_by?: {
+		id: string
+		username?: string
+		displayName?: string
+	}
+	open_time?: number
+	ticket_type?: string
+	claimed_by?:
+		| {
+				id: string
+				username?: string
+				displayName?: string
+		  }
+		| string
+}
+
+/**
+ * Handles the ticket configuration command
+ * @param interaction - The command interaction
+ */
+export async function config(
+	interaction: Discord.ChatInputCommandInteraction
+): Promise<void> {
+	// Defer reply to give us time to process
+	await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+
+	try {
+		// Get the plugin config
+		const ticketConfig = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Create main configuration select menu
+		const configOptions = [
+			{
+				label: 'Admin Channel',
+				description: 'Set the channel for admin notifications',
+				value: 'admin_channel',
+			},
+			{
+				label: 'Transcript Channel',
+				description: 'Set the channel for ticket transcripts',
+				value: 'transcript_channel',
+			},
+			{
+				label: 'Moderator Roles',
+				description: 'Set roles that can manage tickets',
+				value: 'mod_roles',
+			},
+			{
+				label: 'Auto-close Settings',
+				description: 'Configure auto-closing inactive tickets',
+				value: 'auto_close',
+			},
+			{
+				label: 'Role Time Limits',
+				description: 'Set time limits between tickets for specific roles',
+				value: 'role_time_limits',
+			},
+		]
+
+		const selectMenu = new Discord.StringSelectMenuBuilder()
+			.setCustomId('ticket_config_select')
+			.setPlaceholder('Select a configuration option')
+			.addOptions(configOptions)
+
+		const row =
+			new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+				selectMenu
+			)
+
+		// Get current values for display
+		const adminChannel = ticketConfig.admin_channel_id
+			? `<#${ticketConfig.admin_channel_id}>`
+			: 'Not set'
+		const transcriptChannel = ticketConfig.transcript_channel_id
+			? `<#${ticketConfig.transcript_channel_id}>`
+			: 'Not set'
+		const modRoles = ticketConfig.mods_role_ids?.length
+			? ticketConfig.mods_role_ids.map((id) => `<@&${id}>`).join(', ')
+			: 'None'
+		const autoCloseEnabled = ticketConfig.auto_close?.[0]?.enabled
+			? '✅ Enabled'
+			: '❌ Disabled'
+		const autoCloseThreshold = ticketConfig.auto_close?.[0]?.threshold
+			? ticketsUtils.formatTimeThreshold(ticketConfig.auto_close[0].threshold)
+			: 'Not set'
+
+		// Format role time limits for display
+		const roleTimeLimits = ticketConfig.role_time_limits?.length
+			? `${ticketConfig.role_time_limits.length} roles configured`
+			: 'None'
+
+		// Create the main config content using the content builder
+		const configContent = CONTENT_BUILDERS.createMainConfigContent({
+			Status: ticketConfig.enabled ? '✅ Enabled' : '❌ Disabled',
+			'Admin Channel': adminChannel,
+			'Transcript Channel': transcriptChannel,
+			'Moderator Roles': modRoles,
+			'Auto-close': `${autoCloseEnabled} (${autoCloseThreshold})`,
+			'Role Time Limits': roleTimeLimits,
+		})
+
+		// Send the config panel
+		await interaction.editReply({
+			content: configContent,
+			components: [row],
+		})
+	} catch (error) {
+		bunnyLog.error('Error displaying ticket config:', error)
+		await utils.handleResponse(
+			interaction,
+			'error',
+			'Failed to load ticket configuration.',
+			{ code: 'TKCFG001' }
+		)
+	}
+}
+
+/**
+ * Lists all active tickets
+ * @param interaction - The interaction to handle
+ */
+export async function list(
+	interaction: Discord.ChatInputCommandInteraction
+): Promise<void> {
+	await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+
+	try {
+		// Check permissions
+		if (
+			!interaction.memberPermissions?.has(
+				Discord.PermissionFlagsBits.ManageThreads
+			)
+		) {
+			await utils.handleResponse(
+				interaction,
+				'error',
+				'You need the `Manage Threads` permission to view ticket list.',
+				{ code: 'TL001' }
+			)
+			return
+		}
+
+		// Get active tickets for this guild from the database
+		const activeTicketsResponse = await api.getAllActiveTickets(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id']
+		)
+
+		// Cast to TicketData[] with type safety
+		const activeTickets = (Array.isArray(activeTicketsResponse)
+			? activeTicketsResponse
+			: []) as unknown as TicketData[]
+
+		if (!activeTickets || activeTickets.length === 0) {
+			await utils.handleResponse(
+				interaction,
+				'info',
+				'No active tickets found in this server.',
+				{ code: 'TL002' }
+			)
+			return
+		}
+
+		// Sort tickets by opening time (newest first)
+		activeTickets.sort((a, b) => (b.open_time || 0) - (a.open_time || 0))
+
+		// Format ticket list
+		const ticketList = activeTickets.map((ticket, index) => {
+			const openTime = ticket.open_time
+				? `<t:${Math.floor(ticket.open_time)}:R>`
+				: 'Unknown'
+
+			const openedBy = ticket.opened_by?.id
+				? `<@${ticket.opened_by.id}>`
+				: 'Unknown'
+
+			const claimedBy =
+				typeof ticket.claimed_by === 'object' && ticket.claimed_by?.id
+					? `<@${ticket.claimed_by.id}>`
+					: ticket.claimed_by || 'Not claimed'
+
+			const channel = ticket.thread_id ? `<#${ticket.thread_id}>` : 'Unknown'
+
+			return `**${index + 1}.** Ticket #${ticket.ticket_id || 'Unknown'}\n> **Channel:** ${channel}\n> **Opened by:** ${openedBy}\n> **Claimed by:** ${claimedBy}\n> **Opened:** ${openTime}\n`
+		})
+
+		// Send paginated list if needed
+		if (ticketList.length <= 10) {
+			await interaction.editReply({
+				content: `# 🎫 Active Tickets (${ticketList.length})\n\n${ticketList.join('\n')}`,
+			})
+		} else {
+			// Create a simple pagination system for larger lists
+			const pages = []
+			for (let i = 0; i < ticketList.length; i += 10) {
+				pages.push(ticketList.slice(i, i + 10).join('\n'))
+			}
+
+			let currentPage = 0
+			const row =
+				new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+					new Discord.ButtonBuilder()
+						.setCustomId('prev_page')
+						.setLabel('◀️ Previous')
+						.setStyle(Discord.ButtonStyle.Secondary)
+						.setDisabled(true),
+					new Discord.ButtonBuilder()
+						.setCustomId('next_page')
+						.setLabel('Next ▶️')
+						.setStyle(Discord.ButtonStyle.Secondary)
+						.setDisabled(pages.length <= 1)
+				)
+
+			const initialMessage = await interaction.editReply({
+				content: `# 🎫 Active Tickets (${ticketList.length})\nPage ${currentPage + 1}/${pages.length}\n\n${pages[currentPage]}`,
+				components: [row],
+			})
+
+			// Create collector for pagination buttons
+			const collector = initialMessage.createMessageComponentCollector({
+				filter: (i) => i.user.id === interaction.user.id,
+				time: 300000, // 5 minutes
+			})
+
+			collector.on('collect', async (i) => {
+				if (i.customId === 'prev_page') {
+					currentPage--
+				} else if (i.customId === 'next_page') {
+					currentPage++
+				}
+
+				// Update buttons
+				row.components[0].setDisabled(currentPage === 0)
+				row.components[1].setDisabled(currentPage === pages.length - 1)
+
+				await i.update({
+					content: `# 🎫 Active Tickets (${ticketList.length})\nPage ${currentPage + 1}/${pages.length}\n\n${pages[currentPage]}`,
+					components: [row],
+				})
+			})
+
+			collector.on('end', async () => {
+				// Disable all buttons when collector expires
+				for (const button of row.components) {
+					button.setDisabled(true)
+				}
+				await initialMessage.edit({ components: [row] }).catch(() => {})
+			})
+		}
+	} catch (error) {
+		bunnyLog.error('Error listing tickets:', error)
+		await utils.handleResponse(
+			interaction,
+			'error',
+			'Failed to load ticket list.',
+			{ code: 'TL003' }
+		)
+	}
+}
+
+/**
+ * Handles the auto-close toggle buttons, enabling or disabling auto-close functionality
+ * @param interaction - The button interaction
+ * @param enable - Whether to enable (true) or disable (false) auto-close
+ */
+async function handleAutoCloseToggle(
+	interaction: Discord.ButtonInteraction,
+	enable: boolean
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		// Get current config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Initialize auto_close array if doesn't exist
+		if (!config.auto_close || !Array.isArray(config.auto_close)) {
+			config.auto_close = [
+				{
+					enabled: enable,
+					threshold: 72 * 60 * 60 * 1000, // 72 hours default
+					reason: 'Ticket automatically closed due to inactivity.',
+				},
+			]
+		} else {
+			// Update the enabled status
+			config.auto_close[0].enabled = enable
+		}
+
+		// Save config
+		await api.updatePluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets',
+			config
+		)
+
+		// Create the toggle buttons row
+		const toggleRow =
+			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+				new Discord.ButtonBuilder()
+					.setCustomId('autoclose_enable')
+					.setLabel('Enable')
+					.setStyle(
+						enable ? Discord.ButtonStyle.Success : Discord.ButtonStyle.Secondary
+					)
+					.setDisabled(enable),
+				new Discord.ButtonBuilder()
+					.setCustomId('autoclose_disable')
+					.setLabel('Disable')
+					.setStyle(
+						!enable ? Discord.ButtonStyle.Danger : Discord.ButtonStyle.Secondary
+					)
+					.setDisabled(!enable),
+				new Discord.ButtonBuilder()
+					.setCustomId('autoclose_set_reason')
+					.setLabel('Set Reason')
+					.setStyle(Discord.ButtonStyle.Primary)
+			)
+
+		// Create time select menu with explicit array
+		const timeUnitOptions = [
+			{ label: 'Minutes', value: 'minutes' },
+			{ label: 'Hours', value: 'hours' },
+			{ label: 'Days', value: 'days' },
+			{ label: 'Weeks', value: 'weeks' },
+			{ label: 'Predefined Values', value: 'predefined' },
+		]
+
+		const timeUnitSelectRow = UI_BUILDERS.createTimeUnitMenuRow(
+			'autoclose_time_unit_select',
+			'Select time unit for threshold'
+		)
+
+		// Create back button row
+		const backRow = UI_BUILDERS.createBackButtonRow()
+
+		// Get auto-close settings
+		const autoClose = config.auto_close?.[0] || {
+			enabled: false,
+			threshold: 72 * 60 * 60 * 1000,
+			reason: 'Ticket automatically closed due to inactivity.',
+		}
+
+		// Format the threshold
+		const formattedThreshold = ticketsUtils.formatTimeThreshold(
+			autoClose.threshold
+		)
+
+		// Create the content for display
+		const content = [
+			'# Auto-close Settings',
+			'',
+			'Configure when inactive tickets should be automatically closed.',
+			'',
+			'## Current Settings',
+			`**Status:** ${autoClose.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+			`**Threshold:** ${formattedThreshold}`,
+			`**Close Reason:** ${autoClose.reason}`,
+			'',
+			'Use the controls below to update these settings:',
+		].join('\n')
+
+		// Update the message
+		await interaction.editReply({
+			content,
+			components: [toggleRow, timeUnitSelectRow, backRow],
+		})
+
+		// Confirm to user
+		await interaction.followUp({
+			content: `Auto-close has been ${enable ? 'enabled ✅' : 'disabled ❌'}.`,
+			ephemeral: true,
+		})
+	} catch (error) {
+		bunnyLog.error(
+			`Error handling auto-close toggle (${enable ? 'enable' : 'disable'}):`,
+			error
+		)
+		await interaction.followUp({
+			content: `Failed to ${enable ? 'enable' : 'disable'} auto-close. Please try again.`,
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles auto-close time selection menus
+ * @param interaction - The select menu interaction
+ */
+async function handleAutoCloseTimeSelect(
+	interaction: Discord.StringSelectMenuInteraction
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		// Handle unit selection first
+		if (interaction.customId === 'autoclose_time_unit_select') {
+			const selectedUnit = interaction.values[0]
+
+			if (selectedUnit === 'predefined') {
+				// Show predefined time limit options
+				const predefinedSelectRow =
+					new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+						UI_BUILDERS.createPredefinedTimeMenu('autoclose_predefined_select')
+					)
+
+				// Add back buttons
+				const backRow =
+					new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+						UI_BUILDERS.createBackButton(
+							'autoclose_back',
+							'Back to Auto-close Settings'
+						),
+						UI_BUILDERS.createBackButton()
+					)
+
+				await interaction.editReply({
+					content:
+						'## Set Auto-close Threshold\n\nSelect a predefined time limit:',
+					components: [predefinedSelectRow, backRow],
+				})
+				return
+			}
+
+			// For specific time units, create appropriate options
+			const options: { label: string; value: string }[] = []
+
+			// Generate time value options based on the selected unit
+			if (selectedUnit === 'minutes') {
+				options.push(
+					...ticketsUtils.UI_COMPONENTS.TIME_UNIT_OPTIONS.filter(
+						(option) => option.value === 'minutes'
+					)
+				)
+			} else if (selectedUnit === 'hours') {
+				options.push(
+					...ticketsUtils.UI_COMPONENTS.TIME_UNIT_OPTIONS.filter(
+						(option) => option.value === 'hours'
+					)
+				)
+			} else if (selectedUnit === 'days') {
+				options.push(
+					...ticketsUtils.UI_COMPONENTS.TIME_UNIT_OPTIONS.filter(
+						(option) => option.value === 'days'
+					)
+				)
+			} else if (selectedUnit === 'weeks') {
+				options.push(
+					...ticketsUtils.UI_COMPONENTS.TIME_UNIT_OPTIONS.filter(
+						(option) => option.value === 'weeks'
+					)
+				)
+			}
+
+			const valueSelectRow =
+				new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+					new Discord.StringSelectMenuBuilder()
+						.setCustomId(`autoclose_value_${selectedUnit}`)
+						.setPlaceholder(`Select number of ${selectedUnit}`)
+						.addOptions(options)
+				)
+
+			// Add back buttons
+			const backRow =
+				new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+					new Discord.ButtonBuilder()
+						.setCustomId('autoclose_back')
+						.setLabel('Back to Auto-close Settings')
+						.setStyle(Discord.ButtonStyle.Secondary),
+					new Discord.ButtonBuilder()
+						.setCustomId('ticket_config_back')
+						.setLabel('Back to Main Menu')
+						.setStyle(Discord.ButtonStyle.Secondary)
+				)
+
+			await interaction.editReply({
+				content: `## Set Auto-close Threshold\n\n**Time Unit:** ${selectedUnit}\n\nPlease select a value:`,
+				components: [valueSelectRow, backRow],
+			})
+			return
+		}
+
+		// Handle predefined time selection
+		if (interaction.customId === 'autoclose_predefined_select') {
+			const selectedValue = interaction.values[0]
+			await handleAutoCloseCustomTime(interaction, selectedValue)
+			return
+		}
+
+		// Handle value selection for specific time units
+		if (interaction.customId.startsWith('autoclose_value_')) {
+			const selectedValue = interaction.values[0]
+
+			// Process the value
+			await handleAutoCloseCustomTime(interaction, selectedValue)
+		}
+	} catch (error) {
+		bunnyLog.error('Error handling auto-close time selection:', error)
+		await interaction.followUp({
+			content: 'Failed to update auto-close time threshold. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles the submission of a custom time value for auto-close
+ * @param interaction - The interaction that triggered this handler
+ * @param timeValue - The time value string
+ */
+async function handleAutoCloseCustomTime(
+	interaction:
+		| Discord.StringSelectMenuInteraction
+		| Discord.ModalSubmitInteraction,
+	timeValue: string
+): Promise<void> {
+	try {
+		if (interaction.isModalSubmit()) {
+			await interaction.deferUpdate()
+		}
+
+		// Parse the time value
+		const timeLimitMs = ticketsUtils.parseTimeLimit(timeValue)
+		if (timeLimitMs === 0) {
+			await interaction.followUp({
+				content: `Invalid time format: "${timeValue}". Please use formats like 12h, 3d, or 1w.`,
+				ephemeral: true,
+			})
+			return
+		}
+
+		// Get current config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Initialize auto_close array if needed
+		if (!config.auto_close || !Array.isArray(config.auto_close)) {
+			config.auto_close = [
+				{
+					enabled: false,
+					threshold: timeLimitMs,
+					reason: 'Ticket automatically closed due to inactivity.',
+				},
+			]
+		} else {
+			// Update threshold
+			config.auto_close[0].threshold = timeLimitMs
+		}
+
+		// Save config
+		await api.updatePluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets',
+			config
+		)
+
+		// Get the components for auto-close settings
+		const { toggleRow, timeUnitRow, backRow } =
+			createAutoCloseSettingsComponents(config)
+
+		// Get auto-close settings
+		const autoClose = config.auto_close[0]
+
+		// Create the content for display
+		const content = CONTENT_BUILDERS.createAutoCloseSettingsContent({
+			status: autoClose.enabled ? '✅ Enabled' : '❌ Disabled',
+			threshold: formatTimeThreshold(autoClose.threshold),
+			reason: autoClose.reason,
+		})
+
+		// Update the message with auto-close configuration panel
+		await interaction.editReply({
+			content,
+			components: [toggleRow, timeUnitRow, backRow],
+		})
+
+		// Get the formatted threshold for display
+		const formattedThreshold = formatTimeThreshold(timeLimitMs)
+
+		await interaction.followUp({
+			content: `Auto-close threshold updated to ${formattedThreshold}.`,
+			ephemeral: true,
+		})
+	} catch (error) {
+		bunnyLog.error('Error updating auto-close time:', error)
+		await interaction.followUp({
+			content: 'Failed to update auto-close time threshold. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles the submission of the auto-close reason modal
+ * @param interaction - The modal submit interaction
+ */
+async function handleAutoCloseReasonModal(
+	interaction: Discord.ModalSubmitInteraction
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		// Get the submitted reason
+		const reason = interaction.fields.getTextInputValue(
+			'autoclose_reason_input'
+		)
+
+		// Get current config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Initialize auto_close array if needed
+		if (!config.auto_close || !Array.isArray(config.auto_close)) {
+			config.auto_close = [
+				{
+					enabled: false,
+					threshold: 72 * 60 * 60 * 1000, // 72 hours default
+					reason: reason,
+				},
+			]
+		} else {
+			// Update reason
+			config.auto_close[0].reason = reason
+		}
+
+		// Save config
+		await api.updatePluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets',
+			config
+		)
+
+		// Get auto-close settings
+		const autoClose = config.auto_close[0]
+
+		// Get the components for auto-close settings
+		const { toggleRow, timeUnitRow, backRow } =
+			createAutoCloseSettingsComponents(config)
+
+		// Create the content for display
+		const content = CONTENT_BUILDERS.createAutoCloseSettingsContent({
+			status: autoClose.enabled ? '✅ Enabled' : '❌ Disabled',
+			threshold: formatTimeThreshold(autoClose.threshold),
+			reason: autoClose.reason,
+		})
+
+		// Update the message with auto-close configuration panel
+		await interaction.editReply({
+			content,
+			components: [toggleRow, timeUnitRow, backRow],
+		})
+
+		await interaction.followUp({
+			content: 'Auto-close reason updated successfully.',
+			ephemeral: true,
+		})
+	} catch (error) {
+		bunnyLog.error('Error updating auto-close reason:', error)
+		await interaction.followUp({
+			content: 'Failed to update auto-close reason. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles adding role time limits
+ * @param interaction - The button interaction
+ */
+async function handleAddRoleTimeLimitComponent(
+	interaction: Discord.ButtonInteraction
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		// Create role select menu
+		const roleSelectRow =
+			new Discord.ActionRowBuilder<Discord.RoleSelectMenuBuilder>().addComponents(
+				new Discord.RoleSelectMenuBuilder()
+					.setCustomId('time_limit_role_select')
+					.setPlaceholder('Select a role to add time limit')
+			)
+
+		// Add back button
+		const backRow =
+			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+				new Discord.ButtonBuilder()
+					.setCustomId('ticket_config_back')
+					.setLabel('Back to Main Menu')
+					.setStyle(Discord.ButtonStyle.Secondary)
+			)
+
+		// Update message with role select menu
+		await interaction.editReply({
+			content:
+				'## Add Role Time Limit\n\nSelect a role to add a time limit to:',
+			components: [roleSelectRow, backRow],
+		})
+
+		// Create collector for role selection
+		const message = await interaction.fetchReply()
+		const roleCollector = message.createMessageComponentCollector({
+			filter: (i) =>
+				i.customId === 'time_limit_role_select' &&
+				i.user.id === interaction.user.id,
+			time: 300000,
+			max: 1,
+		})
+
+		roleCollector.on('collect', async (roleInteraction) => {
+			try {
+				await roleInteraction.deferUpdate()
+
+				if (!roleInteraction.isRoleSelectMenu()) return
+
+				const selectedRoleId = roleInteraction.values[0]
+
+				// Create time unit select menu
+				const timeUnitSelectRow = UI_BUILDERS.createTimeUnitMenuRow(
+					'time_limit_unit_select'
+				)
+
+				// Update message with time unit selection
+				await roleInteraction.editReply({
+					content: `## Add Time Limit for <@&${selectedRoleId}>\n\nSelect a time unit:`,
+					components: [timeUnitSelectRow, backRow],
+				})
+
+				// Create collector for time unit selection
+				const timeUnitCollector = message.createMessageComponentCollector({
+					filter: (i) =>
+						(i.customId === 'time_limit_unit_select' ||
+							i.customId === 'time_limit_predefined_select' ||
+							i.customId.startsWith('time_limit_value_')) &&
+						i.user.id === interaction.user.id,
+					time: 300000,
+				})
+
+				timeUnitCollector.on('collect', async (timeInteraction) => {
+					if (!timeInteraction.isStringSelectMenu()) return
+
+					await timeInteraction.deferUpdate()
+
+					// Handle time unit selection
+					if (timeInteraction.customId === 'time_limit_unit_select') {
+						const selectedUnit = timeInteraction.values[0]
+
+						if (selectedUnit === 'predefined') {
+							const predefinedSelectRow =
+								new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+									UI_BUILDERS.createPredefinedTimeMenu(
+										'time_limit_predefined_select'
+									)
+								)
+
+							// Update message with predefined options
+							await timeInteraction.editReply({
+								content: `## Add Time Limit for <@&${selectedRoleId}>\n\nSelect a predefined time limit:`,
+								components: [predefinedSelectRow, backRow],
+							})
+						} else {
+							// For specific units, create options
+							const options: { label: string; value: string }[] = []
+
+							switch (selectedUnit) {
+								case 'minutes':
+									for (let i = 5; i <= 60; i += 5) {
+										options.push({
+											label: `${i} minutes`,
+											value: i.toString(),
+										})
+									}
+									break
+								case 'hours':
+									for (let i = 1; i <= 24; i++) {
+										options.push({ label: `${i} hours`, value: i.toString() })
+									}
+									break
+								case 'days':
+									for (let i = 1; i <= 30; i++) {
+										options.push({ label: `${i} days`, value: i.toString() })
+									}
+									break
+								case 'weeks':
+									for (let i = 1; i <= 4; i++) {
+										options.push({ label: `${i} weeks`, value: i.toString() })
+									}
+									break
+							}
+
+							const valueSelectRow =
+								new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+									new Discord.StringSelectMenuBuilder()
+										.setCustomId(`time_limit_value_${selectedUnit}`)
+										.setPlaceholder(`Select number of ${selectedUnit}`)
+										.addOptions(options)
+								)
+
+							// Update message with value selection
+							await timeInteraction.editReply({
+								content: `## Add Time Limit for <@&${selectedRoleId}>\n\nSelect a value:`,
+								components: [valueSelectRow, backRow],
+							})
+						}
+					} else if (
+						timeInteraction.customId === 'time_limit_predefined_select'
+					) {
+						// Handle predefined time selection
+						const timeValue = timeInteraction.values[0]
+						await saveRoleTimeLimit(timeInteraction, selectedRoleId, timeValue)
+						timeUnitCollector.stop()
+					} else if (timeInteraction.customId.startsWith('time_limit_value_')) {
+						// Handle specific value selection
+						const selectedValue = timeInteraction.values[0]
+						const timeUnit = timeInteraction.customId.replace(
+							'time_limit_value_',
+							''
+						)
+
+						// Map unit to suffix
+						const unitSuffix =
+							timeUnit === 'minutes'
+								? 'm'
+								: timeUnit === 'hours'
+									? 'h'
+									: timeUnit === 'days'
+										? 'd'
+										: timeUnit === 'weeks'
+											? 'w'
+											: ''
+
+						// Save with proper format
+						await saveRoleTimeLimit(
+							timeInteraction,
+							selectedRoleId,
+							`${selectedValue}${unitSuffix}`
+						)
+						timeUnitCollector.stop()
+					}
+				})
+
+				// Handle time unit collector end
+				timeUnitCollector.on('end', async (collected, reason) => {
+					if (reason === 'time' && collected.size === 0) {
+						// Timeout with no selection
+						await interaction.followUp({
+							content: 'Time limit selection timed out.',
+							ephemeral: true,
+						})
+					}
+				})
+			} catch (error) {
+				bunnyLog.error('Error handling role selection:', error)
+				await interaction.followUp({
+					content: 'An error occurred while processing role selection.',
+					ephemeral: true,
+				})
+			}
+		})
+
+		// Handle role collector end
+		roleCollector.on('end', async (collected, reason) => {
+			if (reason === 'time' && collected.size === 0) {
+				// Timeout with no selection
+				await interaction.followUp({
+					content: 'Role selection timed out.',
+					ephemeral: true,
+				})
+			}
+		})
+	} catch (error) {
+		bunnyLog.error('Error handling add role time limit:', error)
+		await interaction.followUp({
+			content: 'Failed to add role time limit. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Saves a role time limit to the configuration
+ * @param interaction - The interaction that triggered this save
+ * @param roleId - The role ID to add the limit to
+ * @param timeLimit - The time limit value
+ */
+async function saveRoleTimeLimit(
+	interaction: Discord.StringSelectMenuInteraction,
+	roleId: string,
+	timeLimit: string
+): Promise<void> {
+	try {
+		const timeLimitMs = ticketsUtils.parseTimeLimit(timeLimit)
+		if (timeLimitMs === 0) {
+			await interaction.followUp({
+				content: `Invalid time format: "${timeLimit}". Please use formats like 12h, 3d, or 1w.`,
+				ephemeral: true,
+			})
+			return
+		}
+
+		// Get current config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Initialize role_time_limits array if needed
+		if (!config.role_time_limits) {
+			config.role_time_limits = []
+		}
+
+		// Check if this role already has a limit
+		const existingIndex = config.role_time_limits.findIndex(
+			(limit) => limit.role_id === roleId
+		)
+
+		if (existingIndex !== -1) {
+			// Update existing limit
+			config.role_time_limits[existingIndex].limit = timeLimit
+		} else {
+			// Add new limit
+			config.role_time_limits.push({
+				role_id: roleId,
+				limit: timeLimit,
+			})
+		}
+
+		// Save config
+		await api.updatePluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets',
+			config
+		)
+
+		// Get role name for display
+		const role = await interaction.guild?.roles.fetch(roleId)
+		const roleName = role?.name || 'Unknown role'
+
+		// Show success message
+		await interaction.followUp({
+			content: `Time limit for @${roleName} set to ${timeLimit} between tickets.`,
+			ephemeral: true,
+		})
+
+		// Return to time limits config page
+		await handleRoleTimeLimitsConfig(interaction, config)
+	} catch (error) {
+		bunnyLog.error('Error saving role time limit:', error)
+		await interaction.followUp({
+			content: 'Failed to save role time limit. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles removal of role time limits
+ * @param interaction - The button interaction
+ */
+async function handleRemoveRoleTimeLimit(
+	interaction: Discord.ButtonInteraction
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		// Get current config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Check if there are any limits to remove
+		if (
+			!config.role_time_limits ||
+			!Array.isArray(config.role_time_limits) ||
+			config.role_time_limits.length === 0
+		) {
+			await interaction.followUp({
+				content: 'There are no role time limits to remove.',
+				ephemeral: true,
+			})
+
+			// Return to time limits config page
+			await handleRoleTimeLimitsConfig(interaction, config)
+			return
+		}
+
+		// Generate options for select menu from existing limits
+		const limitOptions = await Promise.all(
+			config.role_time_limits.map(async (limit, index) => {
+				const role = await interaction.guild?.roles.fetch(limit.role_id)
+				return {
+					label: role ? `@${role.name}` : `Role ID: ${limit.role_id}`,
+					description: `Current limit: ${limit.limit}`,
+					value: index.toString(),
+				}
+			})
+		)
+
+		// Create select menu
+		const selectRow =
+			new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+				new Discord.StringSelectMenuBuilder()
+					.setCustomId(ROLE_TIME_LIMIT_REMOVE_SELECT_ID)
+					.setPlaceholder('Select a role limit to remove')
+					.addOptions(limitOptions)
+			)
+
+		// Add back button
+		const backRow =
+			new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+				new Discord.ButtonBuilder()
+					.setCustomId('ticket_config_back')
+					.setLabel('Back to Main Menu')
+					.setStyle(Discord.ButtonStyle.Secondary)
+			)
+
+		// Update message with remove selection
+		await interaction.editReply({
+			content:
+				'## Remove Role Time Limit\n\nSelect a role time limit to remove:',
+			components: [selectRow, backRow],
+		})
+	} catch (error) {
+		bunnyLog.error('Error handling remove role time limit:', error)
+		await interaction.followUp({
+			content: 'Failed to load role time limits. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles selection of role time limit to remove
+ * @param interaction - The select menu interaction
+ */
+async function handleRemoveRoleTimeLimitSelect(
+	interaction: Discord.StringSelectMenuInteraction
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		// Get current config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Get the selected limit index
+		const selectedIndex = Number.parseInt(interaction.values[0], 10)
+
+		// Check if index is valid
+		if (
+			!config.role_time_limits ||
+			!Array.isArray(config.role_time_limits) ||
+			selectedIndex < 0 ||
+			selectedIndex >= config.role_time_limits.length
+		) {
+			await interaction.followUp({
+				content: 'Invalid selection. Please try again.',
+				ephemeral: true,
+			})
+			return
+		}
+
+		// Get role info for confirmation message
+		const roleId = config.role_time_limits[selectedIndex].role_id
+		const role = await interaction.guild?.roles.fetch(roleId)
+		const roleName = role?.name || 'Unknown role'
+		const timeLimit = config.role_time_limits[selectedIndex].limit
+
+		// Remove the selected limit
+		config.role_time_limits.splice(selectedIndex, 1)
+
+		// Save config
+		await api.updatePluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets',
+			config
+		)
+
+		// Show confirmation
+		await interaction.followUp({
+			content: `Time limit for @${roleName} (${timeLimit}) has been removed.`,
+			ephemeral: true,
+		})
+
+		// Return to time limits config page
+		await handleRoleTimeLimitsConfig(interaction, config)
+	} catch (error) {
+		bunnyLog.error('Error removing role time limit:', error)
+		await interaction.followUp({
+			content: 'Failed to remove role time limit. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles auto-close ticket modal (placeholder handler)
+ * @param interaction - The modal submit interaction
+ */
+async function handleTicketAutocloseModal(
+	interaction: Discord.ModalSubmitInteraction
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		await interaction.followUp({
+			content: 'Auto-close settings updated.',
+			ephemeral: true,
+		})
+
+		// Return to main config
+		await handleBackToMainConfig(
+			interaction as unknown as Discord.ButtonInteraction
+		)
+	} catch (error) {
+		bunnyLog.error('Error handling ticket autoclose modal:', error)
+		await interaction.followUp({
+			content: 'Failed to process autoclose settings. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles setting the auto-close reason button
+ * @param interaction - The button interaction
+ */
+async function handleSetAutoCloseReason(
+	interaction: Discord.ButtonInteraction
+): Promise<void> {
+	try {
+		// Get current config to show existing reason
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Get the current reason or default
+		const currentReason =
+			config.auto_close?.[0]?.reason ||
+			'Ticket automatically closed due to inactivity.'
+
+		// Create the modal
+		const modal = new Discord.ModalBuilder()
+			.setCustomId('autoclose_reason_modal')
+			.setTitle('Auto-close Reason')
+
+		const reasonInput = new Discord.TextInputBuilder()
+			.setCustomId('autoclose_reason_input')
+			.setLabel('Enter the reason for auto-closing tickets')
+			.setStyle(Discord.TextInputStyle.Paragraph)
+			.setValue(currentReason)
+			.setRequired(true)
+
+		const actionRow =
+			new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
+				reasonInput
+			)
+
+		modal.addComponents(actionRow)
+
+		await interaction.showModal(modal)
+	} catch (error) {
+		bunnyLog.error('Error showing auto-close reason modal:', error)
+		await interaction.followUp({
+			content: 'Failed to open reason setting form. Please try again.',
+			ephemeral: true,
+		})
+	}
+}
+
+/**
+ * Handles going back to the auto-close settings
+ * @param interaction - The button interaction
+ */
+async function handleAutoCloseBack(
+	interaction: Discord.ButtonInteraction
+): Promise<void> {
+	try {
+		await interaction.deferUpdate()
+
+		// Get current config
+		const config = await api.getPluginConfig(
+			interaction.client.user.id,
+			interaction.guild?.id as Discord.Guild['id'],
+			'tickets'
+		)
+
+		// Get auto-close settings
+		const autoClose = config.auto_close?.[0] ?? {
+			enabled: false,
+			threshold: 72 * 60 * 60 * 1000, // 72 hours default
+			reason: 'Ticket automatically closed due to inactivity.',
+		}
+
+		// Get the components for auto-close settings
+		const { toggleRow, timeUnitRow, backRow } =
+			createAutoCloseSettingsComponents(config)
+
+		// Create the content for display
+		const content = CONTENT_BUILDERS.createAutoCloseSettingsContent({
+			status: autoClose.enabled ? '✅ Enabled' : '❌ Disabled',
+			threshold: formatTimeThreshold(autoClose.threshold),
+			reason: autoClose.reason,
+		})
+
+		// Update the message
+		await interaction.editReply({
+			content,
+			components: [toggleRow, timeUnitRow, backRow],
+		})
+	} catch (error) {
+		bunnyLog.error('Error handling auto-close back button:', error)
+		await interaction.followUp({
+			content: 'Failed to return to auto-close settings. Please try again.',
+			ephemeral: true,
+		})
+	}
 }

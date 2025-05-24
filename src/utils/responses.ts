@@ -1,8 +1,16 @@
 import * as Discord from 'discord.js'
+import * as V2 from 'discord-components-v2'
+import { makeThumbnail } from './Thumbnail.js'
+import { client } from '@/index.js'
+import { Buffer } from 'node:buffer'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import os from 'node:os'
 
 const SUPPORT_SERVER_INVITE = 'https://discord.gg/RfBydgJpmU'
 const OUR_SERVER = '1004735926234271864'
-const SUPPORT_CHANNEL_ID = '1125401664665419837'
+const SUPPORT_CHANNEL_ID = '1263903315780046849'
+const ASSETS_DIR = path.resolve(process.cwd(), 'src/assets')
 
 type ResponseType = 'error' | 'success' | 'info' | 'warning'
 type InteractionType =
@@ -13,135 +21,146 @@ type InteractionType =
 	| Discord.ModalSubmitInteraction
 	| Discord.MessageComponentInteraction
 
-const RESPONSE_TYPES: Record<ResponseType, string> = {
-	error: 'error',
-	success: 'success',
-	info: 'info',
-	warning: 'warning',
-} as const
-const RESPONSE_COLORS: Record<ResponseType, Discord.ColorResolvable> = {
-	error: 0xf23f43, // #F23F43
-	success: 0x219a53, // #219A53
-	info: Discord.Colors.Blurple, // #5865F2
-	warning: 0xf0b232, // #F0B232
-} as const
-
-const RESPONSE_ICONS: Record<ResponseType, string> = {
-	error: '❌',
-	success: '✅',
-	info: '🔍',
-	warning: '⚠️',
-} as const
-
-/**
- * Create a response embed
- * @param {ResponseType} type - The type of response
- * @param {string} message - The message to display
- * @param {string} code - The code to display
- * @returns {Discord.EmbedBuilder} The response embed
- */
-export const createResponseEmbed = (
-	type: ResponseType,
-	message: string,
+// Define base options interface
+interface BaseResponseOptions {
 	code?: string
-): Discord.EmbedBuilder => {
-	const embed = new Discord.EmbedBuilder()
-		.setColor(RESPONSE_COLORS[type])
-		.setTitle(`${RESPONSE_ICONS[type]} ${RESPONSE_TYPES[type]}`)
-
-	// Add the code if it exists
-	if (code) {
-		embed.addFields({ name: 'Code', value: code, inline: true })
-	}
-
-	// Add the message
-	embed.addFields({ name: 'Message', value: message, inline: true })
-
-	return embed
+	ephemeral?: boolean
+	components?: Discord.ActionRowBuilder<
+		Discord.ButtonBuilder | Discord.StringSelectMenuBuilder
+	>[]
 }
 
-/**
- * Handle a response
- * @param {InteractionType} interaction - The interaction
- * @param {ResponseType} type - The type of response
- * @param {string} message - The message to display
- * @param {Object} options - The options for the response
- * @param {string} options.code - The code to display
- * @param {boolean} options.ephemeral - Whether the response should be ephemeral
- * @param {boolean} options.includeSupport - Whether the response should include support information
- * @returns {Promise<void>}
- */
-export const handleResponse = async (
-	interaction: InteractionType,
-	type: ResponseType,
-	message: string,
-	options?: {
-		code?: string
-		ephemeral?: boolean
-		includeSupport?: boolean
-		error?: Error
-	}
-): Promise<void> => {
-	const {
-		code,
-		ephemeral = type === 'error', // Set ephemeral to true for errors by default
-		includeSupport = type === 'error',
-		error,
-	} = options || {}
+// Error-specific options that include the error field
+interface ErrorResponseOptions extends BaseResponseOptions {
+	error?: Error
+}
 
-	// For ChatInputCommandInteraction, defer the reply if not already done
+// Type that changes based on response type
+type ResponseOptions<T extends ResponseType> = T extends 'error'
+	? ErrorResponseOptions
+	: BaseResponseOptions
+
+const RESPONSE_TYPES: Record<ResponseType, string> = {
+	error: 'Error',
+	success: 'Success',
+	info: 'Info',
+	warning: 'Warning',
+} as const
+
+// Use CDN URLs instead of local file paths
+const RESPONSE_THUMBNAILS: Record<ResponseType, string> = {
+	error:
+		'https://cdn.discordapp.com/attachments/1004735926234271864/1263905387650654269/error.png',
+	success:
+		'https://cdn.discordapp.com/attachments/1004735926234271864/1263905387839729664/success.png',
+	info: 'https://cdn.discordapp.com/attachments/1004735926234271864/1263905387445964820/info.png',
+	warning:
+		'https://cdn.discordapp.com/attachments/1004735926234271864/1263905388041613332/warning.png',
+} as const
+
+/**
+ * Handle a response using V2 with enhanced formatting
+ */
+export const handleResponse = async <T extends ResponseType>(
+	interaction: InteractionType,
+	type: T,
+	message: string,
+	options?: ResponseOptions<T>
+): Promise<void> => {
+	const { code, ephemeral, components = [] } = options || {}
+	const BOT_NAME = client.user?.username
+	const BOT_ID = client.user?.id
+
+	const isError = type === 'error'
+	const isOurServer = interaction.guild?.id === OUR_SERVER
+	const error = isError ? (options as ErrorResponseOptions)?.error : undefined
+
 	if (
 		interaction.isChatInputCommand() &&
 		!interaction.deferred &&
 		!interaction.replied
 	) {
-		await interaction.deferReply({ flags: ephemeral ? 64 : undefined })
+		await interaction.deferReply({ ephemeral: ephemeral ?? isError })
 	}
 
-	// For success messages, send as plain text
-	if (type === 'success') {
-		if (interaction.deferred) {
-			await interaction.followUp({ content: message })
-		} else {
-			await interaction.reply({ content: message })
-		}
-		return
-	}
+	// Build all components in a structured way
+	const body = [
+		V2.makeTextDisplay(`## Whoops, <@${BOT_ID}> flopped.`),
+		V2.makeSeparator({
+			spacing: Discord.SeparatorSpacingSize.Large,
+			divider: false,
+		}),
 
-	// For other types (error, warning, info), create and send embed
-	const embed = createResponseEmbed(type, message, code)
+		V2.makeTextDisplay(`### ${RESPONSE_TYPES[type]} ${code && `| #${code}`}`),
+		V2.makeTextDisplay(`> ${message}`),
 
-	// Add error information if provided
-	if (error) {
-		embed.addFields({
-			name: 'Error Details',
-			value: `\`\`\`${error?.message?.slice(0, 1000) || 'Unknown error'}\`\`\``,
-			inline: false,
-		})
-	}
+		...(isError && error
+			? [
+					V2.makeTextDisplay(
+						[
+							'```diff',
+							`[${error.name}] ${error.message.slice(0, 1000)}`,
+							'```',
+						].join('\n')
+					),
+				]
+			: []),
 
-	// Create content parts
-	const contentParts: string[] = []
+		// Spacing after header
+		V2.makeSeparator({
+			spacing: Discord.SeparatorSpacingSize.Large,
+			divider: false,
+		}),
 
-	// Add support information if needed
-	if (includeSupport) {
-		const isOurServer = interaction.guild?.id === OUR_SERVER
-		const botName = interaction.client.user.username || 'Tiny Rabbit'
-		contentParts.push(`Oops! ${botName} flopped! 🐰💫`)
-		contentParts.push(
-			isOurServer ? `<#${SUPPORT_CHANNEL_ID}>` : SUPPORT_SERVER_INVITE
-		)
-	}
+		// Add support section for errors
+		...(isError
+			? [
+					V2.makeTextDisplay(
+						isOurServer
+							? `-# 🎫 Get support in <#${SUPPORT_CHANNEL_ID}>`
+							: '-# ✨ Need help? Join our support server!'
+					),
 
-	const responseOptions = {
-		content: contentParts.join('\n\n'),
-		embeds: [embed],
-		flags: ephemeral ? 64 : undefined,
+					// Add support button if not in our server
+					...(!isOurServer
+						? [
+								V2.makeActionRow([
+									V2.makeButton({
+										label: '🆘 Get Support',
+										style: Discord.ButtonStyle.Link,
+										url: SUPPORT_SERVER_INVITE,
+									}),
+								]),
+							]
+						: []),
+				]
+			: []),
+
+		// Add custom components if any
+		...(components.length > 0
+			? [
+					V2.makeSeparator({
+						spacing: Discord.SeparatorSpacingSize.Large,
+						divider: true,
+					}),
+					...components,
+				]
+			: []),
+	]
+
+	// Prepare the response options
+	const responseOptions: Discord.InteractionReplyOptions = {
+		components: body,
+		ephemeral: ephemeral ?? isError,
+		flags: Discord.MessageFlags.IsComponentsV2,
 	}
 
 	if (interaction.deferred) {
 		await interaction.followUp(responseOptions)
 	} else {
-		await interaction.reply(responseOptions)
+		await interaction.reply({
+			...responseOptions,
+			fetchReply: true,
+		})
 	}
 }
