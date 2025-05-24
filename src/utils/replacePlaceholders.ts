@@ -41,7 +41,16 @@ export function replacePlaceholders(
 		// Replace user avatar
 		.replace(
 			'{avatar}',
-			isGuildMember(user) ? user.user.displayAvatarURL() : ''
+			isGuildMember(user)
+				? user.user.displayAvatarURL({ extension: 'png', size: 1024 })
+				: ''
+		)
+		// Replace user avatar (alternative format)
+		.replace(
+			'{user_avatar}',
+			isGuildMember(user)
+				? user.user.displayAvatarURL({ extension: 'png', size: 1024 })
+				: ''
 		)
 
 		// Replace server name

@@ -197,6 +197,10 @@ type Welcome_Goodbye = {
 	embed_welcome?: EmbedData | null
 	embed_leave?: EmbedData | null
 	join_role_ids?: string[] | null
+	components?: {
+		welcome: TicketMessageTemplate
+		goodbye: TicketMessageTemplate
+	}
 }
 
 type Starboard = {

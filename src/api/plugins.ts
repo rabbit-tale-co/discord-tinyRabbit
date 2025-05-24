@@ -447,6 +447,39 @@ function createTicketEmbeds() {
 	}
 }
 
+const createWelcomeGoodbyeComponents = () => {
+	return {
+		welcome: {
+			type: TicketDisplayMode.Text,
+			components: [
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.TextDisplay,
+							text: '# 👋 Welcome to the server!\n\nWe are glad to have you here. Enjoy your stay!',
+						} as unknown as API.TextDisplay,
+					],
+				} as API.ActionRow,
+			],
+		},
+		goodbye: {
+			type: TicketDisplayMode.Text,
+			components: [
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.TextDisplay,
+							text: '# 👋 Goodbye!\n\nWe hope to see you again soon!',
+						} as unknown as API.TextDisplay,
+					],
+				} as API.ActionRow,
+			],
+		},
+	}
+}
+
 const default_configs: DefaultConfigs = {
 	levels: {
 		enabled: false,
@@ -477,21 +510,20 @@ const default_configs: DefaultConfigs = {
 	welcome_goodbye: {
 		enabled: false,
 		type: 'text',
-		welcome_message: 'Welcome to the server! {user}',
 		welcome_channel_id: null,
-		leave_message: null,
 		leave_channel_id: null,
+		components: createWelcomeGoodbyeComponents(),
 		embed_welcome: {
 			title: '{username} has joined the server!',
 			description: 'We are glad to have you here. Enjoy your stay!',
-			color: Discord.Colors.Blurple,
+			color: 5793266,
 			thumbnail: {
 				url: '{avatar}',
 			},
 		},
 		embed_leave: {
 			title: '{username} has left the server!',
-			color: Discord.Colors.Blurple,
+			color: 5793266,
 			thumbnail: {
 				url: '{avatar}',
 			},
