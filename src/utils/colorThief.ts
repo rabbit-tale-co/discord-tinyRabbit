@@ -1,4 +1,8 @@
-import * as Jimp from 'jimp'
+import { extractColors } from 'extract-colors'
+import getPixels from 'get-pixels'
+import { promisify } from 'node:util'
+
+const getPixelsAsync = promisify(getPixels)
 
 export class ColorThief {
 	/**
@@ -8,47 +12,19 @@ export class ColorThief {
 	 */
 	public async getDominantColor(image_url: string): Promise<string> {
 		try {
-			const image = await Jimp.read(image_url)
-			const colorCounts = new Map<string, number>()
-			const { width, height } = image.bitmap
+			const pixels = await getPixelsAsync(image_url)
+			const data = [...pixels.data]
+			const [width, height] = pixels.shape
 
-			if (width === 0 || height === 0) {
-				throw new Error('Image dimensions are invalid')
+			const colors = await extractColors({ data, width, height })
+			if (colors.length === 0) {
+				throw new Error('No colors could be extracted from the image')
 			}
-
-			for (let y = 0; y < height; y++) {
-				for (let x = 0; x < width; x++) {
-					const { r, g, b } = Jimp.intToRGBA(image.getPixelColor(x, y))
-					const hexColor = this.rgbToHex(r, g, b)
-					colorCounts.set(hexColor, (colorCounts.get(hexColor) || 0) + 1)
-				}
-			}
-
-			let dominantColor = ''
-			let maxCount = 0
-
-			for (const [color, count] of colorCounts) {
-				if (count > maxCount) {
-					maxCount = count
-					dominantColor = color
-				}
-			}
-
-			return dominantColor
+			// Return the hex of the most dominant color (first in array)
+			return colors[0].hex.toUpperCase()
 		} catch (error) {
 			throw new Error(`Error fetching the dominant color: ${error.message}`)
 		}
-	}
-
-	/**
-	 * Converts RGB values to HEX format.
-	 * @param r - The red value (0-255).
-	 * @param g - The green value (0-255).
-	 * @param b - The blue value (0-255).
-	 * @returns The color in HEX format.
-	 */
-	private rgbToHex(r: number, g: number, b: number): string {
-		return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0').toUpperCase()}`
 	}
 }
 

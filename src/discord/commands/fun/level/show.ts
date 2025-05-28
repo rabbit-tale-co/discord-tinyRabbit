@@ -1,12 +1,12 @@
 import * as Discord from 'discord.js'
 import * as utils from '@/utils/index.js'
 import * as api from '@/discord/api/index.js'
-import * as V2 from 'discord-components-v2'
 
 export async function showLevel(
 	interaction: Discord.ChatInputCommandInteraction
 ): Promise<void> {
 	try {
+		// Defer the reply first, not ephemeral for normal display
 		await interaction.deferReply()
 
 		const guildId = interaction.guildId
@@ -118,6 +118,7 @@ export async function showLevel(
 
 		await interaction.editReply(messageOptions)
 	} catch (error) {
+		// For errors, we want to followUp with ephemeral message since we already deferred
 		await utils.handleResponse(interaction, 'error', error.message, {
 			code: 'XP004',
 			ephemeral: true,
