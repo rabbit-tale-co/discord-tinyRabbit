@@ -1,6 +1,5 @@
 import type {
 	ButtonStyle,
-	EmbedData,
 	APIEmbed,
 	ActionRowComponent,
 	ButtonComponent,
@@ -67,7 +66,7 @@ export namespace API {
 			name?: string
 			animated?: boolean
 		}
-		customId?: string
+		custom_id?: string
 		url?: string
 		disabled?: boolean
 	}
@@ -77,9 +76,15 @@ export namespace API {
 		text: string
 	}
 
+	export interface Separator extends MessageComponent {
+		type: 14
+		divider: boolean
+		spacing: number
+	}
+
 	export interface SelectMenu extends MessageComponent {
 		type: 3
-		customId: string
+		custom_id: string
 		options: SelectOption[]
 		placeholder?: string
 		minValues?: number
@@ -106,6 +111,7 @@ export type ComponentsV2 =
 	| API.Button
 	| API.TextDisplay
 	| API.SelectMenu
+	| API.Separator
 	| ActionRowComponent
 	| ButtonComponent
 	| StringSelectMenuComponent
@@ -122,36 +128,23 @@ export type ComponentsV2 =
 	| SeparatorComponent
 	| ContainerComponent
 
-// Display mode for ticket messages
-export enum TicketDisplayMode {
-	Embed = 'embed',
-	Text = 'text',
-}
-
-// Define the structure for a single ticket message template
-export type TicketMessageTemplate = {
-	type: TicketDisplayMode | string
-	components?: ComponentsV2[]
-	embed?: TicketEmbed | null
-}
-
 // Define the structure for all ticket message types
 export type TicketTemplates = {
-	open_ticket?: TicketMessageTemplate | null
-	opened_ticket?: TicketMessageTemplate | null
-	user_ticket?: TicketMessageTemplate | null
-	closed_ticket?: TicketMessageTemplate | null
-	confirm_close_ticket?: TicketMessageTemplate | null
-	admin_ticket?: TicketMessageTemplate | null
-	transcript?: TicketMessageTemplate | null
+	open_ticket?: ComponentsV2[] | null
+	opened_ticket?: ComponentsV2[] | null
+	user_ticket?: ComponentsV2[] | null
+	closed_ticket?: ComponentsV2[] | null
+	confirm_close_ticket?: ComponentsV2[] | null
+	admin_ticket?: ComponentsV2[] | null
+	transcript?: ComponentsV2[] | null
 	// System messages
-	inactivity_notice?: TicketMessageTemplate | null
-	rating_survey?: TicketMessageTemplate | null
-	ticket_claimed?: TicketMessageTemplate | null
-	close_confirmation?: TicketMessageTemplate | null // Displayed when a ticket is closed
-	close_reason_modal?: TicketMessageTemplate | null // Text for the close reason modal
-	no_permission?: TicketMessageTemplate | null // No permission to perform action
-	auto_close_warning?: TicketMessageTemplate | null // Warning about upcoming auto-close
+	inactivity_notice?: ComponentsV2[] | null
+	rating_survey?: ComponentsV2[] | null
+	ticket_claimed?: ComponentsV2[] | null
+	close_confirmation?: ComponentsV2[] | null // Displayed when a ticket is closed
+	close_reason_modal?: ComponentsV2[] | null // Text for the close reason modal
+	no_permission?: ComponentsV2[] | null // No permission to perform action
+	auto_close_warning?: ComponentsV2[] | null // Warning about upcoming auto-close
 }
 
 // Define the separate embed templates for backward compatibility
@@ -182,24 +175,20 @@ export type Ticket = {
 		role_id: string
 		limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
 	}> | null
-	display_type?: TicketDisplayMode | string // Global display mode preference
 	components?: TicketTemplates
 	embeds?: TicketEmbedTemplates
 }
 
 type Welcome_Goodbye = {
 	enabled?: boolean
-	type: 'embed' | 'text'
 	welcome_message?: string | null
 	welcome_channel_id?: string | null
 	leave_message?: string | null
 	leave_channel_id?: string | null
-	embed_welcome?: EmbedData | null
-	embed_leave?: EmbedData | null
 	join_role_ids?: string[] | null
 	components?: {
-		welcome: TicketMessageTemplate
-		goodbye: TicketMessageTemplate
+		welcome: ComponentsV2[]
+		goodbye: ComponentsV2[]
 	}
 }
 
@@ -215,6 +204,8 @@ type Birthday = {
 	enabled?: boolean
 	channel_id?: string | null
 	message?: string | null
+	show_age?: boolean
+	components?: ComponentsV2[]
 }
 
 type TempVC = {

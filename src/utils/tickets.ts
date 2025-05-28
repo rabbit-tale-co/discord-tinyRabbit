@@ -1,7 +1,7 @@
 import type { DefaultConfigs } from '@/types/plugins.js'
 import type { PluginResponse } from '@/types/plugins.js'
 import * as Discord from 'discord.js'
-import * as api from '@/api/index.js'
+import * as api from '@/discord/api/index.js'
 
 export const MS_IN = {
 	second: 1000,
@@ -135,32 +135,32 @@ export function parseTimeLimit(input: string | number): number {
 export const UI_BUILDERS = {
 	/**
 	 * Creates a standard back button for navigation
-	 * @param customId - The custom ID for the button
+	 * @param custom_id - The custom ID for the button
 	 * @param label - The label for the button (defaults to 'Back')
-	 * @returns A button builder with the specified customId and label
+	 * @returns A button builder with the specified custom_id and label
 	 */
 	createBackButton(
-		customId = 'ticket_config_back',
+		custom_id = 'ticket_config_back',
 		label = 'Back to Main Menu'
 	) {
 		return new Discord.ButtonBuilder()
-			.setCustomId(customId)
+			.setcustom_id(custom_id)
 			.setLabel(label)
 			.setStyle(Discord.ButtonStyle.Secondary)
 	},
 
 	/**
 	 * Creates a row with just a back button
-	 * @param customId - The custom ID for the button
+	 * @param custom_id - The custom ID for the button
 	 * @param label - The label for the button
 	 * @returns An action row with a back button
 	 */
 	createBackButtonRow(
-		customId = 'ticket_config_back',
+		custom_id = 'ticket_config_back',
 		label = 'Back to Main Menu'
 	) {
 		return new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-			this.createBackButton(customId, label)
+			this.createBackButton(custom_id, label)
 		)
 	},
 
@@ -178,7 +178,7 @@ export const UI_BUILDERS = {
 	) {
 		return new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
 			new Discord.ButtonBuilder()
-				.setCustomId(enableId)
+				.setcustom_id(enableId)
 				.setLabel('Enable')
 				.setStyle(
 					enabledState
@@ -187,7 +187,7 @@ export const UI_BUILDERS = {
 				)
 				.setDisabled(enabledState),
 			new Discord.ButtonBuilder()
-				.setCustomId(disableId)
+				.setcustom_id(disableId)
 				.setLabel('Disable')
 				.setStyle(
 					!enabledState
@@ -209,7 +209,7 @@ export const UI_BUILDERS = {
 		// Add set reason button
 		row.addComponents(
 			new Discord.ButtonBuilder()
-				.setCustomId('autoclose_set_reason')
+				.setcustom_id('autoclose_set_reason')
 				.setLabel('Set Reason')
 				.setStyle(Discord.ButtonStyle.Primary)
 		)
@@ -219,13 +219,13 @@ export const UI_BUILDERS = {
 
 	/**
 	 * Creates a time unit selection menu
-	 * @param customId - The custom ID for the select menu
+	 * @param custom_id - The custom ID for the select menu
 	 * @param placeholder - The placeholder text for the menu
 	 * @param includePredefined - Whether to include predefined values option
 	 * @returns A select menu builder with time unit options
 	 */
 	createTimeUnitMenu(
-		customId: string,
+		custom_id: string,
 		placeholder = 'Select time unit',
 		includePredefined = true
 	) {
@@ -239,77 +239,77 @@ export const UI_BUILDERS = {
 				]
 
 		return new Discord.StringSelectMenuBuilder()
-			.setCustomId(customId)
+			.setcustom_id(custom_id)
 			.setPlaceholder(placeholder)
 			.addOptions(optionsArray)
 	},
 
 	/**
 	 * Creates a row with a time unit selection menu
-	 * @param customId - The custom ID for the select menu
+	 * @param custom_id - The custom ID for the select menu
 	 * @param placeholder - The placeholder text for the menu
 	 * @param includePredefined - Whether to include predefined values option
 	 * @returns An action row with a time unit selection menu
 	 */
 	createTimeUnitMenuRow(
-		customId: string,
+		custom_id: string,
 		placeholder = 'Select time unit',
 		includePredefined = true
 	) {
 		return new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
-			this.createTimeUnitMenu(customId, placeholder, includePredefined)
+			this.createTimeUnitMenu(custom_id, placeholder, includePredefined)
 		)
 	},
 
 	/**
 	 * Creates a predefined time options select menu
-	 * @param customId - The custom ID for the select menu
+	 * @param custom_id - The custom ID for the select menu
 	 * @param placeholder - The placeholder text for the menu
 	 * @returns A select menu builder with predefined time options
 	 */
 	createPredefinedTimeMenu(
-		customId: string,
+		custom_id: string,
 		placeholder = 'Select a predefined time limit'
 	) {
 		// Convert readonly array to mutable array
 		const optionsArray = [...UI_COMPONENTS.PREDEFINED_TIME_OPTIONS]
 
 		return new Discord.StringSelectMenuBuilder()
-			.setCustomId(customId)
+			.setcustom_id(custom_id)
 			.setPlaceholder(placeholder)
 			.addOptions(optionsArray)
 	},
 
 	/**
 	 * Creates a row with a predefined time options select menu
-	 * @param customId - The custom ID for the select menu
+	 * @param custom_id - The custom ID for the select menu
 	 * @param placeholder - The placeholder text for the menu
 	 * @returns An action row with a predefined time options select menu
 	 */
 	createPredefinedTimeMenuRow(
-		customId: string,
+		custom_id: string,
 		placeholder = 'Select a predefined time limit'
 	) {
 		return new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
-			this.createPredefinedTimeMenu(customId, placeholder)
+			this.createPredefinedTimeMenu(custom_id, placeholder)
 		)
 	},
 
 	/**
 	 * Creates a row with a channel select menu
-	 * @param customId - The custom ID for the select menu
+	 * @param custom_id - The custom ID for the select menu
 	 * @param placeholder - The placeholder text for the menu
 	 * @param channelTypes - The types of channels to include
 	 * @returns An action row with a channel select menu
 	 */
 	createChannelSelectRow(
-		customId: string,
+		custom_id: string,
 		placeholder: string,
 		channelTypes = [Discord.ChannelType.GuildText]
 	) {
 		return new Discord.ActionRowBuilder<Discord.ChannelSelectMenuBuilder>().addComponents(
 			new Discord.ChannelSelectMenuBuilder()
-				.setCustomId(customId)
+				.setcustom_id(custom_id)
 				.setPlaceholder(placeholder)
 				.setChannelTypes(channelTypes)
 		)
@@ -317,21 +317,21 @@ export const UI_BUILDERS = {
 
 	/**
 	 * Creates a row with a role select menu
-	 * @param customId - The custom ID for the select menu
+	 * @param custom_id - The custom ID for the select menu
 	 * @param placeholder - The placeholder text for the menu
 	 * @param minValues - Minimum number of roles to select
 	 * @param maxValues - Maximum number of roles to select
 	 * @returns An action row with a role select menu
 	 */
 	createRoleSelectRow(
-		customId: string,
+		custom_id: string,
 		placeholder: string,
 		minValues = 0,
 		maxValues = 10
 	) {
 		return new Discord.ActionRowBuilder<Discord.RoleSelectMenuBuilder>().addComponents(
 			new Discord.RoleSelectMenuBuilder()
-				.setCustomId(customId)
+				.setcustom_id(custom_id)
 				.setPlaceholder(placeholder)
 				.setMinValues(minValues)
 				.setMaxValues(maxValues)
@@ -496,7 +496,7 @@ export const ticketUtils = {
 	createToggleButtons(enabled: boolean) {
 		return new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
 			new Discord.ButtonBuilder()
-				.setCustomId('autoclose_enable')
+				.setcustom_id('autoclose_enable')
 				.setLabel('Enable')
 				.setStyle(
 					enabled ? Discord.ButtonStyle.Success : Discord.ButtonStyle.Secondary
@@ -504,9 +504,9 @@ export const ticketUtils = {
 		)
 	},
 
-	createTimeUnitSelector(customId: string, includePredefined = true) {
+	createTimeUnitSelector(custom_id: string, includePredefined = true) {
 		return UI_BUILDERS.createTimeUnitMenuRow(
-			customId,
+			custom_id,
 			'Select time unit',
 			includePredefined
 		)

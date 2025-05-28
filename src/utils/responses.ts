@@ -1,7 +1,7 @@
 import * as Discord from 'discord.js'
 import * as V2 from 'discord-components-v2'
 import { makeThumbnail } from './Thumbnail.js'
-import { client } from '@/index.js'
+import { client } from '@/server.js'
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -80,16 +80,22 @@ export const handleResponse = async <T extends ResponseType>(
 		!interaction.deferred &&
 		!interaction.replied
 	) {
-		await interaction.deferReply({ ephemeral: ephemeral ?? isError })
+		await interaction.deferReply({
+			flags: ephemeral ?? isError ? Discord.MessageFlags.Ephemeral : undefined,
+		})
 	}
 
 	// Build all components in a structured way
 	const body = [
-		V2.makeTextDisplay(`## Whoops, <@${BOT_ID}> flopped.`),
-		V2.makeSeparator({
-			spacing: Discord.SeparatorSpacingSize.Large,
-			divider: false,
-		}),
+		...(isError
+			? [
+					V2.makeTextDisplay(`## Whoops, <@${BOT_ID}> flopped.`),
+					V2.makeSeparator({
+						spacing: Discord.SeparatorSpacingSize.Large,
+						divider: false,
+					}),
+				]
+			: []),
 
 		V2.makeTextDisplay(`### ${RESPONSE_TYPES[type]} ${code && `| #${code}`}`),
 		V2.makeTextDisplay(`> ${message}`),
@@ -148,19 +154,18 @@ export const handleResponse = async <T extends ResponseType>(
 			: []),
 	]
 
-	// Prepare the response options
+	// Prepare the response options with proper flags
+	const isEphemeral = ephemeral ?? isError
 	const responseOptions: Discord.InteractionReplyOptions = {
 		components: body,
-		ephemeral: ephemeral ?? isError,
-		flags: Discord.MessageFlags.IsComponentsV2,
+		flags: isEphemeral
+			? [Discord.MessageFlags.IsComponentsV2, Discord.MessageFlags.Ephemeral]
+			: Discord.MessageFlags.IsComponentsV2,
 	}
 
 	if (interaction.deferred) {
 		await interaction.followUp(responseOptions)
 	} else {
-		await interaction.reply({
-			...responseOptions,
-			fetchReply: true,
-		})
+		await interaction.reply(responseOptions)
 	}
 }

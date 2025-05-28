@@ -24,19 +24,19 @@
         "src/api/*"
       ],
       "@/commands/*": [
-        "src/commands/*"
+        "src/discord/commands/*"
       ],
       "@/events/*": [
-        "src/events/*"
+        "src/discord/events/*"
       ],
       "@/plugins/*": [
-        "src/plugins/*"
+        "src/discord/plugins/*"
       ],
       "@/components/*": [
-        "src/components/*"
+        "src/discord/components/*"
       ],
       "@/services/*": [
-        "src/services/*"
+        "src/discord/services/*"
       ],
     }
   }

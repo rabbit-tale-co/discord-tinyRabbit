@@ -1,6 +1,0 @@
-export * as bday from './fun/bday.js'
-export * as level from './level.js'
-export * as clean from './moderation/clean.js'
-export * as ticket from './moderation/tickets/index.js'
-export * as music from './music.js'
-export * as economy from './fun/economy.js'

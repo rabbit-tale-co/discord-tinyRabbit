@@ -3,8 +3,8 @@
   "version": "2.3.0",
   "description": "",
   "scripts": {
-    "start": "bun run src/index.ts",
-    "deploy": "pm2 start src/index.ts --name TinyRabbit_Discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
+    "start": "bun run src/server.ts",
+    "deploy": "pm2 start src/server.ts --name TinyRabbit_Discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
     "cloc": "bun run src/utils/cloc.ts",
     "add-commands": "bun run src/deploy-commands.ts",
     "stop": "pm2 stop TinyRabbit_Discord",
