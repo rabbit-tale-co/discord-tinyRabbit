@@ -25,6 +25,7 @@ type InteractionType =
 interface BaseResponseOptions {
 	code?: string
 	ephemeral?: boolean
+	followUp?: boolean
 	components?: Discord.ActionRowBuilder<
 		Discord.ButtonBuilder | Discord.StringSelectMenuBuilder
 	>[]
@@ -67,21 +68,24 @@ export const handleResponse = async <T extends ResponseType>(
 	message: string,
 	options?: ResponseOptions<T>
 ): Promise<void> => {
-	const { code, ephemeral, components = [] } = options || {}
+	const { code, ephemeral, followUp, components = [] } = options || {}
 	const BOT_NAME = client.user?.username
 	const BOT_ID = client.user?.id
 
 	const isError = type === 'error'
 	const isOurServer = interaction.guild?.id === OUR_SERVER
 	const error = isError ? (options as ErrorResponseOptions)?.error : undefined
+	const shouldBeEphemeral = ephemeral ?? isError
 
+	// Don't defer if we're following up
 	if (
 		interaction.isChatInputCommand() &&
 		!interaction.deferred &&
-		!interaction.replied
+		!interaction.replied &&
+		!followUp
 	) {
 		await interaction.deferReply({
-			flags: ephemeral ?? isError ? Discord.MessageFlags.Ephemeral : undefined,
+			ephemeral: shouldBeEphemeral,
 		})
 	}
 
@@ -154,18 +158,32 @@ export const handleResponse = async <T extends ResponseType>(
 			: []),
 	]
 
-	// Prepare the response options with proper flags
-	const isEphemeral = ephemeral ?? isError
-	const responseOptions: Discord.InteractionReplyOptions = {
+	// Prepare base options
+	const baseOptions = {
 		components: body,
-		flags: isEphemeral
-			? [Discord.MessageFlags.IsComponentsV2, Discord.MessageFlags.Ephemeral]
-			: Discord.MessageFlags.IsComponentsV2,
 	}
 
-	if (interaction.deferred) {
-		await interaction.followUp(responseOptions)
+	// Add flags based on the interaction type
+	if (followUp || !interaction.deferred) {
+		// For followUp and initial replies, we can include ephemeral
+		const replyOptions: Discord.InteractionReplyOptions = {
+			...baseOptions,
+			flags: shouldBeEphemeral
+				? Discord.MessageFlags.IsComponentsV2 | Discord.MessageFlags.Ephemeral
+				: Discord.MessageFlags.IsComponentsV2,
+		}
+
+		if (followUp) {
+			await interaction.followUp(replyOptions)
+		} else {
+			await interaction.reply(replyOptions)
+		}
 	} else {
-		await interaction.reply(responseOptions)
+		// For editReply, we can't include ephemeral flag
+		const editReplyOptions: Discord.InteractionEditReplyOptions = {
+			...baseOptions,
+			flags: Discord.MessageFlags.IsComponentsV2,
+		}
+		await interaction.editReply(editReplyOptions)
 	}
 }

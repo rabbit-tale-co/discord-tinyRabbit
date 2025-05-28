@@ -1,7 +1,7 @@
 {
   "name": "tiny-rabbit-discord",
   "version": "2.3.1",
-  "description": "",
+  "description": "A modular Discord bot with core functionality for community management and engagement.",
   "scripts": {
     "start": "bun run src/server.ts",
     "deploy": "pm2 start src/server.ts --name TinyRabbit_Discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
@@ -17,16 +17,18 @@
     "@discordjs/voice": "^0.18.0",
     "@napi-rs/canvas": "^0.1.70",
     "@supabase/supabase-js": "^2.49.8",
+    "@types/get-pixels": "^3.3.4",
     "bunny-log": "^0.1.8",
     "busboy": "^1.6.0",
     "canvas": "^3.1.0",
     "chalk": "^5.4.1",
     "discord-components-v2": "^0.0.4",
     "discord.js": "^14.19.3",
+    "extract-colors": "^4.2.0",
     "ffmpeg-static": "^5.2.0",
     "fs-extra": "^11.3.0",
+    "get-pixels": "^3.3.3",
     "glob": "^11.0.2",
-    "jimp": "^1.6.0",
     "js-cookie": "^3.0.5",
     "node-cron": "^4.0.7",
     "node-schedule": "^2.1.1",
@@ -38,11 +40,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/bun": "^1.2.1",
+    "@types/bun": "^1.2.15",
     "@types/node": "^22.15.24",
     "@types/node-cron": "^3.0.11",
     "@types/node-schedule": "^2.1.7",
     "@types/prismjs": "^1.26.5",
     "rimraf": "^6.0.1"
-  }
+  },
+  "main": "index.js",
+  "keywords": []
 }
