@@ -2,7 +2,7 @@ import { replacePlaceholders } from '@/utils/replacePlaceholders.js'
 import { handleResponse } from '@/utils/responses.js'
 import { formatter, hexToNumber } from '@/utils/formatter.js'
 import { calculateXpForNextLevel, LevelUpResult } from '@/utils/xpUtils.js'
-import { getDominantColor } from '@/utils/colorThief.js'
+import { ColorThief } from '@/utils/colorThief.js'
 
 export {
 	replacePlaceholders,
@@ -11,7 +11,7 @@ export {
 	hexToNumber,
 	calculateXpForNextLevel,
 	LevelUpResult,
-	getDominantColor,
+	ColorThief,
 }
 
 export * from './xpUtils.js'

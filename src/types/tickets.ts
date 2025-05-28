@@ -1,20 +1,10 @@
+import type * as Discord from 'discord.js'
+
 interface Attachment {
 	url: string
 	proxyURL: string
 	name: string
 	size: number
-}
-
-interface Transcript {
-	id: string
-	author: {
-		id: string
-		username: string
-		avatar: string
-	}
-	content: string | null
-	attachments: Array<Attachment> | null
-	timestamp: number
 }
 
 interface AuthorInfo {
@@ -24,15 +14,65 @@ interface AuthorInfo {
 	displayName: string
 }
 
+interface Transcript {
+	id: string
+	author: AuthorInfo
+	content: string | null
+	attachments: Array<Attachment> | null
+	timestamp: number
+}
+
 interface ThreadMetadata {
-	join_ticket_message_id?: string | null
-	confirm_close_ticket_message_id?: string | null
-	admin_channel_id?: string | null
-	ticket_id: string | number
+	ticket_id: number | string
+	thread_id: string
 	opened_by: AuthorInfo
 	open_time: number
 	ticket_type: string
-	claimed_by?: AuthorInfo | 'Not claimed'
+	claimed_by?: string | AuthorInfo
+	claimed_time?: Date
+	closed_by?: AuthorInfo
+	close_time?: Date
+	reason?: string
+	close_reason?: string
+	guild_id?: string
+	status?: string
+	join_ticket_message_id?: string
+	admin_channel_id?: string
+	rating?: {
+		value: number
+		submitted_at?: string
+		review_message_id?: string
+		user_id?: string
+		timestamp?: number
+	}
+	transcript_message_id?: string
+	transcript_channel_id?: string
 }
 
-export type { Transcript, Attachment, ThreadMetadata }
+interface TicketConfig {
+	auto_close_inactive?: boolean // Legacy format - keeping for backward compatibility
+	inactivity_threshold?: string // Legacy format - keeping for backward compatibility
+	enabled?: boolean
+	auto_close?: Array<{
+		enabled: boolean
+		threshold: number
+		reason: string
+	}>
+}
+
+interface TicketEmbedConfig extends Discord.EmbedData {
+	buttons_map?: Array<{
+		unique_id: string
+		label: string
+		style: Discord.ButtonStyle
+		url?: string
+	}>
+}
+
+export type {
+	Transcript,
+	Attachment,
+	ThreadMetadata,
+	TicketConfig,
+	TicketEmbedConfig,
+}

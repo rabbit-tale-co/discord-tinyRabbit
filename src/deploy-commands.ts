@@ -2,7 +2,6 @@ import { REST } from '@discordjs/rest'
 import { bunnyLog } from 'bunny-log'
 import { Routes } from 'discord-api-types/v10'
 import { env } from 'node:process'
-import { data as createLicenseCommand } from './commands/game/createLicense.js'
 
 const { BOT_TOKEN, BOT_CLIENT_ID } = env
 
@@ -58,14 +57,124 @@ const commands = [
 		],
 	},
 	{
-		name: 'send_embed',
-		description: 'Send an embed message with buttons',
+		name: 'eco',
+		description: 'Manage the server economy',
 		options: [
 			{
-				type: 7, // Corresponds to the CHANNEL type
-				name: 'channel',
-				description: 'The channel to send the embed message to',
-				required: true,
+				type: 1, // SUB_COMMAND
+				name: 'balance',
+				description: 'Check your balance',
+				options: [
+					{
+						type: 6, // USER
+						name: 'user',
+						description: 'The user to check balance for',
+						required: false,
+					},
+				],
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'pay',
+				description: 'Pay another user',
+				options: [
+					{
+						type: 6, // USER
+						name: 'user',
+						description: 'The user to pay',
+						required: true,
+					},
+					{
+						type: 10, // NUMBER
+						name: 'amount',
+						description: 'The amount to pay',
+						required: true,
+						min_value: 1,
+					},
+				],
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'leaderboard',
+				description: 'Show the wealth leaderboard',
+			},
+		],
+	},
+	{
+		name: 'ticket',
+		description: 'Manage the ticket system',
+		options: [
+			{
+				type: 1, // SUB_COMMAND
+				name: 'config',
+				description: 'Configure ticket settings',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'manage',
+				description: 'Manage tickets',
+				options: [
+					{
+						type: 3, // STRING
+						name: 'action',
+						description: 'Action to perform on the ticket',
+						required: true,
+						choices: [
+							{
+								name: 'Close',
+								value: 'close',
+							},
+							{
+								name: 'Claim',
+								value: 'claim',
+							},
+							{
+								name: 'Join',
+								value: 'join',
+							},
+							{
+								name: 'Add User',
+								value: 'add',
+							},
+							{
+								name: 'Remove User',
+								value: 'remove',
+							},
+						],
+					},
+					{
+						type: 3, // STRING
+						name: 'reason',
+						description:
+							'Reason for closing the ticket (when using close action)',
+						required: false,
+					},
+					{
+						type: 6, // USER
+						name: 'user',
+						description:
+							'User to add or remove (when using add/remove actions)',
+						required: false,
+					},
+				],
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'list',
+				description: 'List all active tickets',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'send_panel',
+				description: 'Send a ticket panel in the specified channel',
+				options: [
+					{
+						type: 7, // CHANNEL
+						name: 'channel',
+						description: 'The channel to send the ticket panel to',
+						required: true,
+					},
+				],
 			},
 		],
 	},
@@ -116,10 +225,109 @@ const commands = [
 			},
 		],
 	},
-	// {
+	{
+		name: 'music',
+		description: 'Manage music playback',
+		options: [
+			{
+				type: 1, // SUB_COMMAND
+				name: 'play',
+				description: 'Play a song',
+				options: [
+					{
+						type: 3, // STRING
+						name: 'query',
+						description: 'url of the song to play',
+						required: true,
+					},
+				],
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'pause',
+				description: 'Pause the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'resume',
+				description: 'Resume the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'skip',
+				description: 'Skip the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'stop',
+				description: 'Stop the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'queue',
+				description: 'Show the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'clear',
+				description: 'Clear the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'remove',
+				description: 'Remove a song from the queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'shuffle',
+				description: 'Shuffle the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'loop',
+				description: 'Loop the current song queue',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'volume',
+				description: 'Set the volume of the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'nowplaying',
+				description: 'Show the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'lyrics',
+				description: 'Show the lyrics of the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'search',
+				description: 'Search for a song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'playlist',
+				description: 'Manage your playlists',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'history',
+				description: 'Show the history of the current song',
+			},
+			{
+				type: 1, // SUB_COMMAND
+				name: 'help',
+				description: 'Show the help menu',
+			},
+		],
+	},
 	// 	name: 'plugin',
 	// 	description: 'Manage your Minecraft account',
 	// 	options: [
+
 	// 		{
 	// 			type: 1, // SUB_COMMAND
 	// 			name: 'game',
@@ -148,7 +356,6 @@ const commands = [
 	// 		},
 	// 	],
 	// },
-	createLicenseCommand.toJSON(),
 ]
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN)
