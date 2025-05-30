@@ -645,6 +645,21 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 		return
 	}
 
+	// Ensure member is a GuildMember
+	const member =
+		inter.member instanceof Discord.GuildMember
+			? inter.member
+			: await inter.guild.members.fetch(inter.user.id)
+	if (!member) {
+		await utils.handleResponse(
+			inter,
+			'error',
+			'Could not fetch member details.',
+			{ code: 'CT_MEM_FETCH_FAIL' }
+		)
+		return
+	}
+
 	await inter.deferReply({ flags: Discord.MessageFlags.Ephemeral })
 
 	try {
@@ -660,7 +675,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 		}
 
 		// Check if user has permission to claim tickets (moderator role or admin)
-		const member = inter.member as Discord.GuildMember
 		const hasModRole = cfg.mods_role_ids?.some((roleId) =>
 			member.roles.cache.has(roleId)
 		)
@@ -678,7 +692,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Parse the thread ID from the custom ID (format: claim_ticket:threadId)
 		const [, threadId] = inter.customId.split(':')
 		if (!threadId) {
 			await utils.handleResponse(inter, 'error', 'Invalid ticket reference', {
@@ -687,8 +700,23 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Get the ticket metadata
-		const ticketData = store.get(threadId)
+		let ticketData = store.get(threadId)
+		if (!ticketData) {
+			try {
+				const allTickets = await api.getAllActiveTickets(
+					inter.client.user.id,
+					inter.guild.id
+				)
+				const dbTicket = allTickets.find((t) => t.thread_id === threadId)
+				if (dbTicket) {
+					ticketData = dbTicket.metadata
+					store.set(threadId, ticketData)
+				}
+			} catch (error) {
+				bunnyLog.error('Error loading ticket from database for claim:', error)
+			}
+		}
+
 		if (!ticketData) {
 			await utils.handleResponse(
 				inter,
@@ -699,7 +727,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Check if ticket is already claimed
 		if (ticketData.claimed_by) {
 			const claimedById =
 				typeof ticketData.claimed_by === 'string'
@@ -714,7 +741,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Get the ticket thread
 		const thread = await inter.guild.channels.fetch(threadId)
 		if (!thread?.isThread()) {
 			await utils.handleResponse(
@@ -726,7 +752,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Update ticket metadata
 		ticketData.claimed_by = {
 			id: inter.user.id,
 			username: inter.user.username,
@@ -735,7 +760,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 		}
 		ticketData.claimed_time = new Date()
 
-		// Update in memory and database
 		store.set(threadId, ticketData)
 		await api.updateTicketMetadata(
 			inter.client.user.id,
@@ -744,67 +768,178 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			ticketData
 		)
 
-		// Update the admin message
-		if (cfg.components?.admin_ticket) {
-			try {
-				const placeholders = {
-					ticket_id: String(ticketData.ticket_id),
-					category: String(ticketData.ticket_type || 'General Support'),
-					thread_id: String(threadId),
-					channel_id: `<#${threadId}>`,
-					opened_by: `<@${ticketData.opened_by.id}>`,
-					claimed_by: `<@${inter.user.id}>`,
-					open_time: `<t:${Math.floor(Number(ticketData.open_time))}:R>`,
-					claimed_time: `<t:${Math.floor(ticketData.claimed_time.getTime() / 1000)}:R>`,
-					mod_ping: '', // Don't ping mods for claimed tickets
-					display_name: inter.user.displayName || inter.user.username,
-					guild_id: inter.guild.id,
-				}
-
-				const { v2Components, actionRows } = buildUniversalComponents(
-					cfg.components.admin_ticket,
-					member,
-					inter.guild,
-					placeholders
-				)
-
-				const messageOptions: Discord.MessageEditOptions = {
-					content: '',
-					components: [],
-					flags: Discord.MessageFlags.SuppressEmbeds,
-				}
-
-				if (v2Components.length > 0) {
-					messageOptions.components = v2Components
-					messageOptions.flags =
-						Discord.MessageFlags.SuppressEmbeds |
-						Discord.MessageFlags.IsComponentsV2
-				}
-
-				if (actionRows.length > 0) {
-					messageOptions.components =
-						messageOptions.components.concat(actionRows)
-				}
-
-				await inter.message.edit(messageOptions)
-			} catch (error) {
-				bunnyLog.error('Error updating admin message:', error)
-				await utils.handleResponse(
-					inter,
-					'error',
-					'Failed to update admin message',
-					{ code: 'CT010', error: error as Error }
-				)
-			}
-		}
-
-		// Send confirmation to the claimer
 		await utils.handleResponse(
 			inter,
 			'success',
 			`You have successfully claimed ticket #${ticketData.ticket_id}`,
 			{ code: 'CT008', ephemeral: true }
 		)
+
+		// --- Begin Revised Admin Message Update (hybrid approach) ---
+		try {
+			// We need to rebuild the message with updated placeholders (especially claimed_by)
+			// but only modify the claim button
+			const placeholders: PlaceholderMap = {
+				ticket_id: String(ticketData.ticket_id),
+				category: String(ticketData.ticket_type),
+				thread_id: String(threadId),
+				channel_id: `<#${threadId}>`,
+				opened_by: `<@${ticketData.opened_by.id}>`,
+				claimed_by: `<@${inter.user.id}>`,
+				open_time: `<t:${Math.floor(Number(ticketData.open_time))}:R>`,
+				claimed_time: `<t:${Math.floor(ticketData.claimed_time.getTime() / 1000)}:R>`,
+				mod_ping: cfg.mods_role_ids?.map((id) => `<@&${id}>`).join(' '),
+				display_name: member.displayName,
+				guild_id: inter.guild.id,
+			}
+
+			const adminTicketTemplate = cfg.components?.admin_ticket
+			if (!adminTicketTemplate) {
+				bunnyLog.warn(
+					'Admin ticket template not found. Falling back to simple button disable.'
+				)
+				throw new Error('Admin ticket template missing for claim update')
+			}
+
+			// Ensure placeholders are strictly Record<string, string>
+			const stringPlaceholders: Record<string, string> = {}
+			for (const key in placeholders) {
+				if (Object.prototype.hasOwnProperty.call(placeholders, key)) {
+					stringPlaceholders[key] = String(placeholders[key])
+				}
+			}
+
+			// Generate all components with updated placeholders
+			const { v2Components, actionRows } = buildUniversalComponents(
+				adminTicketTemplate,
+				member,
+				inter.guild,
+				stringPlaceholders
+			)
+
+			// Process action rows to modify only the claim button
+			const processedActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
+				[]
+
+			for (const rowBuilder of actionRows) {
+				const newRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+
+				for (const componentBuilder of rowBuilder.components) {
+					if (componentBuilder instanceof Discord.ButtonBuilder) {
+						// Process the custom_id with placeholders
+						let customId = ''
+						const buttonData = componentBuilder.data as unknown as {
+							custom_id?: string
+						}
+						if (
+							buttonData.custom_id &&
+							typeof buttonData.custom_id === 'string'
+						) {
+							customId = replacecustom_idPlaceholders(
+								buttonData.custom_id,
+								stringPlaceholders
+							)
+							componentBuilder.setCustomId(customId)
+						}
+
+						// Check if this is the claim ticket button and modify it
+						if (customId.startsWith('claim_ticket:')) {
+							componentBuilder
+								.setDisabled(true)
+								.setLabel('✅ Claimed')
+								.setStyle(Discord.ButtonStyle.Success)
+						}
+
+						newRow.addComponents(componentBuilder)
+					}
+				}
+
+				if (newRow.components.length > 0) {
+					processedActionRows.push(newRow)
+				}
+			}
+
+			// Prepare message options with all components
+			const messageOptions: Discord.MessageEditOptions = {}
+
+			// Add v2Components (TextDisplay, Separator, etc.)
+			if (v2Components && v2Components.length > 0) {
+				messageOptions.components = v2Components
+				messageOptions.flags = Discord.MessageFlags.IsComponentsV2
+			}
+
+			// Add processed action rows (buttons)
+			if (processedActionRows.length > 0) {
+				if (messageOptions.components) {
+					messageOptions.components = [
+						...messageOptions.components,
+						...processedActionRows,
+					]
+				} else {
+					messageOptions.components = processedActionRows
+				}
+			}
+
+			// Edit the message with all components
+			await inter.message.edit(messageOptions)
+
+			bunnyLog.info(
+				`Successfully updated admin message for claimed ticket #${ticketData.ticket_id}`
+			)
+		} catch (error) {
+			bunnyLog.error('Error during admin message update after claim:', error)
+			// Fallback logic remains the same...
+			try {
+				const originalMessageComponents = inter.message.components
+				const fallbackComponents: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
+					[]
+				for (const row of originalMessageComponents) {
+					const actionRow =
+						row as Discord.ActionRow<Discord.MessageActionRowComponent>
+					const newActionRow =
+						new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+					if (actionRow.components && Array.isArray(actionRow.components)) {
+						for (const component of actionRow.components) {
+							if (component.type === Discord.ComponentType.Button) {
+								const buttonBuilder = Discord.ButtonBuilder.from(component)
+								if (component.customId?.includes('claim_ticket')) {
+									buttonBuilder
+										.setDisabled(true)
+										.setLabel('✅ Claimed')
+										.setStyle(Discord.ButtonStyle.Success)
+								}
+								newActionRow.addComponents(buttonBuilder)
+							}
+						}
+					}
+					if (newActionRow.components.length > 0) {
+						fallbackComponents.push(newActionRow)
+					}
+				}
+				if (fallbackComponents.length > 0) {
+					await inter.message.edit({
+						content: inter.message.content,
+						components: fallbackComponents,
+					})
+					bunnyLog.info(
+						'Fallback: Successfully disabled claim button on original message.'
+					)
+				} else {
+					bunnyLog.warn(
+						'Fallback: No components could be processed to disable claim button.'
+					)
+				}
+			} catch (fallbackError) {
+				bunnyLog.error(
+					'Fallback attempt to disable claim button also failed:',
+					fallbackError
+				)
+			}
+			bunnyLog.error(
+				'Admin message not fully updated (fallback might have partially succeeded), but ticket claim was successful.'
+			)
+		}
+		// --- End Revised Admin Message Update ---
 
 		// Send notification to the ticket thread if configured
 		if (cfg.components?.ticket_claimed) {
@@ -1131,25 +1266,57 @@ function resolveCategory(
 
 	// Look for buttons in the components array
 	for (const component of openTicketTemplate.components) {
-		if (component.type === 1 && 'components' in component) {
-			// Find the button with matching custom_id and return its label
-			const button = component.components.find(
-				(btn) =>
-					btn.type === 2 && 'custom_id' in btn && btn.custom_id === customId
-			)
+		// Check if this is an ActionRow component (type 1 or has components array)
+		const isActionRow =
+			component.type === Discord.ComponentType.ActionRow ||
+			('components' in component && Array.isArray(component.components))
 
-			if (button && 'label' in button && button.label) {
-				bunnyLog.info(`Found matching button with label: ${button.label}`)
-				return String(button.label)
-			}
+		if (isActionRow && 'components' in component) {
+			// Search through the components in this ActionRow
+			for (const subComponent of component.components) {
+				// Check if this is a Button component
+				const isButton = subComponent.type === Discord.ComponentType.Button
 
-			if (button) {
-				bunnyLog.warn(`Found button but no label for custom_id: ${customId}`)
+				if (
+					isButton &&
+					'custom_id' in subComponent &&
+					'label' in subComponent
+				) {
+					// Check if this button's custom_id matches what we're looking for
+					if (subComponent.custom_id === customId && subComponent.label) {
+						bunnyLog.info(
+							`Found matching button with label: ${subComponent.label}`
+						)
+						return String(subComponent.label)
+					}
+				}
+
+				// Check if this is a String Select Menu component
+				const isStringSelect =
+					subComponent.type === Discord.ComponentType.StringSelect
+
+				if (
+					isStringSelect &&
+					'options' in subComponent &&
+					Array.isArray(subComponent.options)
+				) {
+					// Search through the select menu options
+					for (const option of subComponent.options) {
+						if (option.value === customId && option.label) {
+							bunnyLog.info(
+								`Found matching select option with label: ${option.label}`
+							)
+							return String(option.label)
+						}
+					}
+				}
 			}
 		}
 	}
 
-	bunnyLog.warn(`No matching button found for custom_id: ${customId}`)
+	bunnyLog.warn(
+		`No matching button or select option found for custom_id: ${customId}`
+	)
 	return 'General Support'
 }
 

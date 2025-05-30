@@ -12,6 +12,7 @@ import {
 	StringSelectMenuOptionBuilder,
 } from 'discord.js'
 import { bunnyLog } from 'bunny-log'
+import type { ComponentsV2, ComponentContainer } from '@/types/plugins.js'
 
 // Type definitions for component configuration
 type TextComponent = {
@@ -90,15 +91,6 @@ type AnyComponent = {
 // Universal configuration structure for any plugin - made more flexible
 interface UniversalComponentConfig {
 	components?: ComponentConfig[] | AnyComponent[] | unknown[]
-	embed?: {
-		buttons_map?: Array<{
-			label: string
-			style: number
-			unique_id: string
-			url?: string
-			disabled?: boolean
-		}>
-	}
 }
 
 // Helper functions for type checking
@@ -179,7 +171,7 @@ function isActionRowComponent(
 
 // Universal builder function that can handle any configuration structure
 export function buildUniversalComponents(
-	config: UniversalComponentConfig,
+	config: ComponentContainer | ComponentsV2[] | null | undefined,
 	member: GuildMember,
 	guild: Discord.Guild,
 	additionalPlaceholders: Record<string, string> = {}
@@ -199,24 +191,37 @@ export function buildUniversalComponents(
 	// Track used custom IDs to prevent duplicates
 	const usedcustom_ids = new Set<string>()
 
+	// Handle null/undefined config
+	if (!config) {
+		bunnyLog.warn('No components provided to buildUniversalComponents')
+		return { v2Components, actionRows }
+	}
+
+	// Handle both ComponentContainer and ComponentsV2[] formats
+	const components = Array.isArray(config) ? config : config.components
+	if (!components) {
+		bunnyLog.warn('No components found in configuration')
+		return { v2Components, actionRows }
+	}
+
 	// First pass: extract all custom IDs from raw components
-	if (config.components && Array.isArray(config.components)) {
-		extractcustom_idsFromRawComponents(config.components, usedcustom_ids)
+	if (components && Array.isArray(components)) {
+		extractcustom_idsFromRawComponents(components, usedcustom_ids)
 		bunnyLog.info(
 			`Building components for guild ${guild.id} with ${usedcustom_ids.size} custom IDs`
 		)
 	}
 
 	// Process components
-	if (config.components && Array.isArray(config.components)) {
+	if (components && Array.isArray(components)) {
 		// Process text displays and separators in order
-		for (const comp of config.components) {
-			const component = comp as AnyComponent
+		for (const comp of components) {
+			const component = comp as unknown as AnyComponent
 
 			if (component.type === 10) {
-				// Text display
+				// Text display - handle both 'content' and 'text' properties
 				const content = applyAllPlaceholders(
-					String('content' in component ? component.content : component.text),
+					String(component.content || component.text || ''),
 					member,
 					guild,
 					additionalPlaceholders
@@ -239,8 +244,8 @@ export function buildUniversalComponents(
 
 		// Then handle interactive components (buttons or select menu)
 		const buttons: ButtonBuilder[] = []
-		const actionRowComponents = config.components.filter((comp) => {
-			const component = comp as AnyComponent
+		const actionRowComponents = components.filter((comp) => {
+			const component = comp as unknown as AnyComponent
 			return (
 				component.type === 1 &&
 				'components' in component &&
@@ -249,7 +254,7 @@ export function buildUniversalComponents(
 		})
 
 		for (const actionRow of actionRowComponents) {
-			const component = actionRow as AnyComponent
+			const component = actionRow as unknown as AnyComponent
 			const components = 'components' in component ? component.components : []
 			const buttonComponents = (Array.isArray(components) ? components : [])
 				.filter(isButtonComponent)

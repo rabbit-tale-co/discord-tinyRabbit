@@ -113,7 +113,7 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 				} as Discord.GuildMember
 
 				const { v2Components, actionRows } = buildUniversalComponents(
-					{ components: cfg.components.open_ticket },
+					cfg.components.open_ticket,
 					mockMember,
 					inter.guild
 				)
@@ -141,7 +141,7 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 				}
 
 				// Send a single message with all components
-				const sentMessage = await targetChannel.send(messageOptions)
+				await targetChannel.send(messageOptions)
 
 				// Send success confirmation
 				await utils.handleResponse(
@@ -155,28 +155,15 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 					'Error creating ticket panel with universal components:',
 					error
 				)
-				// Fallback to simple message with button
-				const fallbackButton = new Discord.ButtonBuilder()
-					.setLabel('General Support')
-					.setStyle(Discord.ButtonStyle.Primary)
-					.setCustomId('open_ticket_general')
-
-				const fallbackRow =
-					new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-						fallbackButton
-					)
-
-				await targetChannel.send({
-					content:
-						'🎫 **Support Tickets**\n\nClick the button below to open a support ticket.',
-					components: [fallbackRow],
-				})
 
 				await utils.handleResponse(
 					inter,
-					'success',
-					`Ticket panel created successfully in ${targetChannel}!`,
-					{ code: 'SP008' }
+					'error',
+					'Failed to create ticket panel. Please try again.',
+					{
+						code: 'SP009',
+						error: error instanceof Error ? error : new Error(String(error)),
+					}
 				)
 			}
 		} else {

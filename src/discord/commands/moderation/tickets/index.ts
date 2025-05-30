@@ -13,6 +13,7 @@ import { ticketStore } from './state.js'
 import { loadCfg } from './limits.js'
 import { perfromClose } from './close.js'
 import type { ThreadMetadata } from '@/types/tickets.js'
+import * as api from '@/discord/api/index.js'
 
 const INACTIVITY_CHECK_INTERVAL = 60 * 1000 // Check every minute
 const DEFAULT_INACTIVITY_THRESHOLD = 72 * 60 * 60 * 1000 // 72 hours
@@ -52,10 +53,11 @@ async function checkTicketsForInactivity(client: Discord.Client) {
 				if (!guild) continue
 
 				// Get plugin config to check if auto-close is enabled
-				const config = await loadCfg({
-					client,
-					guild: { id: guild.id },
-				} as Discord.ButtonInteraction)
+				const config = await api.getPluginConfig(
+					client.user.id,
+					ticket.guild_id,
+					'tickets'
+				)
 
 				// Skip if auto-close is not enabled
 				if (!config?.auto_close?.[0]?.enabled) continue

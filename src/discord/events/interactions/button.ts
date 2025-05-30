@@ -84,19 +84,19 @@ export async function buttonInteractionHandler(
 			return
 		}
 
-		if (inter.customId === 'claim_ticket') {
+		if (inter.customId.startsWith('claim_ticket:')) {
 			bunnyLog.info(`🛡️ Handling ticket claim: ${inter.customId}`)
 			await commands.ticket.claimTicket(inter)
 			return
 		}
 
-		if (inter.customId === 'join_ticket') {
+		if (inter.customId.startsWith('join_ticket:')) {
 			bunnyLog.info(`👥 Handling ticket join: ${inter.customId}`)
 			await commands.ticket.joinTicket(inter)
 			return
 		}
 
-		if (inter.customId === 'close_ticket') {
+		if (inter.customId.startsWith('close_ticket:')) {
 			bunnyLog.info(`❌ Handling ticket close request: ${inter.customId}`)
 			bunnyLog.info(
 				`🧵 Thread context: threadId: ${inter.channelId}, threadName: ${(inter.channel as ThreadChannel)?.name}`
