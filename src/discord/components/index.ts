@@ -174,7 +174,8 @@ export function buildUniversalComponents(
 	config: ComponentContainer | ComponentsV2[] | null | undefined,
 	member: GuildMember,
 	guild: Discord.Guild,
-	additionalPlaceholders: Record<string, string> = {}
+	additionalPlaceholders: Record<string, string> = {},
+	forceButtons = false
 ): {
 	v2Components: (
 		| Discord.APIMessageTopLevelComponent
@@ -207,9 +208,6 @@ export function buildUniversalComponents(
 	// First pass: extract all custom IDs from raw components
 	if (components && Array.isArray(components)) {
 		extractcustom_idsFromRawComponents(components, usedcustom_ids)
-		bunnyLog.info(
-			`Building components for guild ${guild.id} with ${usedcustom_ids.size} custom IDs`
-		)
 	}
 
 	// Process components
@@ -261,8 +259,8 @@ export function buildUniversalComponents(
 				.filter((btn) => !btn.url)
 
 			if (buttonComponents.length > 0) {
-				if (buttonComponents.length <= 3) {
-					// Create regular buttons for 3 or fewer options
+				if (buttonComponents.length <= 3 || forceButtons) {
+					// Create regular buttons for 3 or fewer options, or when forced
 					for (const btnComp of buttonComponents) {
 						const button = new ButtonBuilder()
 							.setLabel(
@@ -275,8 +273,13 @@ export function buildUniversalComponents(
 							)
 							.setStyle(btnComp.style as Discord.ButtonStyle)
 							.setCustomId(
-								btnComp.custom_id ||
-									`action_${btnComp.label.toLowerCase().replace(/\s+/g, '_')}`
+								applyAllPlaceholders(
+									btnComp.custom_id ||
+										`action_${btnComp.label.toLowerCase().replace(/\s+/g, '_')}`,
+									member,
+									guild,
+									additionalPlaceholders
+								)
 							)
 
 						if (btnComp.disabled) {
@@ -288,17 +291,6 @@ export function buildUniversalComponents(
 						buttons.push(button)
 					}
 				} else {
-					// Debug log for button components
-					bunnyLog.info(
-						'Button components found:',
-						buttonComponents.map((btn) => ({
-							label: btn.label,
-							custom_id: btn.custom_id,
-							type: btn.type,
-							style: btn.style,
-						}))
-					)
-
 					// Create select menu for more than 3 options
 					const validButtons = buttonComponents.filter(
 						(btn): btn is Required<ButtonComponent> => {
@@ -325,7 +317,14 @@ export function buildUniversalComponents(
 
 					try {
 						const selectMenu = new StringSelectMenuBuilder()
-							.setCustomId(validButtons[0].custom_id)
+							.setCustomId(
+								applyAllPlaceholders(
+									validButtons[0].custom_id,
+									member,
+									guild,
+									additionalPlaceholders
+								)
+							)
 							.setPlaceholder('Select an action')
 							.addOptions(
 								validButtons.map((btnComp) =>
@@ -338,7 +337,14 @@ export function buildUniversalComponents(
 												additionalPlaceholders
 											)
 										)
-										.setValue(btnComp.custom_id)
+										.setValue(
+											applyAllPlaceholders(
+												btnComp.custom_id,
+												member,
+												guild,
+												additionalPlaceholders
+											)
+										)
 										.setDescription(`Select to ${btnComp.label.toLowerCase()}`)
 								)
 							)

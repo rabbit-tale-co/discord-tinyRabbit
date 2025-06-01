@@ -13,15 +13,7 @@ import { buildUniversalComponents } from '@/discord/components/index.js'
 /* -------------------------------------------------------------------------- */
 
 export async function requestClose(interaction: Discord.ButtonInteraction) {
-	bunnyLog.info(
-		`🚨 requestClose called by ${interaction.user.username} (${interaction.user.id})`
-	)
-	bunnyLog.info(
-		`📍 Channel: ${interaction.channelId}, Guild: ${interaction.guildId}`
-	)
-
 	if (!interaction.inGuild()) {
-		bunnyLog.info('❌ Not in guild, returning error')
 		await utils.handleResponse(
 			interaction,
 			'error',
@@ -33,7 +25,6 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 
 	const thread = interaction.channel as Discord.ThreadChannel
 	if (!thread) {
-		console.log('❌ Not in thread, returning error')
 		await utils.handleResponse(
 			interaction,
 			'error',
@@ -43,19 +34,10 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 		return
 	}
 
-	bunnyLog.info(`🧵 Thread found: ${thread.name} (${thread.id})`)
-
 	const meta = await ensureMeta(interaction, thread)
 	if (!meta) {
-		bunnyLog.info('❌ No metadata found, ensureMeta returned null')
 		return
 	}
-
-	bunnyLog.info('📝 Ticket metadata:', {
-		ticket_id: meta.ticket_id,
-		opened_by: meta.opened_by?.username,
-		status: meta.status,
-	})
 
 	const isOwner =
 		meta.opened_by?.id === (interaction.user.id as Discord.User['id'])
@@ -63,10 +45,7 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 		Discord.PermissionsBitField.Flags.ManageMessages
 	)
 
-	bunnyLog.info(`🔐 Permission check: isOwner=${isOwner}, isMod=${isMod}`)
-
 	if (!isOwner && !isMod) {
-		bunnyLog.info('❌ No permission to close ticket')
 		await utils.handleResponse(
 			interaction,
 			'error',
@@ -82,12 +61,6 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 	// Use configuration template if available
 	if (cfg.components?.confirm_close_ticket) {
 		try {
-			bunnyLog.info('🔧 Using confirm_close_ticket configuration template')
-			bunnyLog.info(
-				'🔧 Raw template structure:',
-				JSON.stringify(cfg.components.confirm_close_ticket, null, 2)
-			)
-
 			// Check if the template has the expected button structure
 			const hasActionRows =
 				cfg.components.confirm_close_ticket.components?.some(
@@ -111,16 +84,10 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 			}
 
 			const member = interaction.member as Discord.GuildMember
-			const confirmcustom_id = ID.TICKET_CONFIRM_CLOSE(thread.id)
-
 			const placeholders: Record<string, string> = {
 				ticket_id: meta.ticket_id?.toString() ?? 'unknown',
 				thread_id: thread.id,
-				confirm_custom_id: confirmcustom_id,
 			}
-
-			bunnyLog.info('🔧 Generated custom IDs:')
-			bunnyLog.info(`  ✅ Confirm: ${confirmcustom_id}`)
 
 			const { v2Components, actionRows } = buildUniversalComponents(
 				cfg.components.confirm_close_ticket,
@@ -129,79 +96,49 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 				placeholders
 			)
 
-			bunnyLog.info(
-				`🔍 Built components: ${v2Components.length} V2, ${actionRows.length} action rows`
-			)
+			// Prepare message options with all components
+			const messageOptions: Discord.InteractionReplyOptions = {
+				flags: Discord.MessageFlags.Ephemeral,
+			}
 
-			// Send V2 components if available
+			// Add v2Components (TextDisplay, Separator, etc.)
 			if (v2Components.length > 0) {
-				await interaction.reply({
-					components: v2Components,
-					flags:
-						Discord.MessageFlags.IsComponentsV2 |
-						Discord.MessageFlags.Ephemeral,
-				})
-				bunnyLog.success(
-					'✅ Confirmation dialog sent successfully using V2 components'
-				)
-				return
+				messageOptions.components = v2Components
+				messageOptions.flags =
+					Discord.MessageFlags.IsComponentsV2 | Discord.MessageFlags.Ephemeral
 			}
 
-			// Send action row buttons if available (fallback)
+			// Add action rows (buttons) to the existing components
 			if (actionRows.length > 0) {
-				await interaction.reply({
-					components: actionRows,
-					flags: Discord.MessageFlags.Ephemeral,
-				})
-				bunnyLog.success(
-					'✅ Confirmation dialog sent successfully using action rows'
-				)
-				return
+				if (messageOptions.components) {
+					messageOptions.components = [
+						...messageOptions.components,
+						...actionRows,
+					]
+				} else {
+					messageOptions.components = actionRows
+				}
 			}
 
-			bunnyLog.warn(
-				'⚠️ No buttons found in configuration template, falling back to hardcoded buttons'
-			)
+			// Send combined components if we have any
+			if (messageOptions.components && messageOptions.components.length > 0) {
+				await interaction.reply(messageOptions)
+				return
+			}
 		} catch (error) {
 			bunnyLog.error('❌ Error using configuration template:', error)
 			// Fall through to hardcoded fallback
 		}
 	}
 
-	// Fallback to hardcoded confirmation dialog if no template or error
-	bunnyLog.info('🔧 Using fallback hardcoded confirmation buttons')
-
-	const confirmcustom_id = ID.TICKET_CONFIRM_CLOSE(thread.id)
-
-	bunnyLog.info('🔧 Creating confirmation button:')
-	bunnyLog.info(`  ✅ Confirm button custom_id: ${confirmcustom_id}`)
-
-	const confirmButton = new Discord.ButtonBuilder()
-		.setCustomId(confirmcustom_id)
-		.setLabel('Confirm Close')
-		.setStyle(Discord.ButtonStyle.Danger)
-
-	const actionRow =
-		new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-			confirmButton
-		)
-
-	bunnyLog.info(
-		`📤 Sending fallback confirmation dialog with action row containing ${actionRow.components.length} button`
+	// If we reach here, there was no valid configuration or it failed
+	bunnyLog.error('❌ No valid confirm_close_ticket configuration found')
+	await utils.handleResponse(
+		interaction,
+		'error',
+		'Ticket close confirmation is not properly configured. Please contact an administrator.',
+		{ code: 'RC003' }
 	)
-
-	try {
-		await interaction.reply({
-			content:
-				'⚠️ **Are you sure you want to close this ticket?**\n\nThis action cannot be undone. The ticket will be archived and locked.',
-			components: [actionRow],
-			flags: Discord.MessageFlags.Ephemeral,
-		})
-		bunnyLog.success('✅ Fallback confirmation dialog sent successfully')
-	} catch (error) {
-		bunnyLog.error('❌ Failed to send confirmation dialog:', error)
-		throw error
-	}
 }
 
 export async function confirmClose(interaction: Discord.ButtonInteraction) {
@@ -233,10 +170,26 @@ export async function confirmClose(interaction: Discord.ButtonInteraction) {
 }
 
 export async function modalClose(interaction: Discord.ModalSubmitInteraction) {
-	const reason =
-		interaction.fields.getTextInputValue('close_reason') || 'No reason'
-	const thread = interaction.channel as Discord.ThreadChannel
-	await perfromClose(interaction, thread, reason)
+	try {
+		const reason =
+			interaction.fields.getTextInputValue('close_reason') || 'No reason'
+		const thread = interaction.channel as Discord.ThreadChannel
+		await perfromClose(interaction, thread, reason)
+	} catch (error) {
+		bunnyLog.error('❌ Error in modalClose:', error)
+		// Attempt to respond to the user if we haven't already
+		try {
+			if (!interaction.replied && !interaction.deferred) {
+				await interaction.reply({
+					content:
+						'Ticket was closed, but there was an error updating some information.',
+					flags: Discord.MessageFlags.Ephemeral,
+				})
+			}
+		} catch (replyError) {
+			bunnyLog.error('❌ Failed to send error response:', replyError)
+		}
+	}
 }
 
 /* -------------------------------------------------------------------------- */
@@ -251,6 +204,23 @@ export async function perfromClose(
 	if (!thread?.isThread) {
 		bunnyLog.error('❌ Channel is not a thread')
 		return
+	}
+
+	// Respond to modal interactions FIRST before doing anything else
+	if (
+		interaction.isModalSubmit() &&
+		!interaction.replied &&
+		!interaction.deferred
+	) {
+		try {
+			await utils.handleResponse(
+				interaction,
+				'success',
+				'Ticket is being closed...'
+			)
+		} catch (error) {
+			bunnyLog.error('❌ Failed to respond to modal interaction:', error)
+		}
 	}
 
 	const meta = await ensureMeta(interaction, thread)
@@ -272,6 +242,24 @@ export async function perfromClose(
 	meta.status = 'closed'
 
 	store.set(thread.id, meta)
+
+	// Fetch and save thread messages before archiving
+	try {
+		const messages = await api.fetchTicketMessages(thread)
+		const formattedMessages = api.formatTranscript(messages)
+
+		await api.saveTranscriptToSupabase(
+			interaction.client.user.id,
+			thread.guild.id,
+			thread.id,
+			formattedMessages,
+			meta
+		)
+	} catch (error) {
+		bunnyLog.error('❌ Failed to save transcript messages:', error)
+		// Continue with closure even if transcript saving fails
+	}
+
 	await api.updateTicketMetadata(
 		interaction.client.user.id,
 		thread.guild.id,
@@ -292,13 +280,17 @@ export async function perfromClose(
 	await thread.setLocked(true)
 	await thread.setArchived(true)
 
-	// Only respond if this is from modalClose (not from confirmClose which already responded)
-	if (interaction.isModalSubmit()) {
-		await utils.handleResponse(
-			interaction,
-			'success',
-			'Ticket closed successfully.'
-		)
+	// Only respond if this is from confirmClose (modalClose already responded above)
+	if (interaction.isButton() && !interaction.replied && !interaction.deferred) {
+		try {
+			await utils.handleResponse(
+				interaction,
+				'success',
+				'Ticket closed successfully.'
+			)
+		} catch (error) {
+			bunnyLog.error('❌ Failed to respond to button interaction:', error)
+		}
 	}
 }
 
@@ -371,10 +363,6 @@ async function sendTranscript(
 	const cfg = await getConfig(interaction)
 
 	if (!cfg.transcript_channel_id) {
-		bunnyLog.warn('❌ No transcript channel configured, skipping transcript')
-		bunnyLog.warn(
-			'💡 Please configure transcript channel using `/ticket config` command'
-		)
 		return
 	}
 
@@ -400,13 +388,13 @@ async function sendTranscript(
 			claimed_by:
 				typeof meta.claimed_by === 'object'
 					? `<@${meta.claimed_by.id}>`
-					: meta.claimed_by ?? 'Not claimed',
+					: (meta.claimed_by ?? 'Not claimed'),
 			category: meta.ticket_type ?? 'Support',
 			thread_id: thread.id,
 			guild_id: thread.guild.id,
 			reason: meta.reason ?? 'No reason',
 			rating: 'Not rated',
-			open_time: `<t:${Math.floor((meta.open_time ?? Date.now()) / 1000)}>`,
+			open_time: `<t:${meta.open_time ?? Math.floor(Date.now() / 1000)}>`,
 			close_time: `<t:${Math.floor((meta.close_time as Date).getTime() / 1000)}>`,
 		}
 
@@ -440,52 +428,53 @@ async function sendTranscript(
 
 			// Send only V2 components (includes content + buttons from embed.buttons_map)
 			if (v2Components.length > 0) {
-				await transcriptChannel.send({
+				const transcriptMessage = await transcriptChannel.send({
 					components: v2Components,
 					flags: Discord.MessageFlags.IsComponentsV2,
 				})
+
+				// Store transcript message info in metadata for rating updates
+				meta.transcript_channel = {
+					id: transcriptChannel.id,
+					message_id: transcriptMessage.id,
+				}
+
+				// Update the ticket metadata with transcript channel info
+				await api.updateTicketMetadata(
+					interaction.client.user.id,
+					thread.guild.id,
+					thread.id,
+					meta as ThreadMetadata
+				)
 				return
 			}
 
-			// Fallback: Send only action rows if V2 components failed (shouldn't happen normally)
+			// Fallback to action rows if no V2 components
 			if (actionRows.length > 0) {
-				await transcriptChannel.send({
+				const transcriptMessage = await transcriptChannel.send({
 					components: actionRows,
 				})
+
+				// Store transcript message info in metadata for rating updates
+				meta.transcript_channel = {
+					id: transcriptChannel.id,
+					message_id: transcriptMessage.id,
+				}
+
+				// Update the ticket metadata with transcript channel info
+				await api.updateTicketMetadata(
+					interaction.client.user.id,
+					thread.guild.id,
+					thread.id,
+					meta as ThreadMetadata
+				)
 				return
 			}
-
-			// If no components were generated, send error
-			bunnyLog.error(
-				'❌ No valid components generated from transcript configuration'
-			)
-			await transcriptChannel.send({
-				content: `❌ **Component Error**\n\nFailed to generate transcript components for ticket #${placeholders.ticket_id}.\nPlease check transcript component configuration.\n\n**Thread:** <#${placeholders.thread_id}>`,
-			})
 		} catch (error) {
 			bunnyLog.error('❌ Error using transcript configuration:', error)
-			await transcriptChannel.send({
-				content: `❌ **Error**\n\nFailed to process transcript configuration for ticket #${placeholders.ticket_id}.\nError: ${error.message}\n\n**Thread:** <#${placeholders.thread_id}>`,
-			})
 		}
 	} catch (error) {
 		bunnyLog.error('❌ Failed to send transcript:', error)
-		// Try to send a minimal error message as last resort
-		try {
-			const transcriptChannel = await thread.guild.channels.fetch(
-				cfg.transcript_channel_id
-			)
-			if (transcriptChannel?.isTextBased()) {
-				await transcriptChannel.send({
-					content: `❌ **Critical Error**\n\nFailed to send transcript for ticket #${meta.ticket_id}.\nError: ${error.message}\n\n**Thread:** <#${thread.id}>`,
-				})
-			}
-		} catch (errorNotificationError) {
-			bunnyLog.error(
-				'❌ Failed to send error notification:',
-				errorNotificationError
-			)
-		}
 	}
 }
 
@@ -497,7 +486,7 @@ async function deleteAdminMessage(
 	interaction: Discord.ButtonInteraction | Discord.ModalSubmitInteraction,
 	meta: ThreadMetadata
 ) {
-	if (!meta.admin_channel_id || !meta.join_ticket_message_id) {
+	if (!meta.admin_channel?.id || !meta.admin_channel?.message_id) {
 		bunnyLog.info(
 			'❌ No admin message to delete (missing channel or message ID)'
 		)
@@ -505,8 +494,8 @@ async function deleteAdminMessage(
 	}
 
 	try {
-		const adminChannel = await interaction.guild.channels.fetch(
-			meta.admin_channel_id
+		const adminChannel = await interaction.guild?.channels.fetch(
+			meta.admin_channel.id
 		)
 
 		if (!adminChannel?.isTextBased()) {
@@ -514,10 +503,7 @@ async function deleteAdminMessage(
 			return
 		}
 
-		await adminChannel.messages.delete(meta.join_ticket_message_id)
-		bunnyLog.success(
-			`✅ Deleted admin message ${meta.join_ticket_message_id} from ${meta.admin_channel_id}`
-		)
+		await adminChannel.messages.delete(meta.admin_channel.message_id)
 	} catch (error) {
 		bunnyLog.error('❌ Failed to delete admin message:', error)
 		// Don't fail the entire closing process for this error
@@ -534,7 +520,6 @@ async function sendRatingDM(
 	meta: ThreadMetadata
 ) {
 	if (!meta.opened_by?.id) {
-		bunnyLog.warn('❌ No user ID found for rating DM')
 		return
 	}
 
@@ -542,7 +527,6 @@ async function sendRatingDM(
 		const user = await interaction.client.users.fetch(meta.opened_by.id)
 
 		if (!user) {
-			bunnyLog.warn('❌ User not found for rating DM')
 			return
 		}
 
@@ -551,11 +535,6 @@ async function sendRatingDM(
 		// Check if rating_survey component configuration exists
 		const ratingSurveyConfig = cfg.components?.rating_survey
 		if (!ratingSurveyConfig) {
-			bunnyLog.warn(
-				'❌ No rating_survey component configuration found, sending simple DM'
-			)
-
-			bunnyLog.success('✅ Sent fallback rating DM to user')
 			return
 		}
 
@@ -571,47 +550,49 @@ async function sendRatingDM(
 				guild_id: thread.guild.id,
 				reason: meta.reason ?? 'No reason',
 				rating: 'Not rated',
-				open_time: `<t:${Math.floor((meta.open_time ?? Date.now()) / 1000)}>`,
+				open_time: `<t:${meta.open_time ?? Math.floor(Date.now() / 1000)}>`,
 				close_time: `<t:${Math.floor((meta.close_time as Date).getTime() / 1000)}>`,
-			}
-
-			// Add rating button placeholders
-			for (let i = 1; i <= 5; i++) {
-				placeholders[`rate_${i}_custom_id`] = ID.TICKET_RATE(thread.id, i)
+				// Rating button custom_ids
+				rate_1_custom_id: `tickets:rate:${thread.id}:1`,
+				rate_2_custom_id: `tickets:rate:${thread.id}:2`,
+				rate_3_custom_id: `tickets:rate:${thread.id}:3`,
+				rate_4_custom_id: `tickets:rate:${thread.id}:4`,
+				rate_5_custom_id: `tickets:rate:${thread.id}:5`,
 			}
 
 			const { v2Components, actionRows } = buildUniversalComponents(
 				ratingSurveyConfig,
 				member,
 				interaction.guild,
-				placeholders
+				placeholders,
+				true // Force buttons for rating survey
 			)
 
-			// Send V2 components if available
-			if (v2Components.length > 0) {
+			// Send V2 components with action rows if available
+			if (v2Components.length > 0 || actionRows.length > 0) {
+				const messageComponents = []
+
+				// Add V2 components first
+				if (v2Components.length > 0) {
+					messageComponents.push(...v2Components)
+				}
+
+				// Add action rows (buttons)
+				if (actionRows.length > 0) {
+					messageComponents.push(...actionRows)
+				}
+
 				await user.send({
-					components: v2Components,
-					flags: Discord.MessageFlags.IsComponentsV2,
+					components: messageComponents,
+					flags:
+						v2Components.length > 0
+							? Discord.MessageFlags.IsComponentsV2
+							: undefined,
 				})
-				bunnyLog.success('✅ Sent rating DM with V2 components to user')
 				return
 			}
-
-			// Send action row buttons if available (fallback)
-			if (actionRows.length > 0) {
-				await user.send({
-					components: actionRows,
-				})
-				bunnyLog.success('✅ Sent rating DM with action rows to user')
-				return
-			}
-
-			bunnyLog.warn(
-				'⚠️ No valid components generated from rating survey configuration'
-			)
 		} catch (error) {
 			bunnyLog.error('❌ Error using rating_survey configuration:', error)
-			// Fall back to simple DM without configuration
 		}
 	} catch (error) {
 		bunnyLog.error('❌ Failed to send rating DM:', error)

@@ -37,7 +37,14 @@ interface ThreadMetadata {
 	guild_id?: string
 	status?: string
 	join_ticket_message_id?: string
-	admin_channel_id?: string
+	admin_channel?: {
+		id: string
+		message_id: string
+	}
+	transcript_channel?: {
+		id: string
+		message_id: string
+	}
 	rating?: {
 		value: number
 		submitted_at?: string
@@ -46,7 +53,6 @@ interface ThreadMetadata {
 		timestamp?: number
 	}
 	transcript_message_id?: string
-	transcript_channel_id?: string
 }
 
 interface TicketConfig {

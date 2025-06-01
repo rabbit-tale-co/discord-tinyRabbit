@@ -44,8 +44,6 @@ const selectMenuMap: Record<string, SelectMenuStructure> = {
 					break
 				case 'open': {
 					// Handle ticket opening with the selected value
-					const customId = inter.values[0] // Get the selected value which should be the ticket type
-					bunnyLog.info(`Opening ticket with type: ${customId}`)
 					await openTicketFromSelect(inter)
 					break
 				}
@@ -61,13 +59,8 @@ export async function selectMenuInteractionHandler(
 	inter: Discord.StringSelectMenuInteraction
 ): Promise<void> {
 	try {
-		bunnyLog.info(`Processing select menu interaction: ${inter.customId}`)
-
-		// Handle direct ticket actions
+		// Handle direct ticket actions - these use the select menu for ticket creation
 		if (inter.customId.startsWith('open_ticket_')) {
-			bunnyLog.info(
-				`Handling direct ticket open via select menu: ${inter.customId}, selected value: ${inter.values[0]}`
-			)
 			await openTicketFromSelect(inter)
 			return
 		}

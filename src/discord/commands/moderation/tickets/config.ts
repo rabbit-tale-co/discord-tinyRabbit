@@ -3,6 +3,7 @@ import * as utils from '@/utils/index.js'
 import { ID } from '@/discord/commands/constants.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
 import { loadCfg, saveCfg } from './limits.js'
+import { bunnyLog } from 'bunny-log'
 import {
 	ticketUtils,
 	formatTimeThreshold,
@@ -900,6 +901,7 @@ async function handleButtonClick(inter: Discord.ButtonInteraction) {
 			break
 
 		default:
-			console.log('Unhandled button ID:', inter.customId)
+			bunnyLog.warn(`Unhandled button ID: ${inter.customId}`)
+			break
 	}
 }

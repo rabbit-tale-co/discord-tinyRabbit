@@ -55,6 +55,11 @@ const createTicketComponents = (): TicketTemplates => {
 					text: '**👋 Welcome {display_name}!**',
 				} as unknown as API.TextDisplay,
 				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
 					type: Discord.ComponentType.TextDisplay,
 					text: 'Thank you for reaching out! A support representative will be with you shortly.\nPlease provide as much detail as possible to help us assist you better.',
 				} as unknown as API.TextDisplay,
@@ -110,17 +115,6 @@ const createTicketComponents = (): TicketTemplates => {
 					type: Discord.ComponentType.TextDisplay,
 					text: 'Please click here to view: {channel_id}',
 				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.ActionRow,
-					components: [
-						{
-							type: Discord.ComponentType.Button,
-							custom_id: 'view_ticket:{thread_id}',
-							label: '📝 View Ticket',
-							style: Discord.ButtonStyle.Primary,
-						} as API.Button,
-					],
-				} as API.ActionRow,
 			],
 		},
 		closed_ticket: {
@@ -192,14 +186,8 @@ const createTicketComponents = (): TicketTemplates => {
 						{
 							type: Discord.ComponentType.Button,
 							custom_id: 'confirm_close:{thread_id}',
-							label: '✅ Confirm Close',
+							label: 'Yes',
 							style: Discord.ButtonStyle.Success,
-						} as API.Button,
-						{
-							type: Discord.ComponentType.Button,
-							custom_id: 'cancel_close:{thread_id}',
-							label: '❌ Cancel',
-							style: Discord.ButtonStyle.Secondary,
 						} as API.Button,
 					],
 				} as API.ActionRow,

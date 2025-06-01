@@ -23,7 +23,6 @@ type InteractionType =
 
 // Define base options interface
 interface BaseResponseOptions {
-	code?: string
 	ephemeral?: boolean
 	followUp?: boolean
 	components?: Discord.ActionRowBuilder<
@@ -31,15 +30,21 @@ interface BaseResponseOptions {
 	>[]
 }
 
-// Error-specific options that include the error field
+// Error-specific options that require the code field
 interface ErrorResponseOptions extends BaseResponseOptions {
+	code: string // Required for errors
 	error?: Error
+}
+
+// Other response types where code is optional
+interface OtherResponseOptions extends BaseResponseOptions {
+	code?: string // Optional for success, warning, info
 }
 
 // Type that changes based on response type
 type ResponseOptions<T extends ResponseType> = T extends 'error'
 	? ErrorResponseOptions
-	: BaseResponseOptions
+	: OtherResponseOptions
 
 const RESPONSE_TYPES: Record<ResponseType, string> = {
 	error: 'Error',
@@ -101,7 +106,9 @@ export const handleResponse = async <T extends ResponseType>(
 				]
 			: []),
 
-		V2.makeTextDisplay(`### ${RESPONSE_TYPES[type]} ${code && `| #${code}`}`),
+		V2.makeTextDisplay(
+			`### ${RESPONSE_TYPES[type]}${code ? ` | #${code}` : ''}`
+		),
 		V2.makeTextDisplay(`> ${message}`),
 
 		...(isError && error

@@ -88,9 +88,6 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 		/*                  RESOLVE TICKET CATEGORY               */
 		/* ------------------------------------------------------ */
 		const category = resolveCategory(inter.customId, cfg)
-		bunnyLog.info(
-			`Resolved ticket category: ${category} from custom_id: ${inter.customId}`
-		)
 
 		/* ------------------------------------------------------ */
 		/*                OBTAIN NEXT TICKET NUMBER               */
@@ -252,20 +249,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 				// Send the message
 				const sentMessage = await thread.send(messageOptions)
 
-				// Update metadata with message info
-				if (sentMessage) {
-					meta.join_ticket_message_id = sentMessage.id
-					meta.admin_channel_id = cfg.admin_channel_id
-
-					// Update in memory and database
-					store.set(thread.id, meta)
-					await api.updateTicketMetadata(
-						inter.client.user.id,
-						inter.guild.id,
-						thread.id,
-						meta
-					)
-				}
+				// Update metadata with message info is now handled in sendAdminNotification
 			} catch (error) {
 				bunnyLog.error(
 					'Error sending thread message with universal components:',
@@ -412,7 +396,8 @@ export async function openTicketFromSelect(
 		return
 	}
 
-	await inter.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+	// Use deferUpdate instead of deferReply to prevent select menu from staying selected
+	await inter.deferUpdate()
 
 	try {
 		const cfg = await loadCfg(inter)
@@ -421,7 +406,7 @@ export async function openTicketFromSelect(
 				inter,
 				'error',
 				'Tickets are not enabled on this server',
-				{ code: 'OT002' }
+				{ code: 'OT002', followUp: true }
 			)
 			return
 		}
@@ -440,7 +425,7 @@ export async function openTicketFromSelect(
 					inter,
 					'warning',
 					`You need to wait ${cooldownResult.limit} between tickets. You can open a new ticket <t:${Math.floor(cooldownResult.retryAt / 1000)}:R>`,
-					{ code: 'OT003' }
+					{ code: 'OT003', followUp: true }
 				)
 				return
 			}
@@ -457,7 +442,7 @@ export async function openTicketFromSelect(
 				inter,
 				'error',
 				'Failed to get ticket counter',
-				{ code: 'OT004' }
+				{ code: 'OT004', followUp: true }
 			)
 			return
 		}
@@ -542,81 +527,34 @@ export async function openTicketFromSelect(
 
 				const sentMessage = await thread.send(messageOptions)
 
-				if (sentMessage) {
-					meta.join_ticket_message_id = sentMessage.id
-					meta.admin_channel_id = cfg.admin_channel_id
-					store.set(thread.id, meta)
-					await api.updateTicketMetadata(
-						inter.client.user.id,
-						inter.guild.id,
-						thread.id,
-						meta
-					)
-				}
+				// Update metadata with message info is now handled in sendAdminNotification
 			} catch (error) {
 				bunnyLog.error('Error sending thread message:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
 					'Failed to send welcome message to ticket',
-					{ code: 'OT005' }
+					{ code: 'OT005', followUp: true }
 				)
 			}
 		}
 
-		if (cfg.components?.user_ticket) {
-			try {
-				const additionalPlaceholders = {
-					ticket_id: ticket_id.toString(),
-					category,
-					thread_id: thread.id,
-					channel_id: `<#${thread.id}>`,
-					open_time: Math.floor(Date.now() / 1000).toString(),
-				}
+		// Send success notification as followUp instead of editing reply
+		await inter.followUp({
+			content: `✅ **Ticket Created Successfully!**\n\n📋 **Ticket #${ticket_id}** - ${category}\n🎯 **Thread:** <#${thread.id}>\n\n*You can now use the select menu again to create another ticket.*`,
+			flags: Discord.MessageFlags.Ephemeral,
+		})
 
-				const { v2Components, actionRows } = buildUniversalComponents(
-					cfg.components.user_ticket,
-					member,
-					inter.guild,
-					additionalPlaceholders
-				)
+		// Clear the select menu selection after successful ticket creation
+		await clearSelectMenuSelection(inter)
 
-				const messageOptions: Discord.InteractionEditReplyOptions = {
-					content: '',
-					components: [],
-					flags: Discord.MessageFlags.SuppressEmbeds,
-				}
-
-				if (v2Components.length > 0) {
-					messageOptions.components = v2Components
-					messageOptions.flags =
-						Discord.MessageFlags.SuppressEmbeds |
-						Discord.MessageFlags.IsComponentsV2
-				}
-
-				if (actionRows.length > 0) {
-					messageOptions.components =
-						messageOptions.components.concat(actionRows)
-				}
-
-				await inter.editReply(messageOptions)
-				await sendAdminNotification(
-					inter as unknown as Discord.ButtonInteraction,
-					cfg,
-					thread,
-					meta,
-					placeholders
-				)
-			} catch (error) {
-				bunnyLog.error('Error sending user confirmation:', error)
-				await utils.handleResponse(
-					inter,
-					'error',
-					'Failed to send user confirmation',
-					{ code: 'OT006' }
-				)
-			}
-		}
+		await sendAdminNotification(
+			inter as unknown as Discord.ButtonInteraction,
+			cfg,
+			thread,
+			meta,
+			placeholders
+		)
 	} catch (error) {
 		bunnyLog.error('Failed to create ticket:', error)
 		await utils.handleResponse(
@@ -626,6 +564,7 @@ export async function openTicketFromSelect(
 			{
 				code: 'OT005',
 				error: error as Error,
+				followUp: true,
 			}
 		)
 	}
@@ -846,7 +785,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 						if (customId.startsWith('claim_ticket:')) {
 							componentBuilder
 								.setDisabled(true)
-								.setLabel('✅ Claimed')
+								.setLabel('Claimed')
 								.setStyle(Discord.ButtonStyle.Success)
 						}
 
@@ -921,13 +860,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 						content: inter.message.content,
 						components: fallbackComponents,
 					})
-					bunnyLog.info(
-						'Fallback: Successfully disabled claim button on original message.'
-					)
-				} else {
-					bunnyLog.warn(
-						'Fallback: No components could be processed to disable claim button.'
-					)
 				}
 			} catch (fallbackError) {
 				bunnyLog.error(
@@ -1284,9 +1216,6 @@ function resolveCategory(
 				) {
 					// Check if this button's custom_id matches what we're looking for
 					if (subComponent.custom_id === customId && subComponent.label) {
-						bunnyLog.info(
-							`Found matching button with label: ${subComponent.label}`
-						)
 						return String(subComponent.label)
 					}
 				}
@@ -1434,8 +1363,10 @@ async function sendAdminNotification(
 
 		// Update metadata with admin message info
 		if (adminMessage) {
-			meta.join_ticket_message_id = adminMessage.id
-			meta.admin_channel_id = cfg.admin_channel_id
+			meta.admin_channel = {
+				id: cfg.admin_channel_id,
+				message_id: adminMessage.id,
+			}
 
 			// Update in memory and database
 			store.set(thread.id, meta)
@@ -1457,5 +1388,98 @@ async function sendAdminNotification(
 				error: error as Error,
 			}
 		)
+	}
+}
+
+/**
+ * Clear select menu selection after successful ticket creation
+ * This allows users to select the same option again for future tickets
+ */
+async function clearSelectMenuSelection(
+	inter: Discord.StringSelectMenuInteraction
+): Promise<void> {
+	try {
+		const originalMessage = inter.message
+
+		// Check if this is a V2 components message
+		const hasV2Components = originalMessage.flags?.has(
+			Discord.MessageFlags.IsComponentsV2
+		)
+
+		if (hasV2Components) {
+			// For V2 messages, we can't easily modify the components
+			// Just trigger a re-render by editing with the same content
+			await originalMessage.edit({
+				components: originalMessage.components,
+				flags: Discord.MessageFlags.IsComponentsV2,
+			})
+		} else {
+			// For regular messages, rebuild the components to clear selections
+			const updatedComponents = originalMessage.components
+				.map((row) => {
+					if (row.type === Discord.ComponentType.ActionRow) {
+						const newComponents = row.components.map((component) => {
+							if (component.type === Discord.ComponentType.StringSelect) {
+								// Rebuild the select menu from scratch to clear selection
+								if (!component.customId) {
+									return component // Skip if no customId
+								}
+
+								const selectMenu = new Discord.StringSelectMenuBuilder()
+									.setCustomId(component.customId)
+									.setPlaceholder(
+										component.placeholder || 'Select an option...'
+									)
+
+								// Add all the original options
+								if (component.options && component.options.length > 0) {
+									selectMenu.addOptions(
+										component.options.map((option) => ({
+											label: option.label,
+											value: option.value,
+											description: option.description || undefined,
+											emoji: option.emoji || undefined,
+										}))
+									)
+								}
+
+								// Set min/max values if they were set
+								if (typeof component.minValues === 'number') {
+									selectMenu.setMinValues(component.minValues)
+								}
+								if (typeof component.maxValues === 'number') {
+									selectMenu.setMaxValues(component.maxValues)
+								}
+
+								return selectMenu
+							}
+							return component
+						})
+
+						return new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+							...newComponents.filter(
+								(comp): comp is Discord.StringSelectMenuBuilder =>
+									comp instanceof Discord.StringSelectMenuBuilder
+							)
+						)
+					}
+					return row
+				})
+				.filter(
+					(
+						row
+					): row is Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder> =>
+						row instanceof Discord.ActionRowBuilder
+				)
+
+			await originalMessage.edit({
+				content: originalMessage.content,
+				embeds: originalMessage.embeds,
+				components: updatedComponents,
+			})
+		}
+	} catch (error) {
+		// Don't fail the ticket creation if we can't clear the select menu
+		bunnyLog.warn('Failed to clear select menu selection:', error)
 	}
 }

@@ -12,9 +12,6 @@ interface ModalStructure {
 
 // Modal map structure for different modal types
 const modalMap: Record<string, ModalStructure> = {
-	close_ticket_modal: {
-		handler: commands.ticket.modalClose,
-	},
 	ticket_auto_close_modal: {
 		handler: handleAutoCloseModal,
 	},
@@ -24,13 +21,19 @@ const modalMap: Record<string, ModalStructure> = {
 export async function modalInteractionHandler(
 	inter: Discord.ModalSubmitInteraction
 ): Promise<void> {
+	// Check for close ticket modal (with thread ID suffix)
+	if (inter.customId.startsWith('close_ticket_modal:')) {
+		await commands.ticket.modalClose(inter)
+		return
+	}
+
 	// Check for role limits modal
-	if (inter.custom_id.startsWith('ticket_role_limits_modal_')) {
+	if (inter.customId.startsWith('ticket_role_limits_modal_')) {
 		await handleRoleLimitsModal(inter)
 		return
 	}
 
-	const modalConfig = modalMap[inter.custom_id]
+	const modalConfig = modalMap[inter.customId]
 	if (!modalConfig) return
 
 	await modalConfig.handler(inter)
@@ -79,7 +82,7 @@ async function handleAutoCloseModal(inter: Discord.ModalSubmitInteraction) {
 async function handleRoleLimitsModal(inter: Discord.ModalSubmitInteraction) {
 	await inter.deferUpdate()
 
-	const roles = inter.custom_id.split('_').pop()?.split(',') ?? []
+	const roles = inter.customId.split('_').pop()?.split(',') ?? []
 	const limit = Number.parseInt(inter.fields.getTextInputValue('limit')) * 3600 // Convert hours to seconds
 
 	const ticketConfig = (await api.getPluginConfig(

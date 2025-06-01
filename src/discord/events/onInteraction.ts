@@ -1,4 +1,4 @@
-import type * as Discord from 'discord.js'
+import * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
 import * as Inter from '@/discord/events/interactions/index.js'
 
@@ -50,7 +50,7 @@ export async function interactionHandler(
 		console.log('Unhandled interaction:', {
 			type: inter.type,
 			id: inter.id,
-			custom_id: 'custom_id' in inter ? inter.custom_id : undefined,
+			customId: 'customId' in inter ? inter.customId : undefined,
 			commandName: 'commandName' in inter ? inter.commandName : undefined,
 		})
 	} catch (error) {
@@ -61,7 +61,7 @@ export async function interactionHandler(
 			try {
 				await inter.reply({
 					content: 'An error occurred while processing your request.',
-					ephemeral: true,
+					flags: Discord.MessageFlags.Ephemeral,
 				})
 			} catch (e) {
 				// Ignore errors related to already replied interactions

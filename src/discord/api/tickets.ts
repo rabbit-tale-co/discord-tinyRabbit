@@ -80,11 +80,11 @@ async function saveTranscriptToSupabase(
 
 /**
  * Fetches all messages from a ticket thread.
- * @param {Discord.PrivateThreadChannel} thread - The ticket thread object.
+ * @param {Discord.ThreadChannel} thread - The ticket thread object.
  * @returns {Promise<Discord.Message[]>} An array of messages.
  */
 async function fetchTicketMessages(
-	thread: Discord.PrivateThreadChannel
+	thread: Discord.ThreadChannel
 ): Promise<Discord.Message[]> {
 	// Try to fetch the messages from the thread
 	let messages: Discord.Message[] = []
@@ -228,6 +228,37 @@ async function saveTicketMetadata(
 	} catch (error) {
 		bunnyLog.error('Failed to save ticket metadata:', error)
 		throw error
+	}
+}
+
+/**
+ * Finds ticket metadata by thread_id across all guilds for a bot.
+ * @param {string} bot_id - The bot's user ID.
+ * @param {string} thread_id - The ticket thread's ID.
+ * @returns {Promise<{guild_id: string, metadata: ThreadMetadata} | null>} The ticket data with guild_id or null if not found.
+ */
+async function findTicketByThreadId(
+	bot_id: string,
+	thread_id: string
+): Promise<{ guild_id: string; metadata: ThreadMetadata } | null> {
+	const { data, error } = await supabase
+		.from('tickets')
+		.select('guild_id, metadata')
+		.eq('bot_id', bot_id)
+		.eq('thread_id', thread_id)
+		.single()
+
+	if (error || !data) {
+		// Don't log "no rows" as an error
+		if (error?.code !== 'PGRST116') {
+			bunnyLog.error('Failed to find ticket by thread_id:', error)
+		}
+		return null
+	}
+
+	return {
+		guild_id: data.guild_id,
+		metadata: data.metadata as ThreadMetadata,
 	}
 }
 
@@ -472,6 +503,7 @@ export {
 	getTicketCounter,
 	incrementTicketCounter,
 	getTicketMetadata,
+	findTicketByThreadId,
 	updateTicketMetadata,
 	updateTicketRating,
 	getUserTickets,
