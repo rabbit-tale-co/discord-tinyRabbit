@@ -22,7 +22,7 @@ async function watchStarboard(
 
 		// Check if the plugin is enabled
 		if (!config?.enabled) {
-			PluginLogger.error('starboard', `Plugin not enabled for guild ${reaction.message.guildId}`)
+			// PluginLogger.error('starboard', `Plugin not enabled for guild ${reaction.message.guildId}`)
 			return null
 		}
 
