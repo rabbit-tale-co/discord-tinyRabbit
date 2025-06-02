@@ -11,8 +11,8 @@ import {
 	StringSelectMenuBuilder,
 	StringSelectMenuOptionBuilder,
 } from 'discord.js'
-import { bunnyLog } from 'bunny-log'
 import type { ComponentsV2, ComponentContainer } from '@/types/plugins.js'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 // Type definitions for component configuration
 type TextComponent = {
@@ -194,14 +194,14 @@ export function buildUniversalComponents(
 
 	// Handle null/undefined config
 	if (!config) {
-		bunnyLog.warn('No components provided to buildUniversalComponents')
+		StatusLogger.warn('No components provided to buildUniversalComponents')
 		return { v2Components, actionRows }
 	}
 
 	// Handle both ComponentContainer and ComponentsV2[] formats
 	const components = Array.isArray(config) ? config : config.components
 	if (!components) {
-		bunnyLog.warn('No components found in configuration')
+		StatusLogger.warn('No components found in configuration')
 		return { v2Components, actionRows }
 	}
 
@@ -295,13 +295,13 @@ export function buildUniversalComponents(
 					const validButtons = buttonComponents.filter(
 						(btn): btn is Required<ButtonComponent> => {
 							if (!btn.custom_id || typeof btn.custom_id !== 'string') {
-								bunnyLog.warn(
+								StatusLogger.warn(
 									`Button missing valid custom_id: ${btn.label}, received: ${JSON.stringify(btn.custom_id)}`
 								)
 								return false
 							}
 							if (!btn.label || typeof btn.label !== 'string') {
-								bunnyLog.warn(`Button missing valid label: ${btn.custom_id}`)
+								StatusLogger.warn(`Button missing valid label: ${btn.custom_id}`)
 								return false
 							}
 							return true
@@ -309,7 +309,7 @@ export function buildUniversalComponents(
 					)
 
 					if (validButtons.length === 0) {
-						bunnyLog.warn(
+						StatusLogger.warn(
 							'No valid buttons found for select menu, skipping creation'
 						)
 						return
@@ -357,7 +357,7 @@ export function buildUniversalComponents(
 							selectActionRow as unknown as ActionRowBuilder<ButtonBuilder>
 						)
 					} catch (error) {
-						bunnyLog.error('Failed to create select menu:', error)
+						StatusLogger.error('Failed to create select menu', error as Error)
 					}
 					break // Exit after creating select menu
 				}
@@ -509,7 +509,7 @@ export function buildV2Components(
 				}
 			}
 		} catch (error) {
-			bunnyLog.error('Failed to process component:', error)
+			StatusLogger.error('Failed to process component', error as Error)
 			// Continue with next component instead of failing completely
 		}
 	}

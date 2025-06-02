@@ -2,8 +2,8 @@ import type { ButtonInteraction, ThreadChannel } from 'discord.js'
 import * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
 import { PLUGINS } from '@/discord/commands/constants.js'
-import { bunnyLog } from 'bunny-log'
 import { updateTicketRating } from '@/discord/api/tickets.js'
+import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
 
 type ButtonHandler = (inter: ButtonInteraction) => Promise<void>
 
@@ -20,6 +20,37 @@ const buttonMap: Record<string, ButtonStructure> = {
 			await handleTicketRating(inter, threadId, Number.parseInt(rating))
 		},
 	},
+	// Auto-close rating buttons (rate_1, rate_2, rate_3, rate_4, rate_5)
+	rate_1: {
+		handler: async (inter: ButtonInteraction) => {
+			const [_, guildId, threadId] = inter.customId.split(':')
+			await handleTicketRating(inter, threadId, 1)
+		},
+	},
+	rate_2: {
+		handler: async (inter: ButtonInteraction) => {
+			const [_, guildId, threadId] = inter.customId.split(':')
+			await handleTicketRating(inter, threadId, 2)
+		},
+	},
+	rate_3: {
+		handler: async (inter: ButtonInteraction) => {
+			const [_, guildId, threadId] = inter.customId.split(':')
+			await handleTicketRating(inter, threadId, 3)
+		},
+	},
+	rate_4: {
+		handler: async (inter: ButtonInteraction) => {
+			const [_, guildId, threadId] = inter.customId.split(':')
+			await handleTicketRating(inter, threadId, 4)
+		},
+	},
+	rate_5: {
+		handler: async (inter: ButtonInteraction) => {
+			const [_, guildId, threadId] = inter.customId.split(':')
+			await handleTicketRating(inter, threadId, 5)
+		},
+	},
 	[PLUGINS.TICKETS]: {
 		handler: async (inter: ButtonInteraction) => {
 			const [_, action, ...params] = inter.customId.split(':')
@@ -32,7 +63,7 @@ const buttonMap: Record<string, ButtonStructure> = {
 					if (params[0] === 'close') {
 						await commands.ticket.confirmClose(inter)
 					} else {
-						bunnyLog.warn(`⚠️ Unhandled confirm action: ${params[0]}`)
+						StatusLogger.warn(`Unhandled confirm action: ${params[0]}`)
 					}
 					break
 				}
@@ -59,7 +90,7 @@ const buttonMap: Record<string, ButtonStructure> = {
 					break
 				}
 				default:
-					bunnyLog.warn(`⚠️ Unhandled tickets action: ${action}`)
+					StatusLogger.warn(`Unhandled tickets action: ${action}`)
 					break
 			}
 		},
@@ -106,20 +137,15 @@ export async function buttonInteractionHandler(
 
 		const buttonConfig = buttonMap[baseId]
 		if (!buttonConfig) {
-			bunnyLog.warn(
-				`❌ No handler found for button with baseId: ${baseId}, custom_id: ${inter.customId}`
+			StatusLogger.warn(
+				`No handler found for button with baseId: ${baseId}, custom_id: ${inter.customId}`
 			)
 			return
 		}
 
 		await buttonConfig.handler(inter)
 	} catch (error) {
-		bunnyLog.error(
-			'❌ Error handling button interaction:',
-			error,
-			'custom_id:',
-			inter.customId
-		)
+		EventLogger.error('button interaction', error as Error)
 		await inter.reply({
 			content: 'An error occurred while processing your request.',
 			flags: Discord.MessageFlags.Ephemeral,
@@ -153,7 +179,7 @@ async function showCloseReasonModal(inter: ButtonInteraction): Promise<void> {
 		modal.addComponents(reasonRow)
 		await inter.showModal(modal)
 	} catch (error) {
-		bunnyLog.error('❌ Error showing close reason modal:', error)
+		StatusLogger.error('Error showing close reason modal', error as Error)
 		await inter.reply({
 			content: 'An error occurred while showing the close reason form.',
 			flags: Discord.MessageFlags.Ephemeral,
@@ -175,10 +201,14 @@ async function handleTicketRating(
 			inter.message.id
 		)
 
-		// Disable all rating buttons and highlight the selected one
-		const updatedComponents = inter.message.components.map((row) => {
+		// Extract and disable only the rating buttons from the original message
+		const updatedActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] = []
+
+		for (const row of inter.message.components) {
 			if (row.type === Discord.ComponentType.ActionRow) {
-				const newComponents = row.components.map((component) => {
+				const buttonComponents: Discord.ButtonBuilder[] = []
+
+				for (const component of row.components) {
 					if (component.type === Discord.ComponentType.Button) {
 						const button = Discord.ButtonBuilder.from(component)
 						button.setDisabled(true)
@@ -191,16 +221,19 @@ async function handleTicketRating(
 							button.setStyle(Discord.ButtonStyle.Success)
 						}
 
-						return button
+						buttonComponents.push(button)
 					}
-					return component
-				})
-				return new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-					...(newComponents as Discord.ButtonBuilder[])
-				)
+				}
+
+				if (buttonComponents.length > 0) {
+					updatedActionRows.push(
+						new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+							...buttonComponents
+						)
+					)
+				}
 			}
-			return row
-		}) as Discord.ActionRowBuilder<Discord.ButtonBuilder>[]
+		}
 
 		// Edit the original message to show the rating result with disabled buttons
 		const stars = '⭐'.repeat(rating)
@@ -211,7 +244,7 @@ async function handleTicketRating(
 		)
 
 		if (hasV2Components) {
-			// For V2 messages, create V2 thank you components
+			// For V2 messages, completely replace with new thank you components
 			const thankYouComponents = [
 				{
 					type: Discord.ComponentType.TextDisplay,
@@ -235,7 +268,7 @@ async function handleTicketRating(
 					type: Discord.ComponentType.TextDisplay,
 					content: '-# Your feedback helps us improve our support services.',
 				},
-				...updatedComponents, // Add the disabled rating buttons
+				...updatedActionRows, // Add only the disabled rating buttons
 			]
 
 			await inter.update({
@@ -246,14 +279,14 @@ async function handleTicketRating(
 			// For regular messages, use content field
 			await inter.update({
 				content: `## Thank You For Your Feedback!\n\nYou rated your support experience: ${stars} (${rating}/5)\n\n*Your feedback helps us improve our support services.* (edited)`,
-				components: updatedComponents,
+				components: updatedActionRows,
 			})
 		}
 
 		// Update transcript message rating
 		await updateTranscriptRating(inter, threadId, rating)
 	} catch (error) {
-		bunnyLog.error('❌ Error processing ticket rating:', error)
+		StatusLogger.error('Error processing ticket rating', error as Error)
 
 		try {
 			await inter.reply({
@@ -262,7 +295,7 @@ async function handleTicketRating(
 				flags: Discord.MessageFlags.Ephemeral,
 			})
 		} catch (replyError) {
-			bunnyLog.error('❌ Failed to send error response:', replyError)
+			StatusLogger.error('Failed to send error response', replyError as Error)
 		}
 	}
 }
@@ -387,7 +420,7 @@ async function updateTranscriptRating(
 					})
 				}
 			} catch (error) {
-				bunnyLog.error('❌ Error updating V2 components:', error)
+				StatusLogger.error('Error updating V2 components', error as Error)
 			}
 		} else {
 			// For regular messages, update the content
@@ -401,7 +434,7 @@ async function updateTranscriptRating(
 			})
 		}
 	} catch (error) {
-		bunnyLog.error('❌ Error updating transcript rating:', error)
+		StatusLogger.error('Error updating transcript rating', error as Error)
 		// Don't fail the entire rating process if transcript update fails
 	}
 }

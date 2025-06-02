@@ -1,5 +1,5 @@
 import type * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { DatabaseLogger, ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 import type * as Types from '@/types/plugins.js'
 
@@ -26,7 +26,7 @@ async function saveTempChannelToDB(
 	})
 
 	if (error) {
-		bunnyLog.error('Error saving temporary channel to database:', error)
+		DatabaseLogger.error(`Error saving temporary channel to database: ${error instanceof Error ? error.message : String(error)}`)
 	}
 }
 
@@ -49,7 +49,7 @@ async function deleteTemporaryChannel(
 
 	// Check if there is an error deleting the temporary voice channel
 	if (error) {
-		bunnyLog.error('Error deleting temporary channel from database:', error)
+		DatabaseLogger.error(`Error deleting temporary channel from database: ${error instanceof Error ? error.message : String(error)}`)
 	}
 }
 
@@ -66,7 +66,7 @@ async function checkAndUpdateChannels(client: Discord.Client) {
 
 	// Check if there is an error fetching the temporary voice channels
 	if (error) {
-		bunnyLog.error('Error fetching temp channels:', error)
+		DatabaseLogger.error(`Error fetching temp channels: ${error instanceof Error ? error.message : String(error)}`)
 		return
 	}
 
@@ -102,11 +102,11 @@ async function checkAndUpdateChannels(client: Discord.Client) {
 					)
 
 					// Log the success
-					bunnyLog.success(
+					StatusLogger.success(
 						`Deleted temporary voice channel: ${voiceChannel.name}`
 					)
 				} catch (error) {
-					bunnyLog.error(`Error deleting channel ${channel.channel_id}:`, error)
+					DatabaseLogger.error(`Error deleting channel ${channel.channel_id}: ${error instanceof Error ? error.message : String(error)}`)
 				}
 			}
 		} else {
@@ -132,11 +132,11 @@ export async function getTempChannels(): Promise<Types.TempVC[]> {
 
 	// Check if there is an error fetching the temporary voice channels
 	if (error) {
-		bunnyLog.error('Error fetching temp channels:', error)
+		DatabaseLogger.error(`Error fetching temp channels: ${error instanceof Error ? error.message : String(error)}`)
 		return []
 	}
 
-	// bunnyLog.info(`Fetched ${data.length} temp channels from database`)
+	// StatusLogger.info(`Fetched ${data.length} temp channels from database`)
 
 	// Return the temporary voice channels
 	return data.map((channel) => ({

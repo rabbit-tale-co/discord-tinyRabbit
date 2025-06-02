@@ -7,7 +7,7 @@ import * as limits from './limits.js'
 import { threadMetadataStore as store } from './state.js'
 import type { ThreadMetadata } from '@/types/tickets.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger, ServiceLogger, CommandLogger } from '@/utils/bunnyLogger.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
 import {
 	replacePlaceholders,
@@ -71,14 +71,17 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 		const member = inter.member as Discord.GuildMember
 
 		// Check role time limits if configured
-		if (cfg.role_time_limits?.length > 0) {
+		if (
+			cfg.role_time_limits?.included?.length > 0 ||
+			cfg.role_time_limits?.excluded?.length > 0
+		) {
 			const cooldownResult = await checkRoleTimeLimits(member, cfg, inter)
 			if (!cooldownResult.allowed) {
 				await utils.handleResponse(
 					inter,
 					'warning',
 					`You need to wait ${cooldownResult.limit} between tickets. You can open a new ticket <t:${Math.floor(cooldownResult.retryAt / 1000)}:R>`,
-					{ code: 'OT003' }
+					{ code: 'OT003', ephemeral: true }
 				)
 				return
 			}
@@ -251,10 +254,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 
 				// Update metadata with message info is now handled in sendAdminNotification
 			} catch (error) {
-				bunnyLog.error(
-					'Error sending thread message with universal components:',
-					error
-				)
+				StatusLogger.error('Error sending thread message with universal components:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -357,10 +357,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 				// Send admin notification
 				await sendAdminNotification(inter, cfg, thread, meta, placeholders)
 			} catch (error) {
-				bunnyLog.error(
-					'Error sending user confirmation with universal components:',
-					error
-				)
+				StatusLogger.error('Error sending user confirmation with universal components:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -370,7 +367,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 			}
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to create ticket:', error)
+		StatusLogger.error('Failed to create ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -396,9 +393,6 @@ export async function openTicketFromSelect(
 		return
 	}
 
-	// Use deferUpdate instead of deferReply to prevent select menu from staying selected
-	await inter.deferUpdate()
-
 	try {
 		const cfg = await loadCfg(inter)
 		if (!cfg.enabled) {
@@ -406,15 +400,18 @@ export async function openTicketFromSelect(
 				inter,
 				'error',
 				'Tickets are not enabled on this server',
-				{ code: 'OT002', followUp: true }
+				{ code: 'OT002' }
 			)
 			return
 		}
 
 		const member = inter.member as Discord.GuildMember
 
-		// Check role time limits if configured
-		if (cfg.role_time_limits?.length > 0) {
+		// Check role time limits if configured BEFORE deferUpdate
+		if (
+			cfg.role_time_limits?.included?.length > 0 ||
+			cfg.role_time_limits?.excluded?.length > 0
+		) {
 			const cooldownResult = await checkRoleTimeLimits(
 				member,
 				cfg,
@@ -425,11 +422,16 @@ export async function openTicketFromSelect(
 					inter,
 					'warning',
 					`You need to wait ${cooldownResult.limit} between tickets. You can open a new ticket <t:${Math.floor(cooldownResult.retryAt / 1000)}:R>`,
-					{ code: 'OT003', followUp: true }
+					{ code: 'OT003', ephemeral: true }
 				)
+				// Clear the select menu selection since ticket creation failed
+				await clearSelectMenuSelection(inter)
 				return
 			}
 		}
+
+		// Use deferUpdate instead of deferReply to prevent select menu from staying selected
+		await inter.deferUpdate()
 
 		const category = resolveCategory(inter.values[0], cfg)
 		const ticket_id = await api.getTicketCounter(
@@ -460,12 +462,7 @@ export async function openTicketFromSelect(
 		const meta: ThreadMetadata = {
 			ticket_id,
 			thread_id: thread.id,
-			opened_by: {
-				id: inter.user.id,
-				username: inter.user.username,
-				displayName: member.displayName,
-				avatar: inter.user.displayAvatarURL(),
-			},
+			opened_by: toAuthor(inter),
 			open_time: Math.floor(Date.now() / 1_000),
 			ticket_type: category,
 			guild_id: inter.guild.id,
@@ -529,7 +526,7 @@ export async function openTicketFromSelect(
 
 				// Update metadata with message info is now handled in sendAdminNotification
 			} catch (error) {
-				bunnyLog.error('Error sending thread message:', error)
+				StatusLogger.error('Error sending thread message:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -541,22 +538,16 @@ export async function openTicketFromSelect(
 
 		// Send success notification as followUp instead of editing reply
 		await inter.followUp({
-			content: `✅ **Ticket Created Successfully!**\n\n📋 **Ticket #${ticket_id}** - ${category}\n🎯 **Thread:** <#${thread.id}>\n\n*You can now use the select menu again to create another ticket.*`,
+			content: `✅ **Ticket Created Successfully!**\n\n📋 **Ticket #${ticket_id}** - ${category}\n🎯 **Thread:** <#${thread.id}>`,
 			flags: Discord.MessageFlags.Ephemeral,
 		})
 
 		// Clear the select menu selection after successful ticket creation
 		await clearSelectMenuSelection(inter)
 
-		await sendAdminNotification(
-			inter as unknown as Discord.ButtonInteraction,
-			cfg,
-			thread,
-			meta,
-			placeholders
-		)
+		await sendAdminNotification(inter, cfg, thread, meta, placeholders)
 	} catch (error) {
-		bunnyLog.error('Failed to create ticket:', error)
+		StatusLogger.error('Failed to create ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -652,7 +643,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 					store.set(threadId, ticketData)
 				}
 			} catch (error) {
-				bunnyLog.error('Error loading ticket from database for claim:', error)
+				StatusLogger.error('Error loading ticket from database for claim:', error)
 			}
 		}
 
@@ -734,7 +725,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 
 			const adminTicketTemplate = cfg.components?.admin_ticket
 			if (!adminTicketTemplate) {
-				bunnyLog.warn(
+				StatusLogger.warn(
 					'Admin ticket template not found. Falling back to simple button disable.'
 				)
 				throw new Error('Admin ticket template missing for claim update')
@@ -821,12 +812,8 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 
 			// Edit the message with all components
 			await inter.message.edit(messageOptions)
-
-			bunnyLog.info(
-				`Successfully updated admin message for claimed ticket #${ticketData.ticket_id}`
-			)
 		} catch (error) {
-			bunnyLog.error('Error during admin message update after claim:', error)
+			StatusLogger.error('Error during admin message update after claim:', error)
 			// Fallback logic remains the same...
 			try {
 				const originalMessageComponents = inter.message.components
@@ -862,12 +849,12 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 					})
 				}
 			} catch (fallbackError) {
-				bunnyLog.error(
+				StatusLogger.error(
 					'Fallback attempt to disable claim button also failed:',
 					fallbackError
 				)
 			}
-			bunnyLog.error(
+			StatusLogger.error(
 				'Admin message not fully updated (fallback might have partially succeeded), but ticket claim was successful.'
 			)
 		}
@@ -913,7 +900,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 
 				await thread.send(messageOptions)
 			} catch (error) {
-				bunnyLog.error('Error sending ticket claimed message:', error)
+				StatusLogger.error('Error sending ticket claimed message:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -923,7 +910,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			}
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to claim ticket:', error)
+		StatusLogger.error('Failed to claim ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -1031,7 +1018,7 @@ export async function joinTicket(inter: Discord.ButtonInteraction) {
 				content: `👋 <@${inter.user.id}> has joined the ticket to assist.`,
 			})
 		} catch (error) {
-			bunnyLog.error('Error adding user to ticket thread:', error)
+			StatusLogger.error('Error adding user to ticket thread:', error)
 			await utils.handleResponse(
 				inter,
 				'error',
@@ -1043,7 +1030,7 @@ export async function joinTicket(inter: Discord.ButtonInteraction) {
 			)
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to join ticket:', error)
+		StatusLogger.error('Failed to join ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -1081,7 +1068,7 @@ export async function handleTicketActionSelect(
 			if (inter.isButton()) {
 				await claimTicket(inter)
 			} else {
-				bunnyLog.warn('Invalid interaction type for claim_ticket')
+				StatusLogger.warn('Invalid interaction type for claim_ticket')
 				await utils.handleResponse(inter, 'error', 'Invalid interaction type', {
 					code: 'TAS003',
 				})
@@ -1091,7 +1078,7 @@ export async function handleTicketActionSelect(
 			if (inter.isButton()) {
 				await joinTicket(inter)
 			} else {
-				bunnyLog.warn('Invalid interaction type for join_ticket')
+				StatusLogger.warn('Invalid interaction type for join_ticket')
 				await utils.handleResponse(inter, 'error', 'Invalid interaction type', {
 					code: 'TAS004',
 				})
@@ -1103,14 +1090,14 @@ export async function handleTicketActionSelect(
 			} else if (inter.isButton()) {
 				await openTicket(inter)
 			} else {
-				bunnyLog.warn('Invalid interaction type for open_ticket')
+				StatusLogger.warn('Invalid interaction type for open_ticket')
 				await utils.handleResponse(inter, 'error', 'Invalid interaction type', {
 					code: 'TAS005',
 				})
 			}
 			break
 		default:
-			bunnyLog.warn(`Unknown action selected: ${baseAction}`)
+			StatusLogger.warn(`Unknown action selected: ${baseAction}`)
 			await utils.handleResponse(inter, 'error', 'Unknown action selected', {
 				code: 'TAS002',
 			})
@@ -1131,7 +1118,7 @@ async function findTicketByAdminMessageId(
 ): Promise<{ ticketData: ThreadMetadata; threadId: string } | null> {
 	// First check in memory cache
 	for (const [threadId, metadata] of store.entries()) {
-		if (metadata.join_ticket_message_id === adminMessageId) {
+		if (metadata.admin_channel?.message_id === adminMessageId) {
 			return { ticketData: metadata, threadId }
 		}
 	}
@@ -1140,14 +1127,14 @@ async function findTicketByAdminMessageId(
 	try {
 		const allTickets = await api.getAllActiveTickets(botId, guildId)
 		for (const ticket of allTickets) {
-			if (ticket.metadata.join_ticket_message_id === adminMessageId) {
+			if (ticket.metadata.admin_channel?.message_id === adminMessageId) {
 				// Update cache with found ticket
 				store.set(ticket.thread_id, ticket.metadata)
 				return { ticketData: ticket.metadata, threadId: ticket.thread_id }
 			}
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to search for ticket:', error)
+		StatusLogger.error('Failed to search for ticket:', error)
 	}
 
 	return null
@@ -1192,7 +1179,7 @@ function resolveCategory(
 	// Check if there's an open_ticket component template
 	const openTicketTemplate = cfg.components?.open_ticket
 	if (!openTicketTemplate?.components) {
-		bunnyLog.warn('No open_ticket components found in config')
+		StatusLogger.warn('No open_ticket components found in config')
 		return 'General Support'
 	}
 
@@ -1232,7 +1219,7 @@ function resolveCategory(
 					// Search through the select menu options
 					for (const option of subComponent.options) {
 						if (option.value === customId && option.label) {
-							bunnyLog.info(
+							StatusLogger.info(
 								`Found matching select option with label: ${option.label}`
 							)
 							return String(option.label)
@@ -1243,7 +1230,7 @@ function resolveCategory(
 		}
 	}
 
-	bunnyLog.warn(
+	StatusLogger.warn(
 		`No matching button or select option found for custom_id: ${customId}`
 	)
 	return 'General Support'
@@ -1252,12 +1239,14 @@ function resolveCategory(
 /**
  * Convert interaction user to author object
  */
-function toAuthor(i: Discord.ButtonInteraction) {
+function toAuthor(
+	i: Discord.ButtonInteraction | Discord.StringSelectMenuInteraction
+) {
 	return {
 		id: i.user.id,
 		username: i.user.username,
 		displayName:
-			'displayName' in i.member
+			'displayName' in i.member && i.member
 				? (i.member as Discord.GuildMember).displayName
 				: i.user.username,
 		avatar: i.user.displayAvatarURL({
@@ -1270,7 +1259,7 @@ function toAuthor(i: Discord.ButtonInteraction) {
  * Send notification to admin channel if configured
  */
 async function sendAdminNotification(
-	inter: Discord.ButtonInteraction,
+	inter: Discord.ButtonInteraction | Discord.StringSelectMenuInteraction,
 	cfg: PluginResponse<DefaultConfigs['tickets']>,
 	thread: Discord.ThreadChannel,
 	meta: ThreadMetadata,
@@ -1378,7 +1367,7 @@ async function sendAdminNotification(
 			)
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to send admin notification:', error)
+		StatusLogger.error('Failed to send admin notification:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -1480,6 +1469,6 @@ async function clearSelectMenuSelection(
 		}
 	} catch (error) {
 		// Don't fail the ticket creation if we can't clear the select menu
-		bunnyLog.warn('Failed to clear select menu selection:', error)
+		StatusLogger.warn(`Failed to clear select menu selection: ${error}`)
 	}
 }

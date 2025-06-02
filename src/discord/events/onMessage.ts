@@ -16,8 +16,16 @@ async function messageHandler(message: Discord.Message): Promise<void> {
 	// Ignore messages in DMs
 	if (!message.guild) return // TODO: add error handling
 
-	// Ignore messages in threads
-	if (message.channel.isThread()) return
+	// Handle ticket thread activity before ignoring other threads
+	if (message.channel.isThread()) {
+		// Only handle ticket threads for activity tracking
+		try {
+			await handleTicketThreadActivity(message)
+		} catch (error) {
+			bunnyLog.error('Error handling ticket thread activity:', error)
+		}
+		return
+	}
 
 	try {
 		// Manage slowmode
@@ -63,6 +71,58 @@ async function messageHandler(message: Discord.Message): Promise<void> {
 	} catch (error) {
 		// Log any errors that may occur during message handling
 		bunnyLog.error('Error handling message:', error)
+	}
+}
+
+/**
+ * Handle activity in ticket threads to reset reminder status
+ */
+async function handleTicketThreadActivity(
+	message: Discord.Message
+): Promise<void> {
+	// Only process messages from users, not bots
+	if (message.author.bot) return
+
+	const thread = message.channel as Discord.ThreadChannel
+
+	try {
+		// Import ticket store to check if this is a ticket thread
+		const { ticketStore } = await import(
+			'@/discord/commands/moderation/tickets/state.js'
+		)
+
+		// Check if this thread is a ticket
+		const ticketMeta = ticketStore.get(thread.id)
+		if (!ticketMeta) return // Not a ticket thread
+
+		// Reset reminder_sent flag if it was previously sent
+		if (ticketMeta.reminder_sent) {
+			ticketMeta.reminder_sent = false
+			ticketStore.set(thread.id, ticketMeta)
+
+			// Update in database as well
+			try {
+				if (message.guild) {
+					await api.updateTicketMetadata(
+						message.client.user.id,
+						message.guild.id,
+						thread.id,
+						ticketMeta
+					)
+				}
+			} catch (dbError) {
+				bunnyLog.error(
+					`Failed to reset reminder status in database for ticket ${ticketMeta.ticket_id}:`,
+					dbError
+				)
+			}
+
+			bunnyLog.info(
+				`Reset reminder status for ticket ${ticketMeta.ticket_id} due to user activity`
+			)
+		}
+	} catch (error) {
+		bunnyLog.error('Error in handleTicketThreadActivity:', error)
 	}
 }
 

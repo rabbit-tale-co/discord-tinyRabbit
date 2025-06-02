@@ -1,6 +1,6 @@
 import type * as Discord from 'discord.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
-import { bunnyLog } from 'bunny-log'
+import { DatabaseLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 import type { ThreadMetadata } from '@/types/tickets.js'
 
@@ -73,7 +73,7 @@ async function saveTranscriptToSupabase(
 		})
 		if (error) throw error
 	} catch (error) {
-		bunnyLog.error('Error saving transcript to database:', error)
+		DatabaseLogger.error(`Error saving transcript to database: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -226,7 +226,7 @@ async function saveTicketMetadata(
 		})
 		if (error) throw error
 	} catch (error) {
-		bunnyLog.error('Failed to save ticket metadata:', error)
+		DatabaseLogger.error(`Failed to save ticket metadata: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -251,7 +251,7 @@ async function findTicketByThreadId(
 	if (error || !data) {
 		// Don't log "no rows" as an error
 		if (error?.code !== 'PGRST116') {
-			bunnyLog.error('Failed to find ticket by thread_id:', error)
+			DatabaseLogger.error(`Failed to find ticket by thread_id: ${error instanceof Error ? error.message : String(error)}`)
 		}
 		return null
 	}
@@ -284,7 +284,7 @@ async function getTicketMetadata(
 	if (error || !data) {
 		// Don't log "no rows" as an error
 		if (error?.code !== 'PGRST116') {
-			bunnyLog.error('Failed to retrieve ticket metadata:', error)
+			DatabaseLogger.error(`Failed to retrieve ticket metadata: ${error instanceof Error ? error.message : String(error)}`)
 		}
 		return null
 	}
@@ -314,7 +314,7 @@ async function updateTicketMetadata(
 			.eq('thread_id', thread_id)
 		if (error) throw error
 	} catch (error) {
-		bunnyLog.error('Error updating ticket metadata:', error)
+		DatabaseLogger.error(`Error updating ticket metadata: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -381,14 +381,14 @@ async function updateTicketRating(
 		if (verifyError) throw verifyError
 
 		if (verifyData?.metadata?.rating?.value !== rating) {
-			bunnyLog.warn(`Rating update verification failed for ticket ${thread_id}`)
+			StatusLogger.warn(`Rating update verification failed for ticket ${thread_id}`)
 		} else {
 			// bunnyLog.info(
 			// 	`Ticket ${thread_id} rated ${rating}/5 stars - metadata updated successfully`
 			// )
 		}
 	} catch (error) {
-		bunnyLog.error('Error updating ticket rating:', error)
+		DatabaseLogger.error(`Error updating ticket rating: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -414,7 +414,7 @@ async function getUserTickets(
 			.eq('guild_id', guild_id)
 
 		if (error) {
-			bunnyLog.error('Error fetching tickets:', error)
+			DatabaseLogger.error(`Error fetching tickets: ${error instanceof Error ? error.message : String(error)}`)
 			return []
 		}
 
@@ -433,7 +433,7 @@ async function getUserTickets(
 			open_time: (ticket.metadata as ThreadMetadata).open_time || 0,
 		}))
 	} catch (error) {
-		bunnyLog.error('Failed to get user tickets:', error)
+		DatabaseLogger.error(`Failed to get user tickets: ${error instanceof Error ? error.message : String(error)}`)
 		return []
 	}
 }
@@ -466,7 +466,7 @@ async function getAllActiveTickets(
 		const { data, error } = await query
 
 		if (error) {
-			bunnyLog.error('Error fetching active tickets:', error)
+			DatabaseLogger.error(`Error fetching active tickets: ${error instanceof Error ? error.message : String(error)}`)
 			return []
 		}
 
@@ -483,7 +483,7 @@ async function getAllActiveTickets(
 		})
 		return activeTickets
 	} catch (error) {
-		bunnyLog.error('Failed to get active tickets:', error)
+		DatabaseLogger.error(`Failed to get active tickets: ${error instanceof Error ? error.message : String(error)}`)
 		return []
 	}
 }

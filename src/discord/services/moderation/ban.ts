@@ -1,7 +1,7 @@
-import { bunnyLog } from 'bunny-log'
 import * as api from '@/discord/api/index.js'
 import * as Discord from 'discord.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
+import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Performs a safe ban on a user.
@@ -19,7 +19,7 @@ async function performSafeBan(
 		const botMember = await guild.members.fetchMe()
 
 		if (!botMember.permissions.has(Discord.PermissionFlagsBits.BanMembers)) {
-			bunnyLog.warn(
+			StatusLogger.warn(
 				`Cannot ban users in ${guild.name}: Bot lacks BAN_MEMBERS permission`
 			)
 			return
@@ -29,12 +29,12 @@ async function performSafeBan(
 		try {
 			// Check if the bot's role can modify the server in any way
 			if (!botMember.permissions.has(Discord.PermissionFlagsBits.ManageGuild)) {
-				bunnyLog.warn(
+				StatusLogger.warn(
 					`Bot may have insufficient server management permissions in ${guild.name}`
 				)
 			}
 		} catch (permCheckError) {
-			bunnyLog.warn(
+			StatusLogger.warn(
 				`Error checking detailed permissions: ${permCheckError instanceof Error ? permCheckError.message : 'Unknown'}`
 			)
 			// Continue anyway - this is just extra debugging
@@ -43,7 +43,7 @@ async function performSafeBan(
 		// Check if the user is already banned
 		const banList = await guild.bans.fetch()
 		if (banList.has(user.id)) {
-			bunnyLog.info(
+			StatusLogger.info(
 				`User ${user.tag} (${user.id}) is already banned in ${guild.name}`
 			)
 			return
@@ -57,7 +57,7 @@ async function performSafeBan(
 
 			// Check for guild owner (cannot be banned regardless of permissions)
 			if (targetMember.id === guild.ownerId) {
-				bunnyLog.warn(
+				StatusLogger.warn(
 					`Cannot ban ${user.tag} (${user.id}) in ${guild.name}: Target is the server owner`
 				)
 				return
@@ -65,14 +65,14 @@ async function performSafeBan(
 
 			// Check role hierarchy
 			if (targetPosition >= botPosition) {
-				bunnyLog.warn(
+				StatusLogger.warn(
 					`Cannot ban ${user.tag} (${user.id}) in ${guild.name}: Target has higher or equal role position. Bot's highest role is at position ${botPosition}, target's highest role is at position ${targetPosition}.`
 				)
 				return
 			}
 		} catch (memberError) {
 			// If we can't fetch the member, they might not be in the guild - proceed anyway
-			bunnyLog.info(
+			StatusLogger.info(
 				`Could not fetch member object for ${user.tag}, assuming they're not in the guild and proceeding with ban attempt`
 			)
 		}
@@ -81,7 +81,7 @@ async function performSafeBan(
 		try {
 			// Debug: check if user is an owner
 			if (user.id === guild.ownerId) {
-				bunnyLog.warn(`Cannot ban ${user.tag}: user is the guild owner`)
+				StatusLogger.warn(`Cannot ban ${user.tag}: user is the guild owner`)
 				return
 			}
 
@@ -90,13 +90,13 @@ async function performSafeBan(
 				reason: 'Suspicious or spam account',
 			}
 
-			// bunnyLog.info(`Ban options: ${JSON.stringify(banOptions)}`)
+			// StatusLogger.info(`Ban options: ${JSON.stringify(banOptions)}`)
 
 			try {
 				// Attempt API call within its own try/catch for better error isolation
 				const banResult = await guild.bans.create(user.id, banOptions)
 
-				bunnyLog.success(
+				StatusLogger.success(
 					`Successfully banned ${
 						typeof banResult === 'string'
 							? user.tag
@@ -107,22 +107,22 @@ async function performSafeBan(
 				)
 			} catch (directBanError) {
 				// Show as much information as possible about the error
-				bunnyLog.error(
+				StatusLogger.error(
 					`Direct ban error: ${directBanError instanceof Error ? directBanError.message : 'Non-error object thrown'}`
 				)
 			}
 		} catch (banError) {
 			// Log detailed error information
-			bunnyLog.error(`Failed to ban ${user.tag} (${user.id}) in ${guild.name}`)
+			StatusLogger.error(`Failed to ban ${user.tag} (${user.id}) in ${guild.name}`)
 
 			// Try to get detailed error info
 			if (banError instanceof Discord.DiscordAPIError) {
-				bunnyLog.error(
+				StatusLogger.error(
 					`API Error details: code=${banError.code}, status=${banError.status}, method=${banError.method}, message=${banError.message}`
 				)
 			} else {
 				// For completely unknown errors
-				bunnyLog.error(
+				StatusLogger.error(
 					`Unknown error type: ${typeof banError}, Value: ${String(banError)}`
 				)
 			}
@@ -130,7 +130,7 @@ async function performSafeBan(
 			throw banError // Re-throw to be caught by outer catch
 		}
 	} catch (error) {
-		bunnyLog.error(
+		StatusLogger.error(
 			`Ban operation failed for ${user.tag} (${user.id}) in ${guild.name}: ${error}`
 		)
 	}
@@ -147,7 +147,7 @@ async function banBotLikeUsersForGuild(
 		// Check if bot has permission to ban members
 		const botMember = await guild.members.fetchMe()
 		if (!botMember.permissions.has(Discord.PermissionFlagsBits.BanMembers)) {
-			bunnyLog.warn(
+			StatusLogger.warn(
 				`Cannot perform auto-moderation in ${guild.name}: Bot lacks BAN_MEMBERS permission`
 			)
 			return
@@ -165,7 +165,7 @@ async function banBotLikeUsersForGuild(
 			await performSafeBan(guild, member.user, config.delete_message_days)
 		}
 	} catch (error) {
-		bunnyLog.error(
+		StatusLogger.error(
 			`Error in auto moderation for guild ${guild.id} (${guild.name}): ${error}`
 		)
 	}
@@ -219,9 +219,11 @@ async function startModerationScheduler(client: Discord.Client) {
 	}
 
 	// Log the results
-	bunnyLog.server(
-		`Auto-moderation scheduler started for ${scheduledCount} guilds`
-	)
+	// if (scheduledCount > 0) {
+	// 	ServiceLogger.ready(
+	// 		`auto-moderation for ${scheduledCount} guild${scheduledCount === 1 ? '' : 's'}`
+	// 	)
+	// }
 }
 
 export { startModerationScheduler }

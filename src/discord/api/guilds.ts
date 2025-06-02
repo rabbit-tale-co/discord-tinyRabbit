@@ -1,4 +1,4 @@
-import { bunnyLog } from 'bunny-log'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import * as Discord from 'discord.js'
 
 async function fetchDiscordAPI(endpoint: string) {
@@ -28,16 +28,9 @@ async function getCustomInvite(guildId: string) {
 				(botPermissions & BigInt(0x0020)) === BigInt(0x0020)
 
 			if (!hasManageGuildPermission) {
-				// bunnyLog.info(
-				// 	`Bot doesn't have Manage Guild permission for guild ${guildId}, skipping invite fetch`,
-				// );
 				return null
 			}
 		} catch (error) {
-			// If we can't even access guild data, we definitely can't access invites
-			// bunnyLog.info(
-			// 	`Cannot access guild data for ${guildId}, skipping invite fetch`
-			// )
 			return null
 		}
 
@@ -46,9 +39,9 @@ async function getCustomInvite(guildId: string) {
 	} catch (error) {
 		// If it's a 403 error, log it as info rather than error since it's an expected limitation
 		if (error instanceof Error && error.message.includes('Status: 403')) {
-			bunnyLog.info(`No permission to fetch invites for guild ${guildId}`)
+			StatusLogger.info(`No permission to fetch invites for guild ${guildId}`)
 		} else {
-			bunnyLog.error('Error fetching custom invites:', error)
+			APILogger.error(`Error fetching custom invites: ${error instanceof Error ? error.message : String(error)}`)
 		}
 		return null
 	}
@@ -80,7 +73,7 @@ async function getBotGuilds() {
 
 		return detailedGuilds
 	} catch (error) {
-		bunnyLog.error('Error fetching bot guilds:', error)
+		APILogger.error(`Error fetching bot guilds: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -120,7 +113,7 @@ async function getGuildDetails(guild_id: string) {
 			channels,
 		}
 	} catch (error) {
-		bunnyLog.error('Error fetching guild details:', error)
+		APILogger.error(`Error fetching guild details: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -133,10 +126,10 @@ async function checkBotMembership(guildId: Discord.Snowflake) {
 
 		if ([401, 403, 404].includes(response.status)) return false
 
-		bunnyLog.error(`Unexpected status code: ${response.status}`)
+		StatusLogger.error(`Unexpected status code: ${response.status}`)
 		return false
 	} catch (error) {
-		bunnyLog.error('Error checking bot membership:', error)
+		APILogger.error(`Error checking bot membership: ${error instanceof Error ? error.message : String(error)}`)
 		return false
 	}
 }
@@ -150,7 +143,7 @@ async function checkUserOnServer(
 			.then(() => true)
 			.catch(() => false)
 	} catch (error) {
-		bunnyLog.error('Error checking user on server:', error)
+		APILogger.error(`Error checking user on server: ${error instanceof Error ? error.message : String(error)}`)
 		return false
 	}
 }

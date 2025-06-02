@@ -1,8 +1,8 @@
 import * as Discord from "discord.js";
-import { bunnyLog } from "bunny-log";
 import * as voice from "@discordjs/voice";
 import playdl from "play-dl";
 import type { Readable } from "node:stream";
+import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
 
 export class MusicService {
 	private static instances: Map<string, MusicService> = new Map();
@@ -59,12 +59,12 @@ export class MusicService {
 			this.connection.subscribe(this.audioPlayer);
 			// Auto-play next track when current one ends
 			this.audioPlayer.on(voice.AudioPlayerStatus.Idle, () => {
-				bunnyLog.info("Audio player is idle, attempting to play next track");
+				StatusLogger.debug("Audio player is idle, attempting to play next track");
 				this._playNext();
 			});
 		}
-		bunnyLog.info(
-			`Connected to voice channel ${voiceChannelId} in guild ${this.guildId}`,
+		ServiceLogger.ready(
+			`voice connection for channel ${voiceChannelId} in guild ${this.guildId}`,
 		);
 	}
 
@@ -78,7 +78,7 @@ export class MusicService {
 		if (!this.isPlaying) {
 			this._playNext();
 		} else {
-			bunnyLog.info(`Queued track: ${query}`);
+			StatusLogger.info(`Queued track: ${query}`);
 		}
 	}
 
@@ -87,7 +87,7 @@ export class MusicService {
 	 */
 	private async _playNext(): Promise<void> {
 		if (this.queue.length === 0) {
-			bunnyLog.info("Queue is empty, stopping playback");
+			StatusLogger.info("Queue is empty, stopping playback");
 			this.currentTrack = undefined;
 			this.isPlaying = false;
 			return;
@@ -97,7 +97,7 @@ export class MusicService {
 		try {
 			// First, retrieve video info to verify that the player response data exists.
 			const videoInfo = await playdl.video_info(track);
-			bunnyLog.info("Video Info:", videoInfo as any);
+			StatusLogger.debug(`Video Info: ${JSON.stringify(videoInfo)}`);
 
 			if (!videoInfo || !videoInfo.video_details) {
 				throw new Error(
@@ -110,7 +110,7 @@ export class MusicService {
 			};
 			const playerResponse = details.player_response;
 			if (!playerResponse || Object.keys(playerResponse).length === 0) {
-				bunnyLog.warn(
+				StatusLogger.warn(
 					"Initial Player Response Data is undefined. Proceeding without validation.",
 				);
 			}
@@ -120,10 +120,10 @@ export class MusicService {
 				quality: 2,
 				verbose: true,
 			} as any);
-			bunnyLog.info("Stream Data:", {
+			StatusLogger.debug(`Stream Data: ${JSON.stringify({
 				type: streamData.type,
 				quality: 2,
-			});
+			})}`);
 
 			const resource = voice.createAudioResource(
 				streamData.stream as Readable,
@@ -136,9 +136,9 @@ export class MusicService {
 			);
 			this.audioPlayer?.play(resource);
 			this.isPlaying = true;
-			bunnyLog.info(`Now playing: ${track}`);
+			StatusLogger.success(`Now playing: ${track}`);
 		} catch (error) {
-			bunnyLog.error("Error creating audio resource:", error as Error);
+			StatusLogger.error("Error creating audio resource", error as Error);
 			this._playNext();
 		}
 	}
@@ -152,7 +152,7 @@ export class MusicService {
 		}
 		this.audioPlayer.pause();
 		this.isPlaying = false;
-		bunnyLog.info(`Paused track: ${this.currentTrack}`);
+		StatusLogger.info(`Paused track: ${this.currentTrack}`);
 	}
 
 	/**
@@ -163,7 +163,7 @@ export class MusicService {
 		if (this.isPlaying) throw new Error("Music is already playing");
 		this.audioPlayer.unpause();
 		this.isPlaying = true;
-		bunnyLog.info(`Resumed track: ${this.currentTrack}`);
+		StatusLogger.info(`Resumed track: ${this.currentTrack}`);
 	}
 
 	/**
@@ -171,7 +171,7 @@ export class MusicService {
 	 */
 	public async skip(): Promise<void> {
 		if (!this.audioPlayer) throw new Error("No audio player available");
-		bunnyLog.info(`Skipping track: ${this.currentTrack}`);
+		StatusLogger.info(`Skipping track: ${this.currentTrack}`);
 		// Stopping the player will trigger the Idle event and play the next track.
 		this.audioPlayer.stop();
 	}
@@ -185,11 +185,11 @@ export class MusicService {
 		if (this.audioPlayer) {
 			this.audioPlayer.stop();
 			this.isPlaying = false;
-			bunnyLog.info("Stopped music playback");
+			StatusLogger.info("Stopped music playback");
 		}
 		if (this.connection) {
 			this.connection.destroy();
-			bunnyLog.info(`Disconnected from voice channel in guild ${this.guildId}`);
+			StatusLogger.info(`Disconnected from voice channel in guild ${this.guildId}`);
 			this.connection = undefined;
 			this.audioPlayer = undefined;
 		}
@@ -197,6 +197,6 @@ export class MusicService {
 }
 
 process.on("unhandledRejection", (error) => {
-	bunnyLog.error("Unhandled Rejection:", error as Error);
+	StatusLogger.error("Unhandled Rejection", error as Error);
 	// Optionally, implement retry logic or further error handling here.
 });

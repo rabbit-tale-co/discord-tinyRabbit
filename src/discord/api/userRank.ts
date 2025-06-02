@@ -1,6 +1,6 @@
 import { getServerLeaderboard } from '@/discord/api/leaderBoard.js'
 import type * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 
 /**
@@ -26,7 +26,7 @@ async function getGlobalRank(
 
 		// Check if there are no users in the global leaderboard
 		if (!data || data.length === 0) {
-			bunnyLog.warn('No users found in the global leaderboard.')
+			StatusLogger.warn('No users found in the global leaderboard.')
 			return null
 		}
 
@@ -37,7 +37,7 @@ async function getGlobalRank(
 		return global_rank > 0 ? global_rank : null
 	} catch (error) {
 		// Log the error
-		bunnyLog.error('Error fetching global rank:', error)
+		APILogger.error(`Error fetching global rank: ${error instanceof Error ? error.message : String(error)}`)
 		return null
 	}
 }
@@ -57,7 +57,7 @@ async function getServerRank(
 	try {
 		// Check if the guild ID is valid
 		if (!guild_id) {
-			bunnyLog.warn(
+			StatusLogger.warn(
 				`Attempted to get server rank with undefined guild_id for user ${user_id}`
 			)
 			return null
@@ -68,7 +68,7 @@ async function getServerRank(
 
 		// Check if there are no users in the server leaderboard
 		if (server_users.length === 0) {
-			bunnyLog.warn(
+			StatusLogger.warn(
 				`No users found in the server leaderboard for guild ${guild_id}`
 			)
 			return null
@@ -85,9 +85,8 @@ async function getServerRank(
 		return server_rank > 0 ? server_rank : null
 	} catch (error) {
 		// Log the error
-		bunnyLog.error(
-			`Error fetching server rank for user ${user_id} in guild ${guild_id}:`,
-			error
+		APILogger.error(
+			`Error fetching server rank for user ${user_id} in guild ${guild_id}: ${error instanceof Error ? error.message : String(error)}`
 		)
 		return null
 	}

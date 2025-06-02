@@ -1,6 +1,6 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 class PresenceService {
 	private readonly client: Discord.Client
@@ -85,7 +85,7 @@ class PresenceService {
 				})
 			}
 		} catch (error) {
-			bunnyLog.error('Error updating bot presence:', error)
+			StatusLogger.error('Error updating bot presence', error as Error)
 		}
 	}
 
@@ -129,7 +129,7 @@ Questions? Contact @Hasiradoo`
 				//bunnyLog.info('Updated application description')
 			}
 		} catch (error) {
-			bunnyLog.error('Error updating application description:', error)
+			StatusLogger.error('Error updating application description', error as Error)
 		}
 	}
 }

@@ -2,10 +2,10 @@ import * as utils from '@/utils/index.js'
 import * as api from '@/discord/api/index.js'
 import type { Level, LevelStatus } from '@/types/levels.js'
 import type { Channel, Guild, Message, User } from 'discord.js'
-import { bunnyLog } from 'bunny-log'
 import { client } from '@/server.js'
 import { LevelUpResult } from '@/utils/index.js'
 import * as services from '@/discord/services/index.js'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 const userMessages: Record<
 	string,
@@ -53,7 +53,7 @@ async function initializeUserData(
 		// bunnyLog.api(`Initializing new user data for ${author_id}`)
 		return { xp: 0, level: 0 }
 	} catch (error) {
-		bunnyLog.error('Error fetching user data:', error)
+		StatusLogger.error('Error fetching user data', error as Error)
 		return { xp: 0, level: 0 }
 	}
 }

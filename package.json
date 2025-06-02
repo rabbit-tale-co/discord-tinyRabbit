@@ -18,7 +18,7 @@
     "@napi-rs/canvas": "^0.1.70",
     "@supabase/supabase-js": "^2.49.8",
     "@types/get-pixels": "^3.3.4",
-    "bunny-log": "^0.1.8",
+    "bunny-log": "^2.1.7",
     "busboy": "^1.6.0",
     "canvas": "^3.1.0",
     "chalk": "^5.4.1",

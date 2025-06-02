@@ -53,6 +53,7 @@ interface ThreadMetadata {
 		timestamp?: number
 	}
 	transcript_message_id?: string
+	reminder_sent?: boolean // Track if inactivity reminder has been sent
 }
 
 interface TicketConfig {

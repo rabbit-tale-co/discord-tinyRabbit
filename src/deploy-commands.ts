@@ -1,12 +1,14 @@
 import { REST } from '@discordjs/rest'
-import { bunnyLog } from 'bunny-log'
+import { BunnyLogger } from 'bunny-log'
 import { Routes } from 'discord-api-types/v10'
 import { env } from 'node:process'
 
 const { BOT_TOKEN, BOT_CLIENT_ID } = env
+const bunLog = new BunnyLogger(false).hex('discord', '#5865f2')
+
 
 if (!BOT_TOKEN || !BOT_CLIENT_ID) {
-	bunnyLog.error('Missing BOT_TOKEN or CLIENT_ID in .env file')
+	bunLog.log('error', 'Missing BOT_TOKEN or CLIENT_ID in .env file')
 	process.exit(1)
 }
 
@@ -361,14 +363,14 @@ const commands = [
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN)
 ;(async () => {
 	try {
-		bunnyLog.info('Started refreshing application (/) commands.')
+		bunLog.log('discord', 'Started refreshing application (/) commands.')
 
 		await rest.put(Routes.applicationCommands(BOT_CLIENT_ID), {
 			body: commands,
 		})
 
-		bunnyLog.success('Successfully reloaded application (/) commands.')
+		bunLog.log('success', 'Successfully reloaded application (/) commands.')
 	} catch (error) {
-		bunnyLog.error(error)
+		bunLog.log('error', error)
 	}
 })()

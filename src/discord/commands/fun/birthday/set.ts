@@ -1,6 +1,6 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 import { handleResponse } from '@/utils/responses.js'
 
 interface BirthdayData {
@@ -87,7 +87,7 @@ export async function setBirthday(
 				Discord.MessageFlags.Ephemeral | Discord.MessageFlags.IsComponentsV2,
 		})
 	} catch (error) {
-		bunnyLog.error('Failed to set birthday:', error)
+		StatusLogger.error(`Failed to set birthday: ${error instanceof Error ? error.message : String(error)}`)
 		handleResponse(interaction, 'error', 'Failed to set birthday', {
 			code: 'BD002',
 		})

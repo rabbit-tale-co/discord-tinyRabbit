@@ -1,7 +1,7 @@
 import { updateLeaderboard } from '@/discord/api/leaderBoard.js'
 import type { Level } from '@/types/levels.js'
 import type * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { DatabaseLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 
 const level_cache = {}
@@ -127,7 +127,7 @@ async function addOrUpdateUserLevel(
 		// Update the leaderboard
 		await updateLeaderboard(bot_id, user)
 	} catch (error) {
-		bunnyLog.error('Error adding/updating user level:', error)
+		DatabaseLogger.error(`Error adding/updating user level: ${error instanceof Error ? error.message : String(error)}`)
 		return false
 	}
 }

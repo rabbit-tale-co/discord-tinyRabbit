@@ -156,10 +156,13 @@ export type Ticket = {
 		threshold: number
 		reason: string
 	}> | null
-	role_time_limits?: Array<{
-		role_id: string
-		limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
-	}> | null
+	role_time_limits?: {
+		included?: Array<{
+			role_id: string
+			limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
+		}> | null
+		excluded?: Array<string> | null // Role IDs that bypass all time limits
+	} | null
 	components?: TicketTemplates
 	embeds?: TicketEmbedTemplates
 }

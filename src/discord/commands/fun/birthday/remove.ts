@@ -1,6 +1,6 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 import { handleResponse } from '@/utils/responses.js'
 
 /**
@@ -50,7 +50,7 @@ export async function removeBirthday(
 				Discord.MessageFlags.Ephemeral | Discord.MessageFlags.IsComponentsV2,
 		})
 	} catch (error) {
-		bunnyLog.error('Failed to remove birthday:', error)
+		StatusLogger.error(`Failed to remove birthday: ${error instanceof Error ? error.message : String(error)}`)
 		handleResponse(interaction, 'error', 'Failed to remove birthday', {
 			code: 'BD005',
 		})

@@ -1,5 +1,5 @@
 import type * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import { MusicService } from '@/discord/services/music.js'
 
 /**
@@ -19,9 +19,9 @@ export async function playMusic(
 		const service = MusicService.getInstance(client, guild_id)
 		await service.connect(voice_channel_id)
 		await service.play(query)
-		bunnyLog.info(`Started music streaming in guild ${guild_id}`)
+		StatusLogger.success(`Started music streaming in guild ${guild_id}`)
 	} catch (error) {
-		bunnyLog.error(`Error starting music in guild ${guild_id}:`, error)
+		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
 	}
 }
 
@@ -38,9 +38,9 @@ export async function pauseMusic(
 		const service = MusicService.getInstance(client, guild_id)
 
 		await service.pause()
-		bunnyLog.info(`Paused music in guild ${guild_id}`)
+		StatusLogger.success(`Paused music in guild ${guild_id}`)
 	} catch (error) {
-		bunnyLog.error(`Error pausing music in guild ${guild_id}:`, error)
+		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
 	}
 }
 
@@ -57,9 +57,9 @@ export async function resumeMusic(
 		const service = MusicService.getInstance(client, guild_id)
 
 		await service.resume()
-		bunnyLog.info(`Resumed music in guild ${guild_id}`)
+		StatusLogger.success(`Resumed music in guild ${guild_id}`)
 	} catch (error) {
-		bunnyLog.error(`Error resuming music in guild ${guild_id}:`, error)
+		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
 	}
 }
 
@@ -76,9 +76,9 @@ export async function skipTrack(
 		const service = MusicService.getInstance(client, guild_id)
 
 		await service.skip()
-		bunnyLog.info(`Skipped track in guild ${guild_id}`)
+		StatusLogger.success(`Skipped track in guild ${guild_id}`)
 	} catch (error) {
-		bunnyLog.error(`Error skipping track in guild ${guild_id}:`, error)
+		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
 	}
 }
 
@@ -95,8 +95,8 @@ export async function stopMusic(
 		const service = MusicService.getInstance(client, guild_id)
 
 		await service.stop()
-		bunnyLog.info(`Stopped music in guild ${guild_id}`)
+		StatusLogger.success(`Stopped music in guild ${guild_id}`)
 	} catch (error) {
-		bunnyLog.error(`Error stopping music in guild ${guild_id}:`, error)
+		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
 	}
 }

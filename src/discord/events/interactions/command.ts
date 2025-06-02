@@ -1,10 +1,10 @@
 import * as Discord from 'discord.js'
 import * as utils from '@/utils/index.js'
-import { bunnyLog } from 'bunny-log'
 import { config } from '@/discord/commands/moderation/tickets/config.js'
 import { loadCfg } from '@/discord/commands/moderation/tickets/limits.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
 import * as commands from '@/discord/commands/index.js'
+import { StatusLogger, CommandLogger, EventLogger } from '@/utils/bunnyLogger.js'
 
 type commandHandler = (
 	inter: Discord.ChatInputCommandInteraction
@@ -151,9 +151,9 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 					{ code: 'SP008' }
 				)
 			} catch (error) {
-				bunnyLog.error(
-					'Error creating ticket panel with universal components:',
-					error
+				StatusLogger.error(
+					'Error creating ticket panel with universal components',
+					error as Error
 				)
 
 				await utils.handleResponse(
@@ -175,7 +175,7 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 			)
 		}
 	} catch (error) {
-		bunnyLog.error('Error creating ticket panel:', error)
+		StatusLogger.error('Error creating ticket panel', error as Error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -227,7 +227,7 @@ export async function commandInteractionHandler(
 	try {
 		const cmd = commandMap[inter.commandName]
 		if (!cmd) {
-			bunnyLog.warn(`Unknown command: ${inter.commandName}`)
+			CommandLogger.error(inter.commandName, new Error(`Unknown command: ${inter.commandName}`))
 			return
 		}
 
@@ -239,13 +239,13 @@ export async function commandInteractionHandler(
 		if (cmd.subcommands) {
 			const sub = inter.options.getSubcommand()
 			if (!sub) {
-				bunnyLog.warn(`No subcommand provided for ${inter.commandName}`)
+				CommandLogger.error(inter.commandName, new Error(`No subcommand provided for ${inter.commandName}`))
 				return
 			}
 
 			const fn = cmd.subcommands[sub]
 			if (!fn) {
-				bunnyLog.warn(`Unknown subcommand: ${inter.commandName} ${sub}`)
+				CommandLogger.error(inter.commandName, new Error(`Unknown subcommand: ${inter.commandName} ${sub}`))
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -259,10 +259,7 @@ export async function commandInteractionHandler(
 			return
 		}
 	} catch (error) {
-		bunnyLog.error(
-			`Error handling command interaction for ${inter.commandName}:`,
-			error
-		)
+		EventLogger.error(`command interaction ${inter.commandName}`, error as Error)
 
 		if (inter.isRepliable() && !inter.replied && !inter.deferred) {
 			try {
@@ -276,7 +273,7 @@ export async function commandInteractionHandler(
 					}
 				)
 			} catch (e) {
-				bunnyLog.error('Failed to send error response:', e)
+				StatusLogger.error('Failed to send error response', e as Error)
 			}
 		}
 	}

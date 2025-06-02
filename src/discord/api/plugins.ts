@@ -1,5 +1,5 @@
 import * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { DatabaseLogger, PluginLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 import type { API, TicketTemplates, ComponentsV2 } from '@/types/plugins.js'
 import type {
@@ -314,15 +314,6 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'If you still need assistance, please open a new ticket.',
-				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.Separator,
-					divider: false,
-					spacing: Discord.SeparatorSpacingSize.Large,
-				} as unknown as API.Separator,
-				{
-					type: Discord.ComponentType.TextDisplay,
 					text: '*{reason}*',
 				} as unknown as API.TextDisplay,
 			],
@@ -478,12 +469,21 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'This ticket has been inactive for some time. It will be automatically closed after {threshold} of inactivity.',
+					text: '{user}, this ticket has been inactive for some time. It will be automatically closed {threshold} due to inactivity.',
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
 					divider: false,
 					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**Auto-close time:** {close_time}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
@@ -588,7 +588,10 @@ const default_configs: DefaultConfigs = {
 		components: createTicketComponents(),
 		counter: 1,
 		mods_role_ids: [],
-		role_time_limits: [],
+		role_time_limits: {
+			included: [],
+			excluded: [],
+		},
 	},
 	welcome_goodbye: {
 		enabled: false,
@@ -764,13 +767,8 @@ async function saveGuildPlugins(
 
 		// Check if there is an error inserting the plugins
 		if (pluginError) throw pluginError
-
-		// Log the success
-		// bunnyLog.database(
-		// 	`Plugins saved successfully for guild ${guild_name} (${guild_id})`
-		// )
 	} catch (error) {
-		bunnyLog.error('Error saving guild plugins:', error)
+		DatabaseLogger.error(`Error saving guild plugins: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -810,7 +808,11 @@ async function updateMissingPlugins(client: Discord.Client): Promise<void> {
 
 	// Aggregate the results and log a single summary line.
 	const updatedCount = updateResults.reduce((sum, curr) => sum + curr, 0)
-	bunnyLog.database(`Initialized missing plugins for ${updatedCount} guild(s)`)
+
+	// Only log if there were actual updates, otherwise it's just noise
+	if (updatedCount > 0) {
+		DatabaseLogger.connect()
+	}
 }
 
 /**
@@ -883,9 +885,9 @@ async function togglePlugin(
 			throw error
 		}
 	} catch (error) {
-		bunnyLog.error(
-			`Error ${enabled ? 'enabling' : 'disabling'} ${plugin_name} plugin:`,
-			error
+		PluginLogger.error(
+			String(plugin_name),
+			error instanceof Error ? error : new Error(String(error))
 		)
 		throw error
 	}
@@ -946,7 +948,7 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 				const default_config = getDefaultConfig(
 					plugin_name
 				) as DefaultConfigs[T]
-				bunnyLog.warn(
+				StatusLogger.warn(
 					`Plugin ${plugin_name} not found for guild ${guild_id}, using default config`
 				)
 				return {
@@ -963,7 +965,7 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 			...data.config,
 		} as PluginResponse<DefaultConfigs[T]>
 	} catch (error) {
-		bunnyLog.error(`Error getting plugin config for ${plugin_name}:`, error)
+		PluginLogger.error(String(plugin_name), error instanceof Error ? error : new Error(String(error)))
 		// Return default config as fallback
 		const default_config = getDefaultConfig(plugin_name) as DefaultConfigs[T]
 		return {
@@ -1021,9 +1023,9 @@ async function updatePluginConfig<T extends keyof DefaultConfigs>(
 		}
 
 		// Log the success
-		bunnyLog.database('Plugin configuration updated successfully')
+		StatusLogger.success('Plugin configuration updated successfully')
 	} catch (error) {
-		bunnyLog.error('Error updating plugin configuration:', error)
+		PluginLogger.error(String(plugin_name), error instanceof Error ? error : new Error(String(error)))
 		throw error
 	}
 }
@@ -1044,10 +1046,7 @@ async function migrateTicketEmbeds(
 
 		// If there's no embeds property or it's empty, there's nothing to migrate
 		if (!ticketConfig.embeds) {
-			bunnyLog.info('No legacy embeds found to migrate', {
-				guild_id,
-				bot_id,
-			})
+			StatusLogger.info('No legacy embeds found to migrate')
 			return false
 		}
 
@@ -1069,12 +1068,7 @@ async function migrateTicketEmbeds(
 			Object.assign(ticketConfig, cleanConfig)
 
 			migrated = true
-			bunnyLog.info(
-				'Removed legacy embeds property from ticket configuration',
-				{
-					guild_id,
-				}
-			)
+			StatusLogger.info('Removed legacy embeds property from ticket configuration')
 		}
 
 		// If migrations were performed, update the config
@@ -1082,23 +1076,14 @@ async function migrateTicketEmbeds(
 			// Update the config in the database
 			await updatePluginConfig(bot_id, guild_id, 'tickets', ticketConfig)
 
-			bunnyLog.info(
-				'Successfully migrated ticket configuration to remove legacy embeds',
-				{
-					guild_id,
-				}
-			)
-
+			StatusLogger.success('Successfully migrated ticket configuration to remove legacy embeds')
 			return true
 		}
 
-		bunnyLog.info('No ticket embeds needed migration', { guild_id })
+		StatusLogger.info('No ticket embeds needed migration')
 		return false
 	} catch (error) {
-		bunnyLog.error('Error migrating ticket embeds', {
-			guild_id,
-			error,
-		})
+		StatusLogger.error(`Error migrating ticket embeds: ${error instanceof Error ? error.message : String(error)}`)
 		return false
 	}
 }

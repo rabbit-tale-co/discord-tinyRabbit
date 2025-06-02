@@ -62,7 +62,7 @@ export function createRichEmbedContainer() {
 	// Create gallery text and section
 	const galleryTitle = V2.makeTextDisplay("## Galeria");
 	const galleryButton = new Discord.ButtonBuilder()
-		.setcustom_id("gallery_refresh")
+		.setCustomId("gallery_refresh")
 		.setLabel("🖼️ Odśwież")
 		.setStyle(Discord.ButtonStyle.Secondary);
 	const galleryTitleSection = V2.makeSection([galleryTitle], galleryButton);

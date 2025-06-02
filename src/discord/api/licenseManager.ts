@@ -1,5 +1,5 @@
 import supabase from '@/db/supabase.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger, APILogger } from '@/utils/bunnyLogger.js'
 
 const LicenseManager = {
 	// Internal state for license status.
@@ -48,16 +48,16 @@ const LicenseManager = {
 					data.is_active &&
 					(!expiresAt || expiresAt > now)
 
-				bunnyLog.info(
+				StatusLogger.success(
 					`License verified. Premium: ${this._isPremium}, Trial: ${this._isTrialActive}`
 				)
 			} else {
-				bunnyLog.warn(`No license found for key ${licenseKey}`)
+				StatusLogger.warn(`No license found for key ${licenseKey}`)
 				this._isPremium = false
 				this._isTrialActive = false
 			}
 		} catch (err: any) {
-			bunnyLog.error('Error verifying license:', err)
+			StatusLogger.error(`Error verifying license: ${err instanceof Error ? err.message : String(err)}`)
 			this._isPremium = false
 			this._isTrialActive = false
 		}
@@ -80,11 +80,11 @@ const LicenseManager = {
 
 			this._isTrialActive = !!(!error && data)
 
-			bunnyLog.info(
+			StatusLogger.success(
 				`Trial status checked. Trial active: ${this._isTrialActive}`
 			)
 		} catch (err: any) {
-			bunnyLog.error('Error checking trial status:', err)
+			StatusLogger.error(`Error checking trial status: ${err instanceof Error ? err.message : String(err)}`)
 			this._isTrialActive = false
 		}
 	},
@@ -107,7 +107,7 @@ async function getLicenseInfo(licenseKey: string): Promise<any> {
 		}
 		return data
 	} catch (err) {
-		bunnyLog.error('Error fetching license info:', err)
+		APILogger.error(`Error fetching license info: ${err instanceof Error ? err.message : String(err)}`)
 		throw err
 	}
 }

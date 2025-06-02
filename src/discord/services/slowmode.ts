@@ -1,6 +1,6 @@
 import * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
 import * as api from '@/discord/api/index.js'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 interface ChannelMessageRate {
 	messages: Discord.Collection<string, Discord.Message>
@@ -77,7 +77,7 @@ export async function manageSlowmode(message: Discord.Message): Promise<void> {
 					rate_duration?.high_rate ?? 0,
 					'High message rate detected'
 				)
-				bunnyLog.info(
+				StatusLogger.info(
 					`Increased slowmode to ${rate_duration?.high_rate ?? 0}s in channel ${message.channel.name} due to high message rate`
 				)
 			} else if (
@@ -89,12 +89,12 @@ export async function manageSlowmode(message: Discord.Message): Promise<void> {
 					rate_duration?.low_rate ?? 0,
 					'Message rate returned to normal'
 				)
-				bunnyLog.info(
+				StatusLogger.info(
 					`Decreased slowmode to ${rate_duration?.low_rate ?? 0}s in channel ${message.channel.name} as message rate normalized`
 				)
 			}
 		} catch (error) {
-			bunnyLog.error('Error updating slowmode:', error)
+			StatusLogger.error('Error updating slowmode', error as Error)
 		}
 
 		// Update the last check time and clear the messages

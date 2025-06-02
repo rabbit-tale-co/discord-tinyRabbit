@@ -3,7 +3,7 @@ import * as utils from '@/utils/index.js'
 import { ID } from '@/discord/commands/constants.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
 import { loadCfg, saveCfg } from './limits.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 import {
 	ticketUtils,
 	formatTimeThreshold,
@@ -91,8 +91,13 @@ async function handleInitialConfig(
 		? `✅ ${formatTimeThreshold(ticketConfig.auto_close[0].threshold)}`
 		: '❌ Disabled'
 
-	const roleLimits = ticketConfig.role_time_limits?.length
-		? `✅ ${ticketConfig.role_time_limits.length} roles configured`
+	// Handle role_time_limits as either array or object with included property
+	const roleTimeLimitsArray = Array.isArray(ticketConfig.role_time_limits)
+		? ticketConfig.role_time_limits
+		: ticketConfig.role_time_limits?.included || []
+
+	const roleLimits = roleTimeLimitsArray.length
+		? `✅ ${roleTimeLimitsArray.length} roles configured`
 		: '❌ No limits set'
 
 	// Create title section with system status
@@ -374,10 +379,12 @@ async function handleModalSubmit(inter: Discord.ModalSubmitInteraction) {
 		const limit =
 			Number.parseInt(inter.fields.getTextInputValue('limit')) * 3600 // Convert hours to seconds
 
-		ticketConfig.role_time_limits = roles.map((roleId) => ({
-			role_id: roleId,
-			limit: limit.toString(),
-		}))
+		ticketConfig.role_time_limits = {
+			included: roles.map((roleId) => ({
+				role_id: roleId,
+				limit: limit.toString(),
+			}))
+		}
 
 		await saveCfg(inter, ticketConfig)
 
@@ -569,8 +576,10 @@ async function handleRoleTimeLimitsConfig(
 	config: DefaultConfigs['tickets']
 ): Promise<void> {
 	try {
-		// Format current role time limits
-		const roleTimeLimits = config.role_time_limits || []
+		// Handle role_time_limits as either array or object with included property
+		const roleTimeLimits = Array.isArray(config.role_time_limits)
+			? config.role_time_limits
+			: config.role_time_limits?.included || []
 
 		// Prepare list of limits for display
 		let limitsContent = ''
@@ -731,10 +740,12 @@ export async function handleTimeValueSelect(
 	const selectedRoles = inter.customId.split(':').pop()?.split(',') || []
 
 	// Update the config with new time limits
-	config.role_time_limits = selectedRoles.map((roleId) => ({
-		role_id: roleId,
-		limit: selectedValue, // Store the original format (e.g., "24h", "3d")
-	}))
+	config.role_time_limits = {
+		included: selectedRoles.map((roleId) => ({
+			role_id: roleId,
+			limit: selectedValue, // Store the original format (e.g., "24h", "3d")
+		}))
+	}
 
 	await saveCfg(inter, config)
 
@@ -789,8 +800,10 @@ export async function handleRoleTimeLimitRemove(
 	await inter.deferUpdate()
 	const config = await loadCfg(inter)
 
-	// Get current role time limits
-	const roleTimeLimits = config.role_time_limits || []
+	// Handle role_time_limits as either array or object with included property
+	const roleTimeLimits = Array.isArray(config.role_time_limits)
+		? config.role_time_limits
+		: config.role_time_limits?.included || []
 
 	if (roleTimeLimits.length === 0) {
 		await utils.handleResponse(
@@ -835,10 +848,17 @@ export async function handleRoleTimeLimitRemoveSelect(
 	// Get selected role IDs to remove
 	const selectedRoles = inter.values
 
+	// Handle role_time_limits as either array or object with included property
+	const currentLimits = Array.isArray(config.role_time_limits)
+		? config.role_time_limits
+		: config.role_time_limits?.included || []
+
 	// Remove selected roles from config
-	config.role_time_limits = (config.role_time_limits || []).filter(
-		(limit) => !selectedRoles.includes(limit.role_id)
-	)
+	config.role_time_limits = {
+		included: currentLimits.filter(
+			(limit) => !selectedRoles.includes(limit.role_id)
+		)
+	}
 
 	await saveCfg(inter, config)
 
@@ -901,7 +921,7 @@ async function handleButtonClick(inter: Discord.ButtonInteraction) {
 			break
 
 		default:
-			bunnyLog.warn(`Unhandled button ID: ${inter.customId}`)
+			StatusLogger.warn(`Unhandled button ID: ${inter.customId}`)
 			break
 	}
 }

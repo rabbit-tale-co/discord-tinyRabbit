@@ -5,8 +5,12 @@ import type { PluginResponse, DefaultConfigs } from '@/types/plugins.js'
 import * as V2 from 'discord-components-v2'
 import { ID } from '@/commands/constants.js'
 
-// Add missing ID constant
+// Add missing ID constants
 const ROLE_LIMIT_ROLE_SELECT = 'role_limit_role_select'
+const EXCLUDED_ROLES_ADD = 'excluded_roles_add'
+const EXCLUDED_ROLES_REMOVE = 'excluded_roles_remove'
+const EXCLUDED_ROLES_REMOVE_SELECT = 'excluded_roles_remove_select'
+const EXCLUDED_ROLES_ROLE_SELECT = 'excluded_roles_role_select'
 
 /* -------------------------------------------------------------------------- */
 /*                           BUSINESS‑LOGIC  (CHECK)                          */
@@ -21,7 +25,20 @@ export async function canUserOpenTicket(
 	retryAt?: number
 	limit?: Discord.Snowflake
 }> {
-	if (!cfg.role_time_limits?.length) return { allowed: true }
+	if (!cfg.role_time_limits) return { allowed: true }
+
+	// Check if user has any excluded roles - these bypass all limits
+	if (cfg.role_time_limits.excluded?.length) {
+		const hasExcludedRole = cfg.role_time_limits.excluded.some((roleId) =>
+			member.roles.cache.has(roleId)
+		)
+		if (hasExcludedRole) {
+			return { allowed: true }
+		}
+	}
+
+	// Check time limits from included roles
+	if (!cfg.role_time_limits.included?.length) return { allowed: true }
 
 	const strictest = findStrictestLimit(member, cfg)
 	if (!strictest) return { allowed: true }
@@ -44,10 +61,12 @@ function findStrictestLimit(
 		ms: number
 	} | null = null
 
-	for (const rl of cfg.role_time_limits ?? []) {
+	for (const rl of cfg.role_time_limits?.included ?? []) {
 		if (!member.roles.cache.has(rl.role_id)) continue
 
 		const ms = ticketUtils.parseTimeValue(rl.limit)
+		if (ms === 0) continue // Skip invalid time values
+
 		if (!best || ms < best.ms) best = { raw: rl.limit, ms }
 	}
 
@@ -78,6 +97,20 @@ export async function handleComponent(
 			return handleRemoveLimit(
 				interaction as Discord.StringSelectMenuInteraction
 			)
+		case EXCLUDED_ROLES_ADD:
+			return handleAddExcludedRole(interaction as Discord.ButtonInteraction)
+		case EXCLUDED_ROLES_REMOVE:
+			return handleRemoveExcludedRolePicker(
+				interaction as Discord.ButtonInteraction
+			)
+		case EXCLUDED_ROLES_REMOVE_SELECT:
+			return handleRemoveExcludedRole(
+				interaction as Discord.StringSelectMenuInteraction
+			)
+		case EXCLUDED_ROLES_ROLE_SELECT:
+			return handleExcludedRoleSelect(
+				interaction as Discord.RoleSelectMenuInteraction
+			)
 	}
 
 	if (
@@ -93,44 +126,74 @@ export async function handleComponent(
 /* -------------------------------------------------------------------------- */
 
 async function showLimitsPanel(
-	i: Discord.ButtonInteraction | Discord.StringSelectMenuInteraction,
+	i:
+		| Discord.ButtonInteraction
+		| Discord.StringSelectMenuInteraction
+		| Discord.RoleSelectMenuInteraction,
 	cfg: PluginResponse<DefaultConfigs['tickets']>
 ) {
-	const lines =
-		cfg.role_time_limits?.map(
-			(l, idx) => `**${idx + 1}.** <@&${l.role_id}> - ${l.limit}`
-		) ?? []
+	// Get included and excluded roles from new structure
+	const includedLimits = cfg.role_time_limits?.included ?? []
+	const excludedRoles = cfg.role_time_limits?.excluded ?? []
+
+	const limitsLines = includedLimits.map(
+		(l, idx) => `**${idx + 1}.** <@&${l.role_id}> - ${l.limit}`
+	)
+
+	const excludedLines = excludedRoles.map(
+		(roleId, idx) => `**${idx + 1}.** <@&${roleId}>`
+	)
 
 	const content = [
-		'# Role Time-Limits',
+		'# Role Time-Limits Configuration',
 		'',
-		lines.length ? lines.join('\n') : 'No limits set',
+		'## ⏰ Time Limits',
+		limitsLines.length ? limitsLines.join('\n') : 'No limits set',
+		'',
+		'## 🚫 Excluded Roles (Bypass All Limits)',
+		excludedLines.length ? excludedLines.join('\n') : 'No excluded roles set',
 	].join('\n')
 
-	const row = V2.makeActionRow([
+	const row1 = V2.makeActionRow([
 		V2.makeButton({
 			custom_id: ID.ROLE_LIMIT_ADD,
-			label: 'Add',
+			label: 'Add Time Limit',
 			style: Discord.ButtonStyle.Primary,
 		}),
 		V2.makeButton({
 			custom_id: ID.ROLE_LIMIT_REMOVE,
-			label: 'Remove',
+			label: 'Remove Time Limit',
 			style: Discord.ButtonStyle.Danger,
-			disabled: !lines.length,
+			disabled: !includedLimits.length,
 		}),
+	])
+
+	const row2 = V2.makeActionRow([
+		V2.makeButton({
+			custom_id: EXCLUDED_ROLES_ADD,
+			label: 'Add Excluded Role',
+			style: Discord.ButtonStyle.Secondary,
+		}),
+		V2.makeButton({
+			custom_id: EXCLUDED_ROLES_REMOVE,
+			label: 'Remove Excluded Role',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !excludedRoles.length,
+		}),
+	])
+
+	const row3 = V2.makeActionRow([
 		V2.makeButton({
 			custom_id: ID.CONFIG_BACK,
 			label: 'Back To Menu',
 			style: Discord.ButtonStyle.Secondary,
-			disabled: !lines.length,
 		}),
 	])
 
 	const reply = i.replied || i.deferred ? i.editReply : i.reply
 	await reply.call(i, {
 		content,
-		components: [row],
+		components: [row1, row2, row3],
 		flags: Discord.MessageFlags.Ephemeral,
 	})
 }
@@ -171,10 +234,16 @@ async function handleAddLimit(i: Discord.ButtonInteraction) {
 async function handleRemovePicker(i: Discord.ButtonInteraction) {
 	await i.deferUpdate()
 	const cfg = await loadCfg(i)
-	if (!cfg.role_time_limits?.length) return showLimitsPanel(i, cfg)
+
+	// Get only regular limits from included array
+	const includedLimits = cfg.role_time_limits?.included ?? []
+
+	if (!includedLimits.length) {
+		return showLimitsPanel(i, cfg)
+	}
 
 	const options = await Promise.all(
-		cfg.role_time_limits.map(async (l, idx) => {
+		includedLimits.map(async (l, idx) => {
 			const role = (await i.guild.roles
 				.fetch(l.role_id)
 				.catch(() => null)) as Discord.Role | null
@@ -211,13 +280,188 @@ async function handleRemoveLimit(inter: Discord.StringSelectMenuInteraction) {
 	const cfg = await loadCfg(inter)
 	const idx = Number(inter.values[0])
 
-	cfg.role_time_limits?.splice(idx, 1)
+	// Initialize structure if needed
+	if (!cfg.role_time_limits) {
+		cfg.role_time_limits = { included: [], excluded: [] }
+	}
+	if (!cfg.role_time_limits.included) {
+		cfg.role_time_limits.included = []
+	}
+
+	// Get the limit to remove from included array
+	const limitToRemove = cfg.role_time_limits.included[idx]
+
+	if (!limitToRemove) {
+		await inter.followUp({
+			content: '❌ Failed to find the limit to remove',
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+		return
+	}
+
+	// Remove from the included array
+	cfg.role_time_limits.included.splice(idx, 1)
+
 	await saveCfg(inter, cfg)
 	await showLimitsPanel(inter, cfg)
 	await inter.followUp({
 		content: 'Limit Removed',
 		flags: Discord.MessageFlags.Ephemeral,
 	})
+}
+
+/* -------------------------------------------------------------------------- */
+/*                           EXCLUDED ROLES FLOW                              */
+/* -------------------------------------------------------------------------- */
+
+async function handleAddExcludedRole(i: Discord.ButtonInteraction) {
+	await i.deferUpdate()
+
+	const roleSelect = V2.makeRoleSelect({
+		custom_id: EXCLUDED_ROLES_ROLE_SELECT,
+		placeholder: 'Select a role to exclude from limits',
+		min_values: 1,
+		max_values: 1,
+	})
+
+	const roleSelectRow = V2.makeActionRow([roleSelect])
+	const buttonRow = V2.makeActionRow([
+		V2.makeButton({
+			custom_id: ID.CONFIG_BACK,
+			label: 'Back To Limits Menu',
+			style: Discord.ButtonStyle.Secondary,
+		}),
+	])
+
+	await i.editReply({
+		content: '## Pick a role to exclude from time limits',
+		components: [roleSelectRow, buttonRow],
+	})
+}
+
+async function handleExcludedRoleSelect(i: Discord.RoleSelectMenuInteraction) {
+	await i.deferUpdate()
+	const cfg = await loadCfg(i)
+
+	const selectedRoleId = i.values[0]
+
+	// Initialize role_time_limits structure if it doesn't exist
+	if (!cfg.role_time_limits) {
+		cfg.role_time_limits = { included: [], excluded: [] }
+	}
+	if (!cfg.role_time_limits.included) {
+		cfg.role_time_limits.included = []
+	}
+	if (!cfg.role_time_limits.excluded) {
+		cfg.role_time_limits.excluded = []
+	}
+
+	// Check if role already has any limit (excluded or regular)
+	const existingInIncluded = cfg.role_time_limits.included.find(
+		(rl) => rl.role_id === selectedRoleId
+	)
+	const existingInExcluded =
+		cfg.role_time_limits.excluded.includes(selectedRoleId)
+
+	if (existingInIncluded || existingInExcluded) {
+		await i.followUp({
+			content: '❌ This role already has a configuration',
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+		return
+	}
+
+	// Add the role to excluded list
+	cfg.role_time_limits.excluded.push(selectedRoleId)
+
+	await saveCfg(i, cfg)
+	await showLimitsPanel(i, cfg)
+
+	await i.followUp({
+		content: '✅ Role added to excluded list',
+		flags: Discord.MessageFlags.Ephemeral,
+	})
+}
+
+async function handleRemoveExcludedRolePicker(i: Discord.ButtonInteraction) {
+	await i.deferUpdate()
+	const cfg = await loadCfg(i)
+
+	// Get excluded roles
+	const excludedRoles = cfg.role_time_limits?.excluded ?? []
+
+	if (!excludedRoles.length) {
+		return showLimitsPanel(i, cfg)
+	}
+
+	const options = await Promise.all(
+		excludedRoles.map(async (roleId, idx) => {
+			const role = (await i.guild.roles
+				.fetch(roleId)
+				.catch(() => null)) as Discord.Role | null
+			return {
+				label: role ? `@${role.name}` : `ID:${roleId}`,
+				value: roleId, // Use role_id as value for easier removal
+				description: 'Remove from excluded roles',
+			}
+		})
+	)
+
+	const removeSelect = V2.makeStringSelect(EXCLUDED_ROLES_REMOVE_SELECT)
+		.setPlaceholder('Select a role to remove from excluded list')
+		.addOptions(options)
+
+	const selectRow = V2.makeActionRow([removeSelect])
+	const buttonRow = V2.makeActionRow([
+		V2.makeButton({
+			custom_id: ID.CONFIG_BACK,
+			label: 'Back To Limits Menu',
+			style: Discord.ButtonStyle.Secondary,
+		}),
+	])
+
+	await i.editReply({
+		content: '## Pick a role to remove from excluded list',
+		components: [selectRow, buttonRow],
+	})
+}
+
+async function handleRemoveExcludedRole(
+	inter: Discord.StringSelectMenuInteraction
+) {
+	await inter.deferUpdate()
+
+	const cfg = await loadCfg(inter)
+	const roleIdToRemove = inter.values[0]
+
+	// Initialize structure if needed
+	if (!cfg.role_time_limits) {
+		cfg.role_time_limits = { included: [], excluded: [] }
+	}
+	if (!cfg.role_time_limits.excluded) {
+		cfg.role_time_limits.excluded = []
+	}
+
+	// Remove the role from excluded array
+	const initialLength = cfg.role_time_limits.excluded.length
+	cfg.role_time_limits.excluded = cfg.role_time_limits.excluded.filter(
+		(roleId) => roleId !== roleIdToRemove
+	)
+
+	if (cfg.role_time_limits.excluded.length < initialLength) {
+		await saveCfg(inter, cfg)
+		await showLimitsPanel(inter, cfg)
+
+		await inter.followUp({
+			content: '✅ Role removed from excluded list',
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+	} else {
+		await inter.followUp({
+			content: '❌ Failed to remove role from excluded list',
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+	}
 }
 
 /* -------------------------------------------------------------------------- */
