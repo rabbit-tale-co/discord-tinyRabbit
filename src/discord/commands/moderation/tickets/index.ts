@@ -70,9 +70,14 @@ async function scanAllExistingTickets(client: Discord.Client) {
 				}
 
 				// Get all active tickets for this guild from database
-				const activeTickets = await api.getAllActiveTickets(
+				const allTickets = await api.getAllActiveTickets(
 					client.user.id,
 					guildId
+				)
+
+				// Filter out tickets that are actually closed (status: "closed")
+				const activeTickets = allTickets.filter(ticket =>
+					ticket.metadata.status !== 'closed'
 				)
 
 				const inactivityThreshold =
