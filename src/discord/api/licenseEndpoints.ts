@@ -20,7 +20,7 @@ export async function licenseVerifyEndpoint(body: {
 			trialActive: LicenseManager.trialActive,
 		};
 	} catch (error) {
-		bunnyLog.error('Error in licenseVerifyEndpoint:', error);
+		bunnyLog.error(`Error in licenseVerifyEndpoint: ${error instanceof Error ? error.message : String(error)}`);
 		throw error;
 	}
 }

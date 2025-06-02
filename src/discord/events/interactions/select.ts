@@ -5,7 +5,7 @@ import {
 	openTicketFromSelect,
 	handleTicketActionSelect,
 } from '@/discord/commands/moderation/tickets/open.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
 
 type SelectMenuHandler = (
 	inter: Discord.StringSelectMenuInteraction
@@ -44,13 +44,11 @@ const selectMenuMap: Record<string, SelectMenuStructure> = {
 					break
 				case 'open': {
 					// Handle ticket opening with the selected value
-					const customId = inter.values[0] // Get the selected value which should be the ticket type
-					bunnyLog.info(`Opening ticket with type: ${customId}`)
 					await openTicketFromSelect(inter)
 					break
 				}
 				default:
-					bunnyLog.warn(`Unhandled tickets action: ${action}`)
+					StatusLogger.warn(`Unhandled tickets action: ${action}`)
 					break
 			}
 		},
@@ -61,13 +59,8 @@ export async function selectMenuInteractionHandler(
 	inter: Discord.StringSelectMenuInteraction
 ): Promise<void> {
 	try {
-		bunnyLog.info(`Processing select menu interaction: ${inter.customId}`)
-
-		// Handle direct ticket actions
+		// Handle direct ticket actions - these use the select menu for ticket creation
 		if (inter.customId.startsWith('open_ticket_')) {
-			bunnyLog.info(
-				`Handling direct ticket open via select menu: ${inter.customId}, selected value: ${inter.values[0]}`
-			)
 			await openTicketFromSelect(inter)
 			return
 		}
@@ -77,12 +70,12 @@ export async function selectMenuInteractionHandler(
 		const selectMenuConfig = selectMenuMap[baseId]
 
 		if (!selectMenuConfig) {
-			bunnyLog.warn(`No handler found for select menu: ${inter.customId}`)
+			StatusLogger.warn(`No handler found for select menu: ${inter.customId}`)
 			return
 		}
 
 		await selectMenuConfig.handler(inter)
 	} catch (error) {
-		bunnyLog.error('Failed to handle select menu interaction:', error)
+		EventLogger.error('select menu interaction', error as Error)
 	}
 }

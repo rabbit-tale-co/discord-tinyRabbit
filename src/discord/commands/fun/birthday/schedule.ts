@@ -1,9 +1,9 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import cron from 'node-cron'
-import { bunnyLog } from 'bunny-log'
 import { replacePlaceholders } from '@/utils/replacePlaceholders.js'
 import type { ComponentsV2 } from '@/types/plugins.js'
+import { BirthdayLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
 
 interface BirthdayUser {
 	id: string
@@ -134,7 +134,7 @@ async function sendBirthdayAnnouncements(client: Discord.Client) {
 					})
 				)
 			} catch (error) {
-				bunnyLog.error(`Birthday announcement failed in ${guild.name}:`, error)
+				BirthdayLogger.error(`Birthday announcement failed in ${guild.name}: ${error}`)
 			}
 		})
 	)
@@ -161,7 +161,13 @@ export async function scheduleBirthdayCheck(
 		})
 	)
 	const enabledCount = results.reduce((sum, curr) => sum + curr, 0)
-	bunnyLog.server(`Birthday plugin scheduled for ${enabledCount} guild(s)`)
+
+	// Only log if there are enabled guilds, otherwise it's just noise
+	if (enabledCount > 0) {
+		ServiceLogger.start(
+			`🎂 Birthday plugin active for ${enabledCount} guild${enabledCount === 1 ? '' : 's'}`
+		)
+	}
 
 	// Run daily at 9:00 AM UTC // + 2h
 	cron.schedule('0 11 * * *', () => sendBirthdayAnnouncements(client), {

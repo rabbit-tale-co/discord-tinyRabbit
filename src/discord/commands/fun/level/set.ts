@@ -3,7 +3,7 @@ import * as utils from '@/utils/index.js'
 import * as api from '@/discord/api/index.js'
 import { updateMemberRoles } from '@/services/roleService.js'
 import type { LevelStatus } from '@/types/levels.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 export async function setLevel(
 	interaction: Discord.ChatInputCommandInteraction
@@ -69,7 +69,7 @@ export async function setLevel(
 				)
 			}
 		} catch (error) {
-			bunnyLog.error('Error updating user roles:', error)
+			StatusLogger.error(`Error updating user roles: ${error instanceof Error ? error.message : String(error)}`);
 			// Continue execution even if role update fails
 		}
 

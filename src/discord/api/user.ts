@@ -3,7 +3,7 @@ import { XP_PER_MESSAGE } from '@/utils/xpUtils.js'
 import { updateLeaderboard } from '@/discord/api/leaderBoard.js'
 import type * as Types from '@/types/levels.js'
 import type * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { DatabaseLogger } from '@/utils/bunnyLogger.js'
 
 const user_cache: Record<string, Types.Level | null> = {}
 
@@ -77,7 +77,7 @@ async function getUser(
 		return user_data
 	} catch (error) {
 		// Log the error
-		bunnyLog.error(`Error fetching user data for ${user_id}:`, error)
+		DatabaseLogger.error(`Error fetching user data for ${user_id}: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -139,7 +139,7 @@ async function addUserOrUpdate(
 		await updateLeaderboard(bot_id, user)
 	} catch (error) {
 		// Log the error
-		bunnyLog.error('Error adding/updating user:', error)
+		DatabaseLogger.error(`Error adding/updating user: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }

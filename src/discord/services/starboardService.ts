@@ -1,8 +1,8 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import type { StarboardEntry } from '@/types/starboard.js'
-import { bunnyLog } from 'bunny-log'
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js'
+import { StatusLogger, PluginLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Watches for starboard reactions and updates the starboard accordingly.
@@ -22,9 +22,7 @@ async function watchStarboard(
 
 		// Check if the plugin is enabled
 		if (!config?.enabled) {
-			bunnyLog.info(
-				`Starboard plugin is not enabled for guild ${reaction.message.guildId}`
-			)
+			PluginLogger.error('starboard', `Plugin not enabled for guild ${reaction.message.guildId}`)
 			return null
 		}
 
@@ -36,7 +34,7 @@ async function watchStarboard(
 			try {
 				await reaction.fetch()
 			} catch (error) {
-				bunnyLog.error('Failed to fetch reaction:', error)
+				StatusLogger.error('Failed to fetch reaction', error as Error)
 				return null
 			}
 		}
@@ -46,7 +44,7 @@ async function watchStarboard(
 			try {
 				await reaction.message.fetch()
 			} catch (error) {
-				bunnyLog.error('Failed to fetch message:', error)
+				StatusLogger.error('Failed to fetch message', error as Error)
 				return null
 			}
 		}
@@ -57,25 +55,19 @@ async function watchStarboard(
 			watch_channels.length > 0 &&
 			!watch_channels.includes(reaction.message.channel.id)
 		) {
-			bunnyLog.info(
-				`Message not in watched channels: ${reaction.message.channel.id}`
-			)
+			StatusLogger.debug(`Message not in watched channels: ${reaction.message.channel.id}`)
 			return null
 		}
 
 		// Check if the reaction matches the configured emoji
 		if (reaction.emoji.name !== emoji) {
-			bunnyLog.info(
-				`Reaction emoji ${reaction.emoji.name} does not match configured emoji ${emoji}`
-			)
+			StatusLogger.debug(`Reaction emoji ${reaction.emoji.name} does not match configured emoji ${emoji}`)
 			return null
 		}
 
 		// If the reaction count doesn't meet the threshold, exit
 		if ((reaction.count ?? 0) < (threshold ?? 0)) {
-			bunnyLog.info(
-				`Reaction count ${reaction.count} below threshold ${threshold}`
-			)
+			StatusLogger.debug(`Reaction count ${reaction.count} below threshold ${threshold}`)
 			return null
 		}
 
@@ -89,15 +81,13 @@ async function watchStarboard(
 			!starboardChannel ||
 			starboardChannel.type !== Discord.ChannelType.GuildText
 		) {
-			bunnyLog.error(
-				`Starboard channel ${channel_id} not found or is not a text channel`
-			)
+			StatusLogger.error(`Starboard channel ${channel_id} not found or is not a text channel`)
 			return null
 		}
 
 		// If the message author is a bot, return null
 		if (reaction.message.author?.bot) {
-			bunnyLog.info('Ignoring starboard entry for a bot message')
+			StatusLogger.debug('Ignoring starboard entry for a bot message')
 			return null
 		}
 
@@ -109,9 +99,7 @@ async function watchStarboard(
 
 		// If the non-bot reaction count doesn't meet the threshold, exit
 		if (nonBotReactionCount < (threshold ?? 0)) {
-			bunnyLog.info(
-				`Non-bot reaction count ${nonBotReactionCount} below threshold ${threshold}`
-			)
+			StatusLogger.debug(`Non-bot reaction count ${nonBotReactionCount} below threshold ${threshold}`)
 			return null
 		}
 
@@ -184,7 +172,7 @@ async function watchStarboard(
 							'Cannot edit a message authored by another user'
 						)
 					) {
-						bunnyLog.warn('Cannot edit starboard message, creating new one')
+						StatusLogger.warn('Cannot edit starboard message, creating new one')
 
 						// Send a new message
 						const newMessage = await starboardChannel.send({
@@ -211,7 +199,7 @@ async function watchStarboard(
 			} catch (error) {
 				if (error.code === 10008) {
 					// Unknown Message error
-					bunnyLog.warn('Starboard message not found, creating new entry')
+					StatusLogger.warn('Starboard message not found, creating new entry')
 
 					// Delete the existing starboard entry
 					await api.deleteStarboardEntry(
@@ -250,7 +238,7 @@ async function watchStarboard(
 
 		return newEntry
 	} catch (error) {
-		bunnyLog.error('Error handling starboard:', error)
+		PluginLogger.error('starboard', error as Error)
 		return null
 	}
 }

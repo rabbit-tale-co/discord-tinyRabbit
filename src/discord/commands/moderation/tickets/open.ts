@@ -7,7 +7,7 @@ import * as limits from './limits.js'
 import { threadMetadataStore as store } from './state.js'
 import type { ThreadMetadata } from '@/types/tickets.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger, ServiceLogger, CommandLogger } from '@/utils/bunnyLogger.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
 import {
 	replacePlaceholders,
@@ -71,14 +71,17 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 		const member = inter.member as Discord.GuildMember
 
 		// Check role time limits if configured
-		if (cfg.role_time_limits?.length > 0) {
+		if (
+			cfg.role_time_limits?.included?.length > 0 ||
+			cfg.role_time_limits?.excluded?.length > 0
+		) {
 			const cooldownResult = await checkRoleTimeLimits(member, cfg, inter)
 			if (!cooldownResult.allowed) {
 				await utils.handleResponse(
 					inter,
 					'warning',
 					`You need to wait ${cooldownResult.limit} between tickets. You can open a new ticket <t:${Math.floor(cooldownResult.retryAt / 1000)}:R>`,
-					{ code: 'OT003' }
+					{ code: 'OT003', ephemeral: true }
 				)
 				return
 			}
@@ -88,9 +91,6 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 		/*                  RESOLVE TICKET CATEGORY               */
 		/* ------------------------------------------------------ */
 		const category = resolveCategory(inter.customId, cfg)
-		bunnyLog.info(
-			`Resolved ticket category: ${category} from custom_id: ${inter.customId}`
-		)
 
 		/* ------------------------------------------------------ */
 		/*                OBTAIN NEXT TICKET NUMBER               */
@@ -252,25 +252,9 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 				// Send the message
 				const sentMessage = await thread.send(messageOptions)
 
-				// Update metadata with message info
-				if (sentMessage) {
-					meta.join_ticket_message_id = sentMessage.id
-					meta.admin_channel_id = cfg.admin_channel_id
-
-					// Update in memory and database
-					store.set(thread.id, meta)
-					await api.updateTicketMetadata(
-						inter.client.user.id,
-						inter.guild.id,
-						thread.id,
-						meta
-					)
-				}
+				// Update metadata with message info is now handled in sendAdminNotification
 			} catch (error) {
-				bunnyLog.error(
-					'Error sending thread message with universal components:',
-					error
-				)
+				StatusLogger.error('Error sending thread message with universal components:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -373,10 +357,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 				// Send admin notification
 				await sendAdminNotification(inter, cfg, thread, meta, placeholders)
 			} catch (error) {
-				bunnyLog.error(
-					'Error sending user confirmation with universal components:',
-					error
-				)
+				StatusLogger.error('Error sending user confirmation with universal components:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -386,7 +367,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 			}
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to create ticket:', error)
+		StatusLogger.error('Failed to create ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -412,8 +393,6 @@ export async function openTicketFromSelect(
 		return
 	}
 
-	await inter.deferReply({ flags: Discord.MessageFlags.Ephemeral })
-
 	try {
 		const cfg = await loadCfg(inter)
 		if (!cfg.enabled) {
@@ -428,8 +407,11 @@ export async function openTicketFromSelect(
 
 		const member = inter.member as Discord.GuildMember
 
-		// Check role time limits if configured
-		if (cfg.role_time_limits?.length > 0) {
+		// Check role time limits if configured BEFORE deferUpdate
+		if (
+			cfg.role_time_limits?.included?.length > 0 ||
+			cfg.role_time_limits?.excluded?.length > 0
+		) {
 			const cooldownResult = await checkRoleTimeLimits(
 				member,
 				cfg,
@@ -440,11 +422,16 @@ export async function openTicketFromSelect(
 					inter,
 					'warning',
 					`You need to wait ${cooldownResult.limit} between tickets. You can open a new ticket <t:${Math.floor(cooldownResult.retryAt / 1000)}:R>`,
-					{ code: 'OT003' }
+					{ code: 'OT003', ephemeral: true }
 				)
+				// Clear the select menu selection since ticket creation failed
+				await clearSelectMenuSelection(inter)
 				return
 			}
 		}
+
+		// Use deferUpdate instead of deferReply to prevent select menu from staying selected
+		await inter.deferUpdate()
 
 		const category = resolveCategory(inter.values[0], cfg)
 		const ticket_id = await api.getTicketCounter(
@@ -457,7 +444,7 @@ export async function openTicketFromSelect(
 				inter,
 				'error',
 				'Failed to get ticket counter',
-				{ code: 'OT004' }
+				{ code: 'OT004', followUp: true }
 			)
 			return
 		}
@@ -475,12 +462,7 @@ export async function openTicketFromSelect(
 		const meta: ThreadMetadata = {
 			ticket_id,
 			thread_id: thread.id,
-			opened_by: {
-				id: inter.user.id,
-				username: inter.user.username,
-				displayName: member.displayName,
-				avatar: inter.user.displayAvatarURL(),
-			},
+			opened_by: toAuthor(inter),
 			open_time: Math.floor(Date.now() / 1_000),
 			ticket_type: category,
 			guild_id: inter.guild.id,
@@ -542,83 +524,30 @@ export async function openTicketFromSelect(
 
 				const sentMessage = await thread.send(messageOptions)
 
-				if (sentMessage) {
-					meta.join_ticket_message_id = sentMessage.id
-					meta.admin_channel_id = cfg.admin_channel_id
-					store.set(thread.id, meta)
-					await api.updateTicketMetadata(
-						inter.client.user.id,
-						inter.guild.id,
-						thread.id,
-						meta
-					)
-				}
+				// Update metadata with message info is now handled in sendAdminNotification
 			} catch (error) {
-				bunnyLog.error('Error sending thread message:', error)
+				StatusLogger.error('Error sending thread message:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
 					'Failed to send welcome message to ticket',
-					{ code: 'OT005' }
+					{ code: 'OT005', followUp: true }
 				)
 			}
 		}
 
-		if (cfg.components?.user_ticket) {
-			try {
-				const additionalPlaceholders = {
-					ticket_id: ticket_id.toString(),
-					category,
-					thread_id: thread.id,
-					channel_id: `<#${thread.id}>`,
-					open_time: Math.floor(Date.now() / 1000).toString(),
-				}
+		// Send success notification as followUp instead of editing reply
+		await inter.followUp({
+			content: `✅ **Ticket Created Successfully!**\n\n📋 **Ticket #${ticket_id}** - ${category}\n🎯 **Thread:** <#${thread.id}>`,
+			flags: Discord.MessageFlags.Ephemeral,
+		})
 
-				const { v2Components, actionRows } = buildUniversalComponents(
-					cfg.components.user_ticket,
-					member,
-					inter.guild,
-					additionalPlaceholders
-				)
+		// Clear the select menu selection after successful ticket creation
+		await clearSelectMenuSelection(inter)
 
-				const messageOptions: Discord.InteractionEditReplyOptions = {
-					content: '',
-					components: [],
-					flags: Discord.MessageFlags.SuppressEmbeds,
-				}
-
-				if (v2Components.length > 0) {
-					messageOptions.components = v2Components
-					messageOptions.flags =
-						Discord.MessageFlags.SuppressEmbeds |
-						Discord.MessageFlags.IsComponentsV2
-				}
-
-				if (actionRows.length > 0) {
-					messageOptions.components =
-						messageOptions.components.concat(actionRows)
-				}
-
-				await inter.editReply(messageOptions)
-				await sendAdminNotification(
-					inter as unknown as Discord.ButtonInteraction,
-					cfg,
-					thread,
-					meta,
-					placeholders
-				)
-			} catch (error) {
-				bunnyLog.error('Error sending user confirmation:', error)
-				await utils.handleResponse(
-					inter,
-					'error',
-					'Failed to send user confirmation',
-					{ code: 'OT006' }
-				)
-			}
-		}
+		await sendAdminNotification(inter, cfg, thread, meta, placeholders)
 	} catch (error) {
-		bunnyLog.error('Failed to create ticket:', error)
+		StatusLogger.error('Failed to create ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -626,6 +555,7 @@ export async function openTicketFromSelect(
 			{
 				code: 'OT005',
 				error: error as Error,
+				followUp: true,
 			}
 		)
 	}
@@ -645,6 +575,21 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 		return
 	}
 
+	// Ensure member is a GuildMember
+	const member =
+		inter.member instanceof Discord.GuildMember
+			? inter.member
+			: await inter.guild.members.fetch(inter.user.id)
+	if (!member) {
+		await utils.handleResponse(
+			inter,
+			'error',
+			'Could not fetch member details.',
+			{ code: 'CT_MEM_FETCH_FAIL' }
+		)
+		return
+	}
+
 	await inter.deferReply({ flags: Discord.MessageFlags.Ephemeral })
 
 	try {
@@ -660,7 +605,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 		}
 
 		// Check if user has permission to claim tickets (moderator role or admin)
-		const member = inter.member as Discord.GuildMember
 		const hasModRole = cfg.mods_role_ids?.some((roleId) =>
 			member.roles.cache.has(roleId)
 		)
@@ -678,7 +622,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Parse the thread ID from the custom ID (format: claim_ticket:threadId)
 		const [, threadId] = inter.customId.split(':')
 		if (!threadId) {
 			await utils.handleResponse(inter, 'error', 'Invalid ticket reference', {
@@ -687,8 +630,23 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Get the ticket metadata
-		const ticketData = store.get(threadId)
+		let ticketData = store.get(threadId)
+		if (!ticketData) {
+			try {
+				const allTickets = await api.getAllActiveTickets(
+					inter.client.user.id,
+					inter.guild.id
+				)
+				const dbTicket = allTickets.find((t) => t.thread_id === threadId)
+				if (dbTicket) {
+					ticketData = dbTicket.metadata
+					store.set(threadId, ticketData)
+				}
+			} catch (error) {
+				StatusLogger.error('Error loading ticket from database for claim:', error)
+			}
+		}
+
 		if (!ticketData) {
 			await utils.handleResponse(
 				inter,
@@ -699,7 +657,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Check if ticket is already claimed
 		if (ticketData.claimed_by) {
 			const claimedById =
 				typeof ticketData.claimed_by === 'string'
@@ -714,7 +671,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Get the ticket thread
 		const thread = await inter.guild.channels.fetch(threadId)
 		if (!thread?.isThread()) {
 			await utils.handleResponse(
@@ -726,7 +682,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Update ticket metadata
 		ticketData.claimed_by = {
 			id: inter.user.id,
 			username: inter.user.username,
@@ -735,7 +690,6 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 		}
 		ticketData.claimed_time = new Date()
 
-		// Update in memory and database
 		store.set(threadId, ticketData)
 		await api.updateTicketMetadata(
 			inter.client.user.id,
@@ -744,67 +698,167 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			ticketData
 		)
 
-		// Update the admin message
-		if (cfg.components?.admin_ticket) {
-			try {
-				const placeholders = {
-					ticket_id: String(ticketData.ticket_id),
-					category: String(ticketData.ticket_type || 'General Support'),
-					thread_id: String(threadId),
-					channel_id: `<#${threadId}>`,
-					opened_by: `<@${ticketData.opened_by.id}>`,
-					claimed_by: `<@${inter.user.id}>`,
-					open_time: `<t:${Math.floor(Number(ticketData.open_time))}:R>`,
-					claimed_time: `<t:${Math.floor(ticketData.claimed_time.getTime() / 1000)}:R>`,
-					mod_ping: '', // Don't ping mods for claimed tickets
-					display_name: inter.user.displayName || inter.user.username,
-					guild_id: inter.guild.id,
-				}
-
-				const { v2Components, actionRows } = buildUniversalComponents(
-					cfg.components.admin_ticket,
-					member,
-					inter.guild,
-					placeholders
-				)
-
-				const messageOptions: Discord.MessageEditOptions = {
-					content: '',
-					components: [],
-					flags: Discord.MessageFlags.SuppressEmbeds,
-				}
-
-				if (v2Components.length > 0) {
-					messageOptions.components = v2Components
-					messageOptions.flags =
-						Discord.MessageFlags.SuppressEmbeds |
-						Discord.MessageFlags.IsComponentsV2
-				}
-
-				if (actionRows.length > 0) {
-					messageOptions.components =
-						messageOptions.components.concat(actionRows)
-				}
-
-				await inter.message.edit(messageOptions)
-			} catch (error) {
-				bunnyLog.error('Error updating admin message:', error)
-				await utils.handleResponse(
-					inter,
-					'error',
-					'Failed to update admin message',
-					{ code: 'CT010', error: error as Error }
-				)
-			}
-		}
-
-		// Send confirmation to the claimer
 		await utils.handleResponse(
 			inter,
 			'success',
 			`You have successfully claimed ticket #${ticketData.ticket_id}`,
 			{ code: 'CT008', ephemeral: true }
 		)
+
+		// --- Begin Revised Admin Message Update (hybrid approach) ---
+		try {
+			// We need to rebuild the message with updated placeholders (especially claimed_by)
+			// but only modify the claim button
+			const placeholders: PlaceholderMap = {
+				ticket_id: String(ticketData.ticket_id),
+				category: String(ticketData.ticket_type),
+				thread_id: String(threadId),
+				channel_id: `<#${threadId}>`,
+				opened_by: `<@${ticketData.opened_by.id}>`,
+				claimed_by: `<@${inter.user.id}>`,
+				open_time: `<t:${Math.floor(Number(ticketData.open_time))}:R>`,
+				claimed_time: `<t:${Math.floor(ticketData.claimed_time.getTime() / 1000)}:R>`,
+				mod_ping: cfg.mods_role_ids?.map((id) => `<@&${id}>`).join(' '),
+				display_name: member.displayName,
+				guild_id: inter.guild.id,
+			}
+
+			const adminTicketTemplate = cfg.components?.admin_ticket
+			if (!adminTicketTemplate) {
+				StatusLogger.warn(
+					'Admin ticket template not found. Falling back to simple button disable.'
+				)
+				throw new Error('Admin ticket template missing for claim update')
+			}
+
+			// Ensure placeholders are strictly Record<string, string>
+			const stringPlaceholders: Record<string, string> = {}
+			for (const key in placeholders) {
+				if (Object.prototype.hasOwnProperty.call(placeholders, key)) {
+					stringPlaceholders[key] = String(placeholders[key])
+				}
+			}
+
+			// Generate all components with updated placeholders
+			const { v2Components, actionRows } = buildUniversalComponents(
+				adminTicketTemplate,
+				member,
+				inter.guild,
+				stringPlaceholders
+			)
+
+			// Process action rows to modify only the claim button
+			const processedActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
+				[]
+
+			for (const rowBuilder of actionRows) {
+				const newRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+
+				for (const componentBuilder of rowBuilder.components) {
+					if (componentBuilder instanceof Discord.ButtonBuilder) {
+						// Process the custom_id with placeholders
+						let customId = ''
+						const buttonData = componentBuilder.data as unknown as {
+							custom_id?: string
+						}
+						if (
+							buttonData.custom_id &&
+							typeof buttonData.custom_id === 'string'
+						) {
+							customId = replacecustom_idPlaceholders(
+								buttonData.custom_id,
+								stringPlaceholders
+							)
+							componentBuilder.setCustomId(customId)
+						}
+
+						// Check if this is the claim ticket button and modify it
+						if (customId.startsWith('claim_ticket:')) {
+							componentBuilder
+								.setDisabled(true)
+								.setLabel('Claimed')
+								.setStyle(Discord.ButtonStyle.Success)
+						}
+
+						newRow.addComponents(componentBuilder)
+					}
+				}
+
+				if (newRow.components.length > 0) {
+					processedActionRows.push(newRow)
+				}
+			}
+
+			// Prepare message options with all components
+			const messageOptions: Discord.MessageEditOptions = {}
+
+			// Add v2Components (TextDisplay, Separator, etc.)
+			if (v2Components && v2Components.length > 0) {
+				messageOptions.components = v2Components
+				messageOptions.flags = Discord.MessageFlags.IsComponentsV2
+			}
+
+			// Add processed action rows (buttons)
+			if (processedActionRows.length > 0) {
+				if (messageOptions.components) {
+					messageOptions.components = [
+						...messageOptions.components,
+						...processedActionRows,
+					]
+				} else {
+					messageOptions.components = processedActionRows
+				}
+			}
+
+			// Edit the message with all components
+			await inter.message.edit(messageOptions)
+		} catch (error) {
+			StatusLogger.error('Error during admin message update after claim:', error)
+			// Fallback logic remains the same...
+			try {
+				const originalMessageComponents = inter.message.components
+				const fallbackComponents: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
+					[]
+				for (const row of originalMessageComponents) {
+					const actionRow =
+						row as Discord.ActionRow<Discord.MessageActionRowComponent>
+					const newActionRow =
+						new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+					if (actionRow.components && Array.isArray(actionRow.components)) {
+						for (const component of actionRow.components) {
+							if (component.type === Discord.ComponentType.Button) {
+								const buttonBuilder = Discord.ButtonBuilder.from(component)
+								if (component.customId?.includes('claim_ticket')) {
+									buttonBuilder
+										.setDisabled(true)
+										.setLabel('✅ Claimed')
+										.setStyle(Discord.ButtonStyle.Success)
+								}
+								newActionRow.addComponents(buttonBuilder)
+							}
+						}
+					}
+					if (newActionRow.components.length > 0) {
+						fallbackComponents.push(newActionRow)
+					}
+				}
+				if (fallbackComponents.length > 0) {
+					await inter.message.edit({
+						content: inter.message.content,
+						components: fallbackComponents,
+					})
+				}
+			} catch (fallbackError) {
+				StatusLogger.error(
+					'Fallback attempt to disable claim button also failed:',
+					fallbackError
+				)
+			}
+			StatusLogger.error(
+				'Admin message not fully updated (fallback might have partially succeeded), but ticket claim was successful.'
+			)
+		}
+		// --- End Revised Admin Message Update ---
 
 		// Send notification to the ticket thread if configured
 		if (cfg.components?.ticket_claimed) {
@@ -846,7 +900,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 
 				await thread.send(messageOptions)
 			} catch (error) {
-				bunnyLog.error('Error sending ticket claimed message:', error)
+				StatusLogger.error('Error sending ticket claimed message:', error)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -856,7 +910,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			}
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to claim ticket:', error)
+		StatusLogger.error('Failed to claim ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -964,7 +1018,7 @@ export async function joinTicket(inter: Discord.ButtonInteraction) {
 				content: `👋 <@${inter.user.id}> has joined the ticket to assist.`,
 			})
 		} catch (error) {
-			bunnyLog.error('Error adding user to ticket thread:', error)
+			StatusLogger.error('Error adding user to ticket thread:', error)
 			await utils.handleResponse(
 				inter,
 				'error',
@@ -976,7 +1030,7 @@ export async function joinTicket(inter: Discord.ButtonInteraction) {
 			)
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to join ticket:', error)
+		StatusLogger.error('Failed to join ticket:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -1014,7 +1068,7 @@ export async function handleTicketActionSelect(
 			if (inter.isButton()) {
 				await claimTicket(inter)
 			} else {
-				bunnyLog.warn('Invalid interaction type for claim_ticket')
+				StatusLogger.warn('Invalid interaction type for claim_ticket')
 				await utils.handleResponse(inter, 'error', 'Invalid interaction type', {
 					code: 'TAS003',
 				})
@@ -1024,7 +1078,7 @@ export async function handleTicketActionSelect(
 			if (inter.isButton()) {
 				await joinTicket(inter)
 			} else {
-				bunnyLog.warn('Invalid interaction type for join_ticket')
+				StatusLogger.warn('Invalid interaction type for join_ticket')
 				await utils.handleResponse(inter, 'error', 'Invalid interaction type', {
 					code: 'TAS004',
 				})
@@ -1036,14 +1090,14 @@ export async function handleTicketActionSelect(
 			} else if (inter.isButton()) {
 				await openTicket(inter)
 			} else {
-				bunnyLog.warn('Invalid interaction type for open_ticket')
+				StatusLogger.warn('Invalid interaction type for open_ticket')
 				await utils.handleResponse(inter, 'error', 'Invalid interaction type', {
 					code: 'TAS005',
 				})
 			}
 			break
 		default:
-			bunnyLog.warn(`Unknown action selected: ${baseAction}`)
+			StatusLogger.warn(`Unknown action selected: ${baseAction}`)
 			await utils.handleResponse(inter, 'error', 'Unknown action selected', {
 				code: 'TAS002',
 			})
@@ -1064,7 +1118,7 @@ async function findTicketByAdminMessageId(
 ): Promise<{ ticketData: ThreadMetadata; threadId: string } | null> {
 	// First check in memory cache
 	for (const [threadId, metadata] of store.entries()) {
-		if (metadata.join_ticket_message_id === adminMessageId) {
+		if (metadata.admin_channel?.message_id === adminMessageId) {
 			return { ticketData: metadata, threadId }
 		}
 	}
@@ -1073,14 +1127,14 @@ async function findTicketByAdminMessageId(
 	try {
 		const allTickets = await api.getAllActiveTickets(botId, guildId)
 		for (const ticket of allTickets) {
-			if (ticket.metadata.join_ticket_message_id === adminMessageId) {
+			if (ticket.metadata.admin_channel?.message_id === adminMessageId) {
 				// Update cache with found ticket
 				store.set(ticket.thread_id, ticket.metadata)
 				return { ticketData: ticket.metadata, threadId: ticket.thread_id }
 			}
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to search for ticket:', error)
+		StatusLogger.error('Failed to search for ticket:', error)
 	}
 
 	return null
@@ -1125,43 +1179,74 @@ function resolveCategory(
 	// Check if there's an open_ticket component template
 	const openTicketTemplate = cfg.components?.open_ticket
 	if (!openTicketTemplate?.components) {
-		bunnyLog.warn('No open_ticket components found in config')
+		StatusLogger.warn('No open_ticket components found in config')
 		return 'General Support'
 	}
 
 	// Look for buttons in the components array
 	for (const component of openTicketTemplate.components) {
-		if (component.type === 1 && 'components' in component) {
-			// Find the button with matching custom_id and return its label
-			const button = component.components.find(
-				(btn) =>
-					btn.type === 2 && 'custom_id' in btn && btn.custom_id === customId
-			)
+		// Check if this is an ActionRow component (type 1 or has components array)
+		const isActionRow =
+			component.type === Discord.ComponentType.ActionRow ||
+			('components' in component && Array.isArray(component.components))
 
-			if (button && 'label' in button && button.label) {
-				bunnyLog.info(`Found matching button with label: ${button.label}`)
-				return String(button.label)
-			}
+		if (isActionRow && 'components' in component) {
+			// Search through the components in this ActionRow
+			for (const subComponent of component.components) {
+				// Check if this is a Button component
+				const isButton = subComponent.type === Discord.ComponentType.Button
 
-			if (button) {
-				bunnyLog.warn(`Found button but no label for custom_id: ${customId}`)
+				if (
+					isButton &&
+					'custom_id' in subComponent &&
+					'label' in subComponent
+				) {
+					// Check if this button's custom_id matches what we're looking for
+					if (subComponent.custom_id === customId && subComponent.label) {
+						return String(subComponent.label)
+					}
+				}
+
+				// Check if this is a String Select Menu component
+				const isStringSelect =
+					subComponent.type === Discord.ComponentType.StringSelect
+
+				if (
+					isStringSelect &&
+					'options' in subComponent &&
+					Array.isArray(subComponent.options)
+				) {
+					// Search through the select menu options
+					for (const option of subComponent.options) {
+						if (option.value === customId && option.label) {
+							StatusLogger.info(
+								`Found matching select option with label: ${option.label}`
+							)
+							return String(option.label)
+						}
+					}
+				}
 			}
 		}
 	}
 
-	bunnyLog.warn(`No matching button found for custom_id: ${customId}`)
+	StatusLogger.warn(
+		`No matching button or select option found for custom_id: ${customId}`
+	)
 	return 'General Support'
 }
 
 /**
  * Convert interaction user to author object
  */
-function toAuthor(i: Discord.ButtonInteraction) {
+function toAuthor(
+	i: Discord.ButtonInteraction | Discord.StringSelectMenuInteraction
+) {
 	return {
 		id: i.user.id,
 		username: i.user.username,
 		displayName:
-			'displayName' in i.member
+			'displayName' in i.member && i.member
 				? (i.member as Discord.GuildMember).displayName
 				: i.user.username,
 		avatar: i.user.displayAvatarURL({
@@ -1174,7 +1259,7 @@ function toAuthor(i: Discord.ButtonInteraction) {
  * Send notification to admin channel if configured
  */
 async function sendAdminNotification(
-	inter: Discord.ButtonInteraction,
+	inter: Discord.ButtonInteraction | Discord.StringSelectMenuInteraction,
 	cfg: PluginResponse<DefaultConfigs['tickets']>,
 	thread: Discord.ThreadChannel,
 	meta: ThreadMetadata,
@@ -1267,8 +1352,10 @@ async function sendAdminNotification(
 
 		// Update metadata with admin message info
 		if (adminMessage) {
-			meta.join_ticket_message_id = adminMessage.id
-			meta.admin_channel_id = cfg.admin_channel_id
+			meta.admin_channel = {
+				id: cfg.admin_channel_id,
+				message_id: adminMessage.id,
+			}
 
 			// Update in memory and database
 			store.set(thread.id, meta)
@@ -1280,7 +1367,7 @@ async function sendAdminNotification(
 			)
 		}
 	} catch (error) {
-		bunnyLog.error('Failed to send admin notification:', error)
+		StatusLogger.error('Failed to send admin notification:', error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -1290,5 +1377,98 @@ async function sendAdminNotification(
 				error: error as Error,
 			}
 		)
+	}
+}
+
+/**
+ * Clear select menu selection after successful ticket creation
+ * This allows users to select the same option again for future tickets
+ */
+async function clearSelectMenuSelection(
+	inter: Discord.StringSelectMenuInteraction
+): Promise<void> {
+	try {
+		const originalMessage = inter.message
+
+		// Check if this is a V2 components message
+		const hasV2Components = originalMessage.flags?.has(
+			Discord.MessageFlags.IsComponentsV2
+		)
+
+		if (hasV2Components) {
+			// For V2 messages, we can't easily modify the components
+			// Just trigger a re-render by editing with the same content
+			await originalMessage.edit({
+				components: originalMessage.components,
+				flags: Discord.MessageFlags.IsComponentsV2,
+			})
+		} else {
+			// For regular messages, rebuild the components to clear selections
+			const updatedComponents = originalMessage.components
+				.map((row) => {
+					if (row.type === Discord.ComponentType.ActionRow) {
+						const newComponents = row.components.map((component) => {
+							if (component.type === Discord.ComponentType.StringSelect) {
+								// Rebuild the select menu from scratch to clear selection
+								if (!component.customId) {
+									return component // Skip if no customId
+								}
+
+								const selectMenu = new Discord.StringSelectMenuBuilder()
+									.setCustomId(component.customId)
+									.setPlaceholder(
+										component.placeholder || 'Select an option...'
+									)
+
+								// Add all the original options
+								if (component.options && component.options.length > 0) {
+									selectMenu.addOptions(
+										component.options.map((option) => ({
+											label: option.label,
+											value: option.value,
+											description: option.description || undefined,
+											emoji: option.emoji || undefined,
+										}))
+									)
+								}
+
+								// Set min/max values if they were set
+								if (typeof component.minValues === 'number') {
+									selectMenu.setMinValues(component.minValues)
+								}
+								if (typeof component.maxValues === 'number') {
+									selectMenu.setMaxValues(component.maxValues)
+								}
+
+								return selectMenu
+							}
+							return component
+						})
+
+						return new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
+							...newComponents.filter(
+								(comp): comp is Discord.StringSelectMenuBuilder =>
+									comp instanceof Discord.StringSelectMenuBuilder
+							)
+						)
+					}
+					return row
+				})
+				.filter(
+					(
+						row
+					): row is Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder> =>
+						row instanceof Discord.ActionRowBuilder
+				)
+
+			await originalMessage.edit({
+				content: originalMessage.content,
+				embeds: originalMessage.embeds,
+				components: updatedComponents,
+			})
+		}
+	} catch (error) {
+		// Don't fail the ticket creation if we can't clear the select menu
+		StatusLogger.warn(`Failed to clear select menu selection: ${error}`)
 	}
 }

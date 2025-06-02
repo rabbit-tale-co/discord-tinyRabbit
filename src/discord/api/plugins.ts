@@ -1,5 +1,5 @@
 import * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { DatabaseLogger, PluginLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 import type { API, TicketTemplates, ComponentsV2 } from '@/types/plugins.js'
 import type {
@@ -16,528 +16,552 @@ import type {
 // Define the ticket components structure using our type definitions
 const createTicketComponents = (): TicketTemplates => {
 	return {
-		open_ticket: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 🎫 Support Tickets',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Click on the button below to open a support ticket.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: 'open_ticket_general',
-						label: 'General Support',
-						style: Discord.ButtonStyle.Primary,
-					} as API.Button,
-				],
-			} as API.ActionRow,
-		],
-		opened_ticket: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 🎫 Ticket #{ticket_id} - {category}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '**👋 Welcome {opened_by}!**',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Thank you for reaching out! A support representative will be with you shortly.\nPlease provide as much detail as possible to help us assist you better.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '-# You can close this ticket using the button below when your issue is resolved.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: 'close_ticket:{thread_id}',
-						label: 'Close',
-						style: Discord.ButtonStyle.Danger,
-					} as API.Button,
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: 'close_ticket_reason:{thread_id}',
-						label: 'Close With Reason',
-						style: Discord.ButtonStyle.Danger,
-					} as API.Button,
-				],
-			} as API.ActionRow,
-		],
-		user_ticket: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 🎫 Ticket Created Successfully!',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Your ticket #{ticket_id} has been created.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Please click here to view: {channel_id}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: 'view_ticket:{thread_id}',
-						label: '📝 View Ticket',
-						style: Discord.ButtonStyle.Primary,
-					} as API.Button,
-				],
-			} as API.ActionRow,
-		],
-		closed_ticket: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## ✅ Ticket Closed',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'This ticket has been closed by {closed_by}.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 📝 Resolution',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '> **Reason:** {reason}\n> **Closed at:** {close_time}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Thank you for using our support system!',
-			} as unknown as API.TextDisplay,
-		],
-		confirm_close_ticket: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## ❓ Close Confirmation',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '⚠️ **Are you sure you want to close this ticket?**',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '-# This action cannot be undone. The ticket will be archived and locked.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: 'confirm_close:{thread_id}',
-						label: '✅ Confirm Close',
-						style: Discord.ButtonStyle.Success,
-					} as API.Button,
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: 'cancel_close:{thread_id}',
-						label: '❌ Cancel',
-						style: Discord.ButtonStyle.Secondary,
-					} as API.Button,
-				],
-			} as API.ActionRow,
-		],
-		admin_ticket: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 📬 New Ticket - #{ticket_id}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '{mod_ping}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '**Ticket Information**',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '>>> **Opened by:** {opened_by}\n**Category:** {category}\n**Claimed by:** {claimed_by}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '*Click the buttons below to manage this ticket*',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.Button,
-						label: 'Claim Ticket',
-						style: Discord.ButtonStyle.Primary,
-						custom_id: 'claim_ticket:{thread_id}',
-					} as API.Button,
-					{
-						type: Discord.ComponentType.Button,
-						label: 'Join Ticket',
-						style: Discord.ButtonStyle.Secondary,
-						custom_id: 'join_ticket:{thread_id}',
-					} as API.Button,
-				],
-			} as API.ActionRow,
-		],
-		transcript: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 🎫 Ticket #{ticket_id} - {category}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '**Ticket Information**',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '>>> **Opened by:** {opened_by}\n**Opened at:** {open_time}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '**Handling**',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '>>> **Claimed by:** {claimed_by}\n**Closed by:** {closed_by}\n**Closed at:** {close_time}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '**Resolution**',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '>>> **Reason:** {reason}\n**Rating:** {rating}',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '-# Click the button below to view the full ticket conversation:',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: 'open_thread',
-						label: 'Open Thread',
-						style: Discord.ButtonStyle.Link,
-						url: 'https://discord.com/channels/{guild_id}/{thread_id}',
-					} as API.Button,
-				],
-			} as API.ActionRow,
-		],
-		inactivity_notice: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## ⏰ Ticket Auto-Closed',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'This ticket has been automatically closed due to inactivity.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'If you still need assistance, please open a new ticket.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '*{reason}*',
-			} as unknown as API.TextDisplay,
-		],
-		rating_survey: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 📊 Support Ticket Feedback',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Thanks for using our support system! Your ticket #{ticket_id} has been closed.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '**Please rate your experience:**',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '-# Your feedback helps us improve our support services.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: '{rate_1_custom_id}',
-						label: '⭐ 1',
-						style: Discord.ButtonStyle.Danger,
-					} as API.Button,
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: '{rate_2_custom_id}',
-						label: '⭐ 2',
-						style: Discord.ButtonStyle.Danger,
-					} as API.Button,
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: '{rate_3_custom_id}',
-						label: '⭐ 3',
-						style: Discord.ButtonStyle.Secondary,
-					} as API.Button,
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: '{rate_4_custom_id}',
-						label: '⭐ 4',
-						style: Discord.ButtonStyle.Success,
-					} as API.Button,
-					{
-						type: Discord.ComponentType.Button,
-						custom_id: '{rate_5_custom_id}',
-						label: '⭐ 5',
-						style: Discord.ButtonStyle.Success,
-					} as API.Button,
-				],
-			} as API.ActionRow,
-		],
-		ticket_claimed: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 🛡️ Ticket Claimed',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '{claimed_by} has claimed this ticket and will be assisting you.',
-			} as unknown as API.TextDisplay,
-		],
-		close_confirmation: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## ✅ Ticket Closed',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'This ticket has been closed by {closed_by}.',
-			} as unknown as API.TextDisplay,
-		],
-		close_reason_modal: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## 📝 Close Reason',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Please provide a reason for closing this ticket:',
-			} as unknown as API.TextDisplay,
-		],
-		no_permission: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## ⛔ Access Denied',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: "You don't have permission to perform this action. Only moderators or the ticket opener can perform this action.",
-			} as unknown as API.TextDisplay,
-		],
-		auto_close_warning: [
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: '## ⚠️ Inactivity Warning',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'This ticket has been inactive for some time. It will be automatically closed after {threshold} of inactivity.',
-			} as unknown as API.TextDisplay,
-			{
-				type: Discord.ComponentType.Separator,
-				divider: false,
-				spacing: Discord.SeparatorSpacingSize.Large,
-			} as unknown as API.Separator,
-			{
-				type: Discord.ComponentType.TextDisplay,
-				text: 'Please respond if you still need assistance.',
-			} as unknown as API.TextDisplay,
-		],
+		open_ticket: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 🎫 Support Tickets',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Click on the button below to open a support ticket.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: 'open_ticket_general',
+							label: 'General Support',
+							style: Discord.ButtonStyle.Primary,
+						} as API.Button,
+					],
+				} as API.ActionRow,
+			],
+		},
+		opened_ticket: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 🎫 Ticket #{ticket_id} - {category}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**👋 Welcome {display_name}!**',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Thank you for reaching out! A support representative will be with you shortly.\nPlease provide as much detail as possible to help us assist you better.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '-# You can close this ticket using the button below when your issue is resolved.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: 'close_ticket:{thread_id}',
+							label: 'Close',
+							style: Discord.ButtonStyle.Danger,
+						} as API.Button,
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: 'close_ticket_reason:{thread_id}',
+							label: 'Close With Reason',
+							style: Discord.ButtonStyle.Danger,
+						} as API.Button,
+					],
+				} as API.ActionRow,
+			],
+		},
+		user_ticket: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 🎫 Ticket Created Successfully!',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Your ticket #{ticket_id} has been created.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Please click here to view: {channel_id}',
+				} as unknown as API.TextDisplay,
+			],
+		},
+		closed_ticket: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## ✅ Ticket Closed',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'This ticket has been closed by {closed_by}.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 📝 Resolution',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '> **Reason:** {reason}\n> **Closed at:** {close_time}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Thank you for using our support system!',
+				} as unknown as API.TextDisplay,
+			],
+		},
+		confirm_close_ticket: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## ❓ Close Confirmation',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '⚠️ **Are you sure you want to close this ticket?**',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '-# This action cannot be undone. The ticket will be archived and locked.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: 'confirm_close:{thread_id}',
+							label: 'Yes',
+							style: Discord.ButtonStyle.Success,
+						} as API.Button,
+					],
+				} as API.ActionRow,
+			],
+		},
+		admin_ticket: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 📬 New Ticket - #{ticket_id}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '{mod_ping}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**Ticket Information**',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '>>> **Opened by:** {opened_by}\n**Category:** {category}\n**Claimed by:** {claimed_by}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '*Click the buttons below to manage this ticket*',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.Button,
+							label: 'Claim Ticket',
+							style: Discord.ButtonStyle.Primary,
+							custom_id: 'claim_ticket:{thread_id}',
+						} as API.Button,
+						{
+							type: Discord.ComponentType.Button,
+							label: 'Join Ticket',
+							style: Discord.ButtonStyle.Secondary,
+							custom_id: 'join_ticket:{thread_id}',
+						} as API.Button,
+					],
+				} as API.ActionRow,
+			],
+		},
+		transcript: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 🎫 Ticket #{ticket_id} - {category}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**Ticket Information**',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '>>> **Opened by:** {opened_by}\n**Opened at:** {open_time}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**Handling**',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '>>> **Claimed by:** {claimed_by}\n**Closed by:** {closed_by}\n**Closed at:** {close_time}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**Resolution**',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '>>> **Reason:** {reason}\n**Rating:** {rating}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '-# Click the button below to view the full ticket conversation:',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: 'open_thread',
+							label: 'Open Thread',
+							style: Discord.ButtonStyle.Link,
+							url: 'https://discord.com/channels/{guild_id}/{thread_id}',
+						} as API.Button,
+					],
+				} as API.ActionRow,
+			],
+		},
+		inactivity_notice: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## ⏰ Ticket Auto-Closed',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'This ticket has been automatically closed due to inactivity.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '*{reason}*',
+				} as unknown as API.TextDisplay,
+			],
+		},
+		rating_survey: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 📊 Support Ticket Feedback',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Thanks for using our support system! Your ticket #{ticket_id} has been closed.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**Please rate your experience:**',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '-# Your feedback helps us improve our support services.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: '{rate_1_custom_id}',
+							label: '⭐ 1',
+							style: Discord.ButtonStyle.Danger,
+						} as API.Button,
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: '{rate_2_custom_id}',
+							label: '⭐ 2',
+							style: Discord.ButtonStyle.Danger,
+						} as API.Button,
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: '{rate_3_custom_id}',
+							label: '⭐ 3',
+							style: Discord.ButtonStyle.Secondary,
+						} as API.Button,
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: '{rate_4_custom_id}',
+							label: '⭐ 4',
+							style: Discord.ButtonStyle.Success,
+						} as API.Button,
+						{
+							type: Discord.ComponentType.Button,
+							custom_id: '{rate_5_custom_id}',
+							label: '⭐ 5',
+							style: Discord.ButtonStyle.Success,
+						} as API.Button,
+					],
+				} as API.ActionRow,
+			],
+		},
+		ticket_claimed: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 🛡️ Ticket Claimed',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '{claimed_by} has claimed this ticket and will be assisting you.',
+				} as unknown as API.TextDisplay,
+			],
+		},
+		close_confirmation: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## ✅ Ticket Closed',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'This ticket has been closed by {closed_by}.',
+				} as unknown as API.TextDisplay,
+			],
+		},
+		close_reason_modal: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## 📝 Close Reason',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Please provide a reason for closing this ticket:',
+				} as unknown as API.TextDisplay,
+			],
+		},
+		no_permission: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## ⛔ Access Denied',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: "You don't have permission to perform this action. Only moderators or the ticket opener can perform this action.",
+				} as unknown as API.TextDisplay,
+			],
+		},
+		auto_close_warning: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '## ⚠️ Inactivity Warning',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '{user}, this ticket has been inactive for some time. It will be automatically closed {threshold} due to inactivity.',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '**Auto-close time:** {close_time}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Please respond if you still need assistance.',
+				} as unknown as API.TextDisplay,
+			],
+		},
 	}
 }
 
 const createWelcomeGoodbyeComponents = () => {
 	return {
-		welcome: [
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.TextDisplay,
-						text: '# 👋 Welcome to the server!\n\nWe are glad to have you here. Enjoy your stay!',
-					} as unknown as API.TextDisplay,
-				],
-			} as API.ActionRow,
-		],
-		goodbye: [
-			{
-				type: Discord.ComponentType.ActionRow,
-				components: [
-					{
-						type: Discord.ComponentType.TextDisplay,
-						text: '# 👋 Goodbye!\n\nWe hope to see you again soon!',
-					} as unknown as API.TextDisplay,
-				],
-			} as API.ActionRow,
-		],
+		welcome: {
+			components: [
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.TextDisplay,
+							text: '# 👋 Welcome to the server!\n\nWe are glad to have you here. Enjoy your stay!',
+						} as unknown as API.TextDisplay,
+					],
+				} as API.ActionRow,
+			],
+		},
+		goodbye: {
+			components: [
+				{
+					type: Discord.ComponentType.ActionRow,
+					components: [
+						{
+							type: Discord.ComponentType.TextDisplay,
+							text: '# 👋 Goodbye!\n\nWe hope to see you again soon!',
+						} as unknown as API.TextDisplay,
+					],
+				} as API.ActionRow,
+			],
+		},
 	}
 }
 
 const createBirthdayComponents = () => {
-	return [
-		{
-			type: Discord.ComponentType.Section,
+	return {
+		celebration_message: {
 			components: [
 				{
-					type: Discord.ComponentType.TextDisplay,
-					content: '## 🎂 Birthday Celebration!',
-				} as unknown as TextDisplayComponent,
+					type: Discord.ComponentType.Section,
+					components: [
+						{
+							type: Discord.ComponentType.TextDisplay,
+							content: '## 🎂 Birthday Celebration!',
+						} as unknown as TextDisplayComponent,
+						{
+							type: Discord.ComponentType.TextDisplay,
+							content:
+								"Today we celebrate {user}'s birthday!\n\n*Wishing you a fantastic day filled with joy and happiness!* ✨",
+						} as unknown as TextDisplayComponent,
+					],
+					accessory: {
+						type: Discord.ComponentType.Thumbnail,
+						media: {
+							url: '{user_avatar}',
+						},
+					},
+				} as unknown as SectionComponent,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as SeparatorComponent,
 				{
 					type: Discord.ComponentType.TextDisplay,
 					content:
-						"Today we celebrate {user}'s birthday!\n\n*Wishing you a fantastic day filled with joy and happiness!* ✨",
+						'🎁 **Next Birthday**: <t:{next_birthday}:D> (<t:{next_birthday}:R>)',
 				} as unknown as TextDisplayComponent,
-			],
-			accessory: {
-				type: Discord.ComponentType.Thumbnail,
-				media: {
-					url: '{user_avatar}',
-				},
-			},
-		} as unknown as SectionComponent,
-		{
-			type: Discord.ComponentType.Separator,
-			divider: false,
-			spacing: Discord.SeparatorSpacingSize.Large,
-		} as unknown as SeparatorComponent,
-		{
-			type: Discord.ComponentType.TextDisplay,
-			content:
-				'🎁 **Next Birthday**: <t:{next_birthday}:D> (<t:{next_birthday}:R>)',
-		} as unknown as TextDisplayComponent,
-	] as ComponentsV2[]
+			] as ComponentsV2[],
+		},
+	}
 }
 
 const default_configs: DefaultConfigs = {
@@ -564,7 +588,10 @@ const default_configs: DefaultConfigs = {
 		components: createTicketComponents(),
 		counter: 1,
 		mods_role_ids: [],
-		role_time_limits: [],
+		role_time_limits: {
+			included: [],
+			excluded: [],
+		},
 	},
 	welcome_goodbye: {
 		enabled: false,
@@ -740,13 +767,8 @@ async function saveGuildPlugins(
 
 		// Check if there is an error inserting the plugins
 		if (pluginError) throw pluginError
-
-		// Log the success
-		// bunnyLog.database(
-		// 	`Plugins saved successfully for guild ${guild_name} (${guild_id})`
-		// )
 	} catch (error) {
-		bunnyLog.error('Error saving guild plugins:', error)
+		DatabaseLogger.error(`Error saving guild plugins: ${error instanceof Error ? error.message : String(error)}`)
 		throw error
 	}
 }
@@ -786,7 +808,11 @@ async function updateMissingPlugins(client: Discord.Client): Promise<void> {
 
 	// Aggregate the results and log a single summary line.
 	const updatedCount = updateResults.reduce((sum, curr) => sum + curr, 0)
-	bunnyLog.database(`Initialized missing plugins for ${updatedCount} guild(s)`)
+
+	// Only log if there were actual updates, otherwise it's just noise
+	if (updatedCount > 0) {
+		DatabaseLogger.connect()
+	}
 }
 
 /**
@@ -859,9 +885,9 @@ async function togglePlugin(
 			throw error
 		}
 	} catch (error) {
-		bunnyLog.error(
-			`Error ${enabled ? 'enabling' : 'disabling'} ${plugin_name} plugin:`,
-			error
+		PluginLogger.error(
+			String(plugin_name),
+			error instanceof Error ? error : new Error(String(error))
 		)
 		throw error
 	}
@@ -922,7 +948,7 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 				const default_config = getDefaultConfig(
 					plugin_name
 				) as DefaultConfigs[T]
-				bunnyLog.warn(
+				StatusLogger.warn(
 					`Plugin ${plugin_name} not found for guild ${guild_id}, using default config`
 				)
 				return {
@@ -939,7 +965,7 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 			...data.config,
 		} as PluginResponse<DefaultConfigs[T]>
 	} catch (error) {
-		bunnyLog.error(`Error getting plugin config for ${plugin_name}:`, error)
+		PluginLogger.error(String(plugin_name), error instanceof Error ? error : new Error(String(error)))
 		// Return default config as fallback
 		const default_config = getDefaultConfig(plugin_name) as DefaultConfigs[T]
 		return {
@@ -997,9 +1023,9 @@ async function updatePluginConfig<T extends keyof DefaultConfigs>(
 		}
 
 		// Log the success
-		bunnyLog.database('Plugin configuration updated successfully')
+		StatusLogger.success('Plugin configuration updated successfully')
 	} catch (error) {
-		bunnyLog.error('Error updating plugin configuration:', error)
+		PluginLogger.error(String(plugin_name), error instanceof Error ? error : new Error(String(error)))
 		throw error
 	}
 }
@@ -1020,10 +1046,7 @@ async function migrateTicketEmbeds(
 
 		// If there's no embeds property or it's empty, there's nothing to migrate
 		if (!ticketConfig.embeds) {
-			bunnyLog.info('No legacy embeds found to migrate', {
-				guild_id,
-				bot_id,
-			})
+			StatusLogger.info('No legacy embeds found to migrate')
 			return false
 		}
 
@@ -1045,12 +1068,7 @@ async function migrateTicketEmbeds(
 			Object.assign(ticketConfig, cleanConfig)
 
 			migrated = true
-			bunnyLog.info(
-				'Removed legacy embeds property from ticket configuration',
-				{
-					guild_id,
-				}
-			)
+			StatusLogger.info('Removed legacy embeds property from ticket configuration')
 		}
 
 		// If migrations were performed, update the config
@@ -1058,23 +1076,14 @@ async function migrateTicketEmbeds(
 			// Update the config in the database
 			await updatePluginConfig(bot_id, guild_id, 'tickets', ticketConfig)
 
-			bunnyLog.info(
-				'Successfully migrated ticket configuration to remove legacy embeds',
-				{
-					guild_id,
-				}
-			)
-
+			StatusLogger.success('Successfully migrated ticket configuration to remove legacy embeds')
 			return true
 		}
 
-		bunnyLog.info('No ticket embeds needed migration', { guild_id })
+		StatusLogger.info('No ticket embeds needed migration')
 		return false
 	} catch (error) {
-		bunnyLog.error('Error migrating ticket embeds', {
-			guild_id,
-			error,
-		})
+		StatusLogger.error(`Error migrating ticket embeds: ${error instanceof Error ? error.message : String(error)}`)
 		return false
 	}
 }

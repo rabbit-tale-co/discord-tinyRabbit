@@ -2,7 +2,7 @@ import { calculateTotalXpForLevel } from '@/utils/xpUtils.js'
 import type { LeaderboardEntry, LeaderboardUser } from '@/types/leaderboard.js'
 import type * as Discord from 'discord.js'
 import type { UserData } from '@/types/user.js'
-import { bunnyLog } from 'bunny-log'
+import { APILogger, DatabaseLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 
 const BOT_TOKEN = process.env.BOT_TOKEN
@@ -34,7 +34,7 @@ const fetchUserData = async (
 		const user_data = (await response.json()) as UserData
 		return user_data
 	} catch (error) {
-		bunnyLog.error(
+		APILogger.error(
 			`Error fetching user data for user ID ${user_id}:`,
 			error instanceof Error ? error.message : 'Unknown error'
 		)
@@ -64,7 +64,7 @@ async function getGlobalLeaderboard(
 		const users_promises = leaderboard_data.map(async (user) => {
 			// Check if user is valid
 			if (!user || !user.user_id) {
-				bunnyLog.error(`Invalid user ID: ${JSON.stringify(user)}`)
+				APILogger.error(`Invalid user ID: ${JSON.stringify(user)}`)
 				return null
 			}
 
@@ -91,7 +91,7 @@ async function getGlobalLeaderboard(
 		// Filter out null users and return the leaderboard
 		return users.filter((user): user is LeaderboardUser => user !== null)
 	} catch (error) {
-		bunnyLog.error('Error fetching global leaderboard:', error)
+		APILogger.error('Error fetching global leaderboard:', error)
 		throw error
 	}
 }
@@ -113,7 +113,7 @@ async function getTotalUserCount(): Promise<number> {
 		// Return the total user count
 		return count || 0
 	} catch (error) {
-		bunnyLog.error('Error fetching total user count:', error)
+		APILogger.error('Error fetching total user count:', error)
 		throw error
 	}
 }
@@ -133,7 +133,7 @@ async function calculateTotalXp(): Promise<number> {
 		// Calculate the total XP by summing up all the XP values
 		return data.reduce((total, user) => total + (user.xp || 0), 0)
 	} catch (error) {
-		bunnyLog.error('Error calculating total XP:', error)
+		APILogger.error('Error calculating total XP:', error)
 		throw error
 	}
 }
@@ -151,7 +151,7 @@ async function getServerLeaderboard(
 	try {
 		// Check if guild_id is undefined
 		if (!guild_id) {
-			bunnyLog.warn(
+			StatusLogger.warn(
 				'Attempted to fetch server leaderboard with undefined guild_id'
 			)
 			return []
@@ -166,13 +166,13 @@ async function getServerLeaderboard(
 
 		// Check if there is an error fetching the server leaderboard
 		if (error) {
-			bunnyLog.error('Error fetching server leaderboard:', error)
+			APILogger.error(`Error fetching server leaderboard: ${error.message}`)
 			throw error
 		}
 
 		// Check if there are no users in the leaderboard
 		if (!data || data.length === 0) {
-			bunnyLog.warn(`No users found in the leaderboard for guild ${guild_id}`)
+			StatusLogger.warn(`No users found in the leaderboard for guild ${guild_id}`)
 			return []
 		}
 
@@ -193,7 +193,7 @@ async function getServerLeaderboard(
 			rank: index + 1,
 		}))
 	} catch (error) {
-		bunnyLog.error('Error fetching server leaderboard:', error)
+		APILogger.error('Error fetching server leaderboard:', error)
 		return []
 	}
 }
@@ -233,7 +233,7 @@ async function updateLeaderboard(
 		// Check if there is an error updating the global leaderboard
 		if (globalError) throw globalError
 	} catch (error) {
-		bunnyLog.error(`Error updating leaderboard for user ${user.id}:`, error)
+		APILogger.error(`Error updating leaderboard for user ${user.id}:`, error)
 		throw error
 	}
 }

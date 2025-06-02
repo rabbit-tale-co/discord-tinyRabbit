@@ -1,10 +1,10 @@
 import * as Discord from 'discord.js'
 import * as utils from '@/utils/index.js'
-import { bunnyLog } from 'bunny-log'
 import { config } from '@/discord/commands/moderation/tickets/config.js'
 import { loadCfg } from '@/discord/commands/moderation/tickets/limits.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
 import * as commands from '@/discord/commands/index.js'
+import { StatusLogger, CommandLogger, EventLogger } from '@/utils/bunnyLogger.js'
 
 type commandHandler = (
 	inter: Discord.ChatInputCommandInteraction
@@ -113,7 +113,7 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 				} as Discord.GuildMember
 
 				const { v2Components, actionRows } = buildUniversalComponents(
-					{ components: cfg.components.open_ticket },
+					cfg.components.open_ticket,
 					mockMember,
 					inter.guild
 				)
@@ -141,7 +141,7 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 				}
 
 				// Send a single message with all components
-				const sentMessage = await targetChannel.send(messageOptions)
+				await targetChannel.send(messageOptions)
 
 				// Send success confirmation
 				await utils.handleResponse(
@@ -151,32 +151,19 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 					{ code: 'SP008' }
 				)
 			} catch (error) {
-				bunnyLog.error(
-					'Error creating ticket panel with universal components:',
-					error
+				StatusLogger.error(
+					'Error creating ticket panel with universal components',
+					error as Error
 				)
-				// Fallback to simple message with button
-				const fallbackButton = new Discord.ButtonBuilder()
-					.setLabel('General Support')
-					.setStyle(Discord.ButtonStyle.Primary)
-					.setCustomId('open_ticket_general')
-
-				const fallbackRow =
-					new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-						fallbackButton
-					)
-
-				await targetChannel.send({
-					content:
-						'🎫 **Support Tickets**\n\nClick the button below to open a support ticket.',
-					components: [fallbackRow],
-				})
 
 				await utils.handleResponse(
 					inter,
-					'success',
-					`Ticket panel created successfully in ${targetChannel}!`,
-					{ code: 'SP008' }
+					'error',
+					'Failed to create ticket panel. Please try again.',
+					{
+						code: 'SP009',
+						error: error instanceof Error ? error : new Error(String(error)),
+					}
 				)
 			}
 		} else {
@@ -188,7 +175,7 @@ async function sendPanel(inter: Discord.ChatInputCommandInteraction) {
 			)
 		}
 	} catch (error) {
-		bunnyLog.error('Error creating ticket panel:', error)
+		StatusLogger.error('Error creating ticket panel', error as Error)
 		await utils.handleResponse(
 			inter,
 			'error',
@@ -240,7 +227,7 @@ export async function commandInteractionHandler(
 	try {
 		const cmd = commandMap[inter.commandName]
 		if (!cmd) {
-			bunnyLog.warn(`Unknown command: ${inter.commandName}`)
+			CommandLogger.error(inter.commandName, new Error(`Unknown command: ${inter.commandName}`))
 			return
 		}
 
@@ -252,13 +239,13 @@ export async function commandInteractionHandler(
 		if (cmd.subcommands) {
 			const sub = inter.options.getSubcommand()
 			if (!sub) {
-				bunnyLog.warn(`No subcommand provided for ${inter.commandName}`)
+				CommandLogger.error(inter.commandName, new Error(`No subcommand provided for ${inter.commandName}`))
 				return
 			}
 
 			const fn = cmd.subcommands[sub]
 			if (!fn) {
-				bunnyLog.warn(`Unknown subcommand: ${inter.commandName} ${sub}`)
+				CommandLogger.error(inter.commandName, new Error(`Unknown subcommand: ${inter.commandName} ${sub}`))
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -272,10 +259,7 @@ export async function commandInteractionHandler(
 			return
 		}
 	} catch (error) {
-		bunnyLog.error(
-			`Error handling command interaction for ${inter.commandName}:`,
-			error
-		)
+		EventLogger.error(`command interaction ${inter.commandName}`, error as Error)
 
 		if (inter.isRepliable() && !inter.replied && !inter.deferred) {
 			try {
@@ -289,7 +273,7 @@ export async function commandInteractionHandler(
 					}
 				)
 			} catch (e) {
-				bunnyLog.error('Failed to send error response:', e)
+				StatusLogger.error('Failed to send error response', e as Error)
 			}
 		}
 	}

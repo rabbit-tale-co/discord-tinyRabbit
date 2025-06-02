@@ -15,3 +15,4 @@ export {
 }
 
 export * from './xpUtils.js'
+export * from './bunnyLogger.js'

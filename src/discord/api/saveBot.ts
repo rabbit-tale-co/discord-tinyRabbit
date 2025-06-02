@@ -38,7 +38,7 @@ async function saveBotData(bot: Discord.ClientUser): Promise<boolean> {
 		}
 
 		if (existingBot) {
-			bunnyLog.database('Bot data already exists, skipping update')
+			// bunnyLog.database('Bot data already exists, skipping update')
 			return true
 		}
 

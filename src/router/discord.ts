@@ -5,6 +5,7 @@ import * as API from '@/discord/api/index.js'
 import { bunnyLog } from 'bunny-log'
 import { fetchAvailablePlugins } from '@/discord/plugins/index.js'
 import getPackageVersion from '@/utils/getPackageVersion.js'
+import { APILogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Discord API Route Handlers
@@ -228,7 +229,7 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 				}),
 			})
 		} catch (error) {
-			bunnyLog.error('Error in handleDiscordLink:', error as Error)
+			APILogger.error(`Error in handleDiscordLink: ${error}`)
 			return new Response('Internal Server Error', {
 				status: 500,
 				headers: setCorsHeaders(),

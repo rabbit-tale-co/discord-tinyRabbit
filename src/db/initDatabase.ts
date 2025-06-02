@@ -1,5 +1,5 @@
 import db from '@/db/supabase.js'
-import { bunnyLog } from 'bunny-log'
+import { DatabaseLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Initializes the database with retry logic
@@ -25,22 +25,21 @@ export async function initializeDatabase(maxRetries = 3, retryDelay = 5_000) {
 			success = true
 
 			// Log the database initialization
-			bunnyLog.database('Database initialized successfully')
+			DatabaseLogger.connect()
 		} catch (error) {
 			retries++
-			bunnyLog.error(
-				`Database initialization attempt ${retries}/${maxRetries} failed:`,
-				error
+			DatabaseLogger.error(
+				`Database initialization attempt ${retries}/${maxRetries} failed: ${error instanceof Error ? error.message : String(error)}`
 			)
 
 			// If we haven't reached max retries, wait before retrying
 			if (retries < maxRetries) {
-				bunnyLog.info(
+				StatusLogger.info(
 					`Retrying database initialization in ${retryDelay / 1_000} seconds...`
 				)
 				await new Promise((resolve) => setTimeout(resolve, retryDelay))
 			} else {
-				bunnyLog.error('Failed to initialize database after multiple attempts')
+				DatabaseLogger.error('Failed to initialize database after multiple attempts')
 				// We'll continue without throwing to allow other bot features to work
 			}
 		}

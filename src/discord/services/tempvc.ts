@@ -1,5 +1,5 @@
 import * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
 import * as api from '@/discord/api/index.js'
 import type * as Types from '@/types/index.js'
 import * as utils from '@/utils/index.js'
@@ -17,8 +17,7 @@ const voiceUpdateMessages = new Map<string, Discord.Message>()
 export const createPrivateVoiceChannel = async (state: Discord.VoiceState) => {
 	// If the member is not found, return
 	if (!state.member) {
-		bunnyLog.warn('No member found in voice state.')
-
+		StatusLogger.warn('No member found in voice state.')
 		return
 	}
 
@@ -138,14 +137,14 @@ export const createPrivateVoiceChannel = async (state: Discord.VoiceState) => {
 				)
 				voiceUpdateMessages.set(newChannel.id, updateMsg)
 			} catch (error) {
-				bunnyLog.error(
-					'Failed to send update message directly in the voice channel:',
-					error
+				StatusLogger.error(
+					'Failed to send update message directly in the voice channel',
+					error as Error
 				)
 			}
 		}
 	} catch (error) {
-		bunnyLog.error('Error creating temporary voice channel:', error)
+		StatusLogger.error('Error creating temporary voice channel', error as Error)
 	}
 }
 
@@ -265,12 +264,12 @@ export const handleVoiceStateUpdate = async (
 					stopExpirationCheck(currentChannel.id)
 
 					// Log the deletion of the channel
-					bunnyLog.success(
+					StatusLogger.success(
 						`Deleted empty temporary voice channel: ${currentChannel.name}`
 					)
 				} catch (error) {
 					// Log the error
-					bunnyLog.error(
+					StatusLogger.error(
 						`Error deleting empty temporary voice channel: ${error}`
 					)
 				}
@@ -336,7 +335,7 @@ async function checkChannelExpiration(
 
 		// If the channel data is not found, log a warning and stop the expiration check
 		if (!channelData) {
-			bunnyLog.warn(`Channel ${channel_id} not found in database`)
+			StatusLogger.warn(`Channel ${channel_id} not found in database`)
 			stopExpirationCheck(channel_id)
 			return
 		}
@@ -359,7 +358,7 @@ async function checkChannelExpiration(
 
 	// If the guild is not found, log a warning and stop the expiration check
 	if (!guild) {
-		bunnyLog.warn(`Guild for channel ${channel_id} not found`)
+		StatusLogger.warn(`Guild for channel ${channel_id} not found`)
 		stopExpirationCheck(channel_id)
 		return
 	}
@@ -371,7 +370,7 @@ async function checkChannelExpiration(
 
 	// If the channel is not found, log a warning and stop the expiration check
 	if (!channel) {
-		bunnyLog.info(
+		StatusLogger.info(
 			`Channel ${channel_id} not found in guild, removing from cache`
 		)
 
@@ -413,9 +412,8 @@ async function checkChannelExpiration(
 					})
 				} catch (err) {
 					// FIXME: this error happens every time when channel is deleted (time expiration)
-					bunnyLog.error(
-						`Failed to update final update message for channel ${channel_id}:`,
-						err
+					StatusLogger.error(
+						`Failed to update final update message for channel ${channel_id}: ${err}`
 					)
 				}
 				voiceUpdateMessages.delete(channel_id)
@@ -423,7 +421,7 @@ async function checkChannelExpiration(
 
 			// bunnyLog.success(`Deleted expired or empty channel: ${channel.name}`)
 		} catch (error) {
-			bunnyLog.error(`Error deleting channel ${channel_id}:`, error)
+			StatusLogger.error(`Error deleting channel ${channel_id}: ${error}`)
 		}
 		return
 	}
@@ -453,9 +451,8 @@ async function checkChannelExpiration(
 					content: `**Temporary Voice Channel Update**\nChannel: **${channel.name}**\nExpires At: <t:${expirationUnix}:F> (<t:${expirationUnix}:R>)`,
 				})
 			} catch (err) {
-				bunnyLog.error(
-					`Failed to update update message for channel ${channel_id}:`,
-					err
+				StatusLogger.error(
+					`Failed to update update message for channel ${channel_id}: ${err}`
 				)
 			}
 		}
@@ -529,13 +526,13 @@ export async function cleanupExpiredTempChannels(client: Discord.Client) {
 				)
 				cleanedCount++
 			} catch (err) {
-				bunnyLog.error(`Failed to clean up channel ${channel.id}:`, err)
+				StatusLogger.error(`Failed to clean up channel ${channel.id}: ${err}`)
 			}
 		}
 	}
 	if (cleanedCount > 0) {
-		bunnyLog.info(
-			`Cleaned up ${cleanedCount} expired temporary voice channel(s).`
-		)
+		ServiceLogger.cleanup('expired temporary voice channels', cleanedCount)
 	}
+
+	return { cleanedCount, totalChannels: tempChannels.length }
 }

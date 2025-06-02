@@ -14,6 +14,8 @@ export const ticketStore = {
 		threadMetadataStore.set(thread_id, metadata),
 	delete: (thread_id: Discord.ThreadChannel['id']) =>
 		threadMetadataStore.delete(thread_id),
+	has: (thread_id: Discord.ThreadChannel['id']) =>
+		threadMetadataStore.has(thread_id),
 	values: () => Array.from(threadMetadataStore.values()),
 	clearClosed: () => {
 		for (const [id, meta] of threadMetadataStore.entries()) {

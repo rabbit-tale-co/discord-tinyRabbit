@@ -1,5 +1,5 @@
 import type * as Discord from "discord.js";
-import { bunnyLog } from "bunny-log";
+import { StatusLogger, CommandLogger } from '@/utils/bunnyLogger.js';
 import {
 	getUserBalance,
 	updateUserBalance,
@@ -76,7 +76,7 @@ export async function balance(
 			`${user.username}'s Balance: ${currencySymbol} ${currentBalance}`,
 		);
 	} catch (error) {
-		bunnyLog.error("Error in balance command:", error);
+		StatusLogger.error(`Error in balance command: ${error instanceof Error ? error.message : String(error)}`);
 		return handleResponse(interaction, "error", "Failed to get balance", {
 			code: "E004",
 		});
@@ -320,20 +320,20 @@ export async function pay(
 						// Try to send DM first
 						await recipientMember.send(followUpMessage);
 					} catch (error) {
-						bunnyLog.error("Failed to send DM to recipient:", error);
+						StatusLogger.error(`Failed to send DM to recipient: ${error instanceof Error ? error.message : String(error)}`);
 					}
 				}
 			}
 
 			return;
 		} catch (error) {
-			bunnyLog.error("Error in transaction:", error);
+			StatusLogger.error(`Error in transaction: ${error instanceof Error ? error.message : String(error)}`);
 			return handleResponse(interaction, "error", "Failed to process payment", {
 				code: "E011",
 			});
 		}
 	} catch (error) {
-		bunnyLog.error("Error in pay command:", error);
+		StatusLogger.error(`Error in pay command: ${error instanceof Error ? error.message : String(error)}`);
 		return handleResponse(interaction, "error", "Failed to process payment", {
 			code: "E011",
 		});
@@ -407,7 +407,7 @@ export async function leaderboard(
 
 		return handleResponse(interaction, "success", description);
 	} catch (error) {
-		bunnyLog.error("Error in leaderboard command:", error);
+		StatusLogger.error(`Error in leaderboard command: ${error instanceof Error ? error.message : String(error)}`);
 		return handleResponse(interaction, "error", "Failed to get leaderboard", {
 			code: "E014",
 		});

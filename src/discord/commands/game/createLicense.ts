@@ -1,5 +1,6 @@
 import type { ChatInputCommandInteraction } from 'discord.js'
 import { bunnyLog } from 'bunny-log'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Generates a random string of given length using the given characters.
@@ -91,7 +92,7 @@ export async function execute(
 			ephemeral: true,
 		})
 	} catch (error) {
-		bunnyLog.error('Error creating license key:', error)
+		StatusLogger.error('Error creating license key:', error)
 		await interaction.reply({
 			content: 'Failed to create a license key.',
 			ephemeral: true,

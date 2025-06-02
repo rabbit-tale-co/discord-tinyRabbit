@@ -1,22 +1,4 @@
-import type {
-	ButtonStyle,
-	APIEmbed,
-	ActionRowComponent,
-	ButtonComponent,
-	StringSelectMenuComponent,
-	TextInputComponent,
-	UserSelectMenuComponent,
-	RoleSelectMenuComponent,
-	MentionableSelectMenuComponent,
-	SectionComponent,
-	TextDisplayComponent,
-	ThumbnailComponent,
-	MediaGalleryComponent,
-	FileComponent,
-	SeparatorComponent,
-	ChannelSelectMenuComponent,
-	ContainerComponent,
-} from 'discord.js'
+import type * as Discord from 'discord.js'
 
 type Level = {
 	enabled?: boolean
@@ -37,14 +19,14 @@ interface ButtonsMap {
 	buttons_map?: Array<{
 		unique_id: string
 		label: string
-		style: ButtonStyle
+		style: Discord.ButtonStyle
 		url?: string
 		disabled?: boolean
 	}>
 }
 
 // Rozszerzony typ APIEmbed z mapą przycisków
-type TicketEmbed = APIEmbed & ButtonsMap
+type TicketEmbed = Discord.APIEmbed & ButtonsMap
 
 // Discord UI components namespace
 export namespace API {
@@ -59,7 +41,7 @@ export namespace API {
 
 	export interface Button extends MessageComponent {
 		type: 2
-		style: ButtonStyle
+		style: Discord.ButtonStyle
 		label?: string
 		emoji?: {
 			id?: string
@@ -112,39 +94,42 @@ export type ComponentsV2 =
 	| API.TextDisplay
 	| API.SelectMenu
 	| API.Separator
-	| ActionRowComponent
-	| ButtonComponent
-	| StringSelectMenuComponent
-	| TextInputComponent
-	| UserSelectMenuComponent
-	| RoleSelectMenuComponent
-	| MentionableSelectMenuComponent
-	| ChannelSelectMenuComponent
-	| SectionComponent
-	| TextDisplayComponent
-	| ThumbnailComponent
-	| MediaGalleryComponent
-	| FileComponent
-	| SeparatorComponent
-	| ContainerComponent
+	| Discord.ActionRowComponent
+	| Discord.ButtonComponent
+	| Discord.StringSelectMenuComponent
+	| Discord.TextInputComponent
+	| Discord.UserSelectMenuComponent
+	| Discord.RoleSelectMenuComponent
+	| Discord.MentionableSelectMenuComponent
+	| Discord.ChannelSelectMenuComponent
+	| Discord.SectionComponent
+	| Discord.TextDisplayComponent
+	| Discord.ThumbnailComponent
+	| Discord.MediaGalleryComponent
+	| Discord.FileComponent
+	| Discord.SeparatorComponent
+	| Discord.ContainerComponent
+
+// Container type for component configurations
+export type ComponentContainer = { components: ComponentsV2[] }
 
 // Define the structure for all ticket message types
 export type TicketTemplates = {
-	open_ticket?: ComponentsV2[] | null
-	opened_ticket?: ComponentsV2[] | null
-	user_ticket?: ComponentsV2[] | null
-	closed_ticket?: ComponentsV2[] | null
-	confirm_close_ticket?: ComponentsV2[] | null
-	admin_ticket?: ComponentsV2[] | null
-	transcript?: ComponentsV2[] | null
+	open_ticket?: ComponentContainer | null
+	opened_ticket?: ComponentContainer | null
+	user_ticket?: ComponentContainer | null
+	closed_ticket?: ComponentContainer | null
+	confirm_close_ticket?: ComponentContainer | null
+	admin_ticket?: ComponentContainer | null
+	transcript?: ComponentContainer | null
 	// System messages
-	inactivity_notice?: ComponentsV2[] | null
-	rating_survey?: ComponentsV2[] | null
-	ticket_claimed?: ComponentsV2[] | null
-	close_confirmation?: ComponentsV2[] | null // Displayed when a ticket is closed
-	close_reason_modal?: ComponentsV2[] | null // Text for the close reason modal
-	no_permission?: ComponentsV2[] | null // No permission to perform action
-	auto_close_warning?: ComponentsV2[] | null // Warning about upcoming auto-close
+	inactivity_notice?: ComponentContainer | null
+	rating_survey?: ComponentContainer | null
+	ticket_claimed?: ComponentContainer | null
+	close_confirmation?: ComponentContainer | null // Displayed when a ticket is closed
+	close_reason_modal?: ComponentContainer | null // Text for the close reason modal
+	no_permission?: ComponentContainer | null // No permission to perform action
+	auto_close_warning?: ComponentContainer | null // Warning about upcoming auto-close
 }
 
 // Define the separate embed templates for backward compatibility
@@ -171,10 +156,13 @@ export type Ticket = {
 		threshold: number
 		reason: string
 	}> | null
-	role_time_limits?: Array<{
-		role_id: string
-		limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
-	}> | null
+	role_time_limits?: {
+		included?: Array<{
+			role_id: string
+			limit: string // Format: number + unit (e.g., "15m", "1h", "7d")
+		}> | null
+		excluded?: Array<string> | null // Role IDs that bypass all time limits
+	} | null
 	components?: TicketTemplates
 	embeds?: TicketEmbedTemplates
 }
@@ -187,8 +175,7 @@ type Welcome_Goodbye = {
 	leave_channel_id?: string | null
 	join_role_ids?: string[] | null
 	components?: {
-		welcome: ComponentsV2[]
-		goodbye: ComponentsV2[]
+		[key: string]: ComponentContainer
 	}
 }
 
@@ -205,7 +192,9 @@ type Birthday = {
 	channel_id?: string | null
 	message?: string | null
 	show_age?: boolean
-	components?: ComponentsV2[]
+	components?: {
+		[key: string]: ComponentContainer
+	}
 }
 
 type TempVC = {

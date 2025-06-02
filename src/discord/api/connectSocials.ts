@@ -1,5 +1,5 @@
 import type * as Discord from 'discord.js'
-import { bunnyLog } from 'bunny-log'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import { getPluginConfig } from '@/discord/api/plugins.js'
 import supabase from '@/db/supabase.js'
 import { client } from '@/server.js'
@@ -19,7 +19,7 @@ async function linkSocialAccount(
 		const member = await guild.members.fetch(discord_id)
 
 		if (!member) {
-			bunnyLog.warn(`User ${discord_id} not found in the guild`)
+			StatusLogger.warn(`User ${discord_id} not found in the guild`)
 			return false
 		}
 
@@ -37,14 +37,14 @@ async function linkSocialAccount(
 		)
 
 		if (error) {
-			bunnyLog.error(`Error updating ${platform} data in Supabase:`, error)
+			APILogger.error(`Error updating ${platform} data in Supabase: ${error.message}`)
 			return false
 		}
 
 		const bot_id = client.user?.id
 
 		if (!bot_id) {
-			bunnyLog.error('Bot ID is not set')
+			StatusLogger.error('Bot ID is not set')
 			return false
 		}
 
@@ -58,12 +58,12 @@ async function linkSocialAccount(
 			}
 		}
 
-		bunnyLog.info(
+		StatusLogger.success(
 			`Successfully linked ${platform} account ${social_id} to Discord user ${discord_id}`
 		)
 		return true
 	} catch (error) {
-		bunnyLog.error(`Error linking ${platform} account:`, error)
+		StatusLogger.error(`Error linking ${platform} account: ${error instanceof Error ? error.message : String(error)}`)
 		return false
 	}
 }
@@ -79,7 +79,7 @@ export async function linkMinecraftAccount(
 		const member = await guild.members.fetch(user_id)
 
 		if (!member) {
-			bunnyLog.warn(`User ${user_id} not found in the guild ${guild_id}`)
+			StatusLogger.warn(`User ${user_id} not found in the guild ${guild_id}`)
 			return false
 		}
 
@@ -93,12 +93,12 @@ export async function linkMinecraftAccount(
 			.single()
 
 		if (fetchError && fetchError.code !== 'PGRST116') {
-			bunnyLog.error('Error fetching existing Minecraft link:', fetchError)
+			APILogger.error(`Error fetching existing Minecraft link: ${fetchError.message}`)
 			return false
 		}
 
 		if (existingLink?.minecraft_uuid) {
-			bunnyLog.warn(`User ${user_id} already has a linked Minecraft account`)
+			StatusLogger.warn(`User ${user_id} already has a linked Minecraft account`)
 			return false
 		}
 
@@ -116,7 +116,7 @@ export async function linkMinecraftAccount(
 		)
 
 		if (upsert_error) {
-			bunnyLog.error('Error updating Minecraft data in Supabase:', upsert_error)
+			APILogger.error(`Error updating Minecraft data in Supabase: ${upsert_error.message}`)
 			return false
 		}
 
@@ -130,12 +130,12 @@ export async function linkMinecraftAccount(
 			}
 		}
 
-		bunnyLog.info(
+		StatusLogger.success(
 			`Successfully linked Minecraft account ${minecraft_uuid} to Discord user ${user_id} in guild ${guild_id}`
 		)
 		return true
 	} catch (error) {
-		bunnyLog.error('Error linking Minecraft account:', error)
+		APILogger.error('Error linking Minecraft account:', error)
 		return false
 	}
 }
