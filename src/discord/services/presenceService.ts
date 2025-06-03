@@ -9,7 +9,7 @@ class PresenceService {
 			dates: { start: '04-01', end: '04-02' }, // April Fools
 			activity: {
 				type: Discord.ActivityType.Custom,
-				name: 'Jokes around!',
+				name: '🤡 Jokes around!',
 			},
 			status: 'online' as Discord.PresenceStatusData,
 		},
@@ -18,6 +18,14 @@ class PresenceService {
 			activity: {
 				type: Discord.ActivityType.Custom,
 				name: '❤️ Spread love!',
+			},
+			status: 'online' as Discord.PresenceStatusData,
+		},
+		{
+			dates: { start: '06-01', end: '06-30' }, // pride month
+			activity: {
+				type: Discord.ActivityType.Custom,
+				name: '🌈 Happy Pride Month!',
 			},
 			status: 'online' as Discord.PresenceStatusData,
 		},
@@ -129,7 +137,10 @@ Questions? Contact @Hasiradoo`
 				//bunnyLog.info('Updated application description')
 			}
 		} catch (error) {
-			StatusLogger.error('Error updating application description', error as Error)
+			StatusLogger.error(
+				'Error updating application description',
+				error as Error
+			)
 		}
 	}
 }
