@@ -55,25 +55,25 @@ async function watchStarboard(
 			watch_channels.length > 0 &&
 			!watch_channels.includes(reaction.message.channel.id)
 		) {
-			StatusLogger.debug(
-				`Message not in watched channels: ${reaction.message.channel.id}`
-			)
+			// StatusLogger.debug(
+			// 	`Message not in watched channels: ${reaction.message.channel.id}`
+			// )
 			return null
 		}
 
 		// Check if the reaction matches the configured emoji
 		if (reaction.emoji.name !== emoji) {
-			StatusLogger.debug(
-				`Reaction emoji ${reaction.emoji.name} does not match configured emoji ${emoji}`
-			)
+			// StatusLogger.debug(
+			// 	`Reaction emoji ${reaction.emoji.name} does not match configured emoji ${emoji}`
+			// )
 			return null
 		}
 
 		// If the reaction count doesn't meet the threshold, exit
 		if ((reaction.count ?? 0) < (threshold ?? 0)) {
-			StatusLogger.debug(
-				`Reaction count ${reaction.count} below threshold ${threshold}`
-			)
+			// StatusLogger.debug(
+			// 	`Reaction count ${reaction.count} below threshold ${threshold}`
+			// )
 			return null
 		}
 
