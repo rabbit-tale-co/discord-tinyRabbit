@@ -287,7 +287,7 @@ type PluginTypes = {
 	economy: Economy
 }
 
-type Plugins = PluginTypes[keyof PluginTypes]
+type Plugins = keyof PluginTypes
 
 type DefaultConfigs = {
 	[K in keyof PluginTypes]?: PluginTypes[K] // make every property optional

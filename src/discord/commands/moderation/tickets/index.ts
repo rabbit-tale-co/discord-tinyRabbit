@@ -1,4 +1,3 @@
-export * from './config.js'
 export * from './close.js'
 export * from './open.js'
 export * from './message.js'
@@ -76,7 +75,7 @@ async function scanAllExistingTickets(client: Discord.Client) {
 				)
 
 				// Filter out tickets that are actually closed (status: "closed")
-				const activeTickets = allTickets.filter(ticket => {
+				const activeTickets = allTickets.filter((ticket) => {
 					const status = ticket.metadata.status?.toLowerCase()
 					const isActive = status !== 'closed' && status !== 'archived'
 
@@ -186,7 +185,9 @@ async function checkTicketForInactivityOnStartup(
 		// Check last message time
 		const messages = await thread.messages.fetch({ limit: 50 }) // Fetch more messages to find non-bot message
 		if (messages.size === 0) {
-			StatusLogger.warn(`No messages found in ticket ${ticketMetadata.ticket_id}`)
+			StatusLogger.warn(
+				`No messages found in ticket ${ticketMetadata.ticket_id}`
+			)
 			return false
 		}
 
@@ -231,7 +232,10 @@ async function checkTicketForInactivityOnStartup(
 
 		return false
 	} catch (error) {
-		StatusLogger.error(`Error checking ticket #${ticketMetadata.ticket_id}:`, error)
+		StatusLogger.error(
+			`Error checking ticket #${ticketMetadata.ticket_id}:`,
+			error
+		)
 		return false
 	}
 }

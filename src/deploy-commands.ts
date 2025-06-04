@@ -6,7 +6,6 @@ import { env } from 'node:process'
 const { BOT_TOKEN, BOT_CLIENT_ID } = env
 const bunLog = new BunnyLogger(false).hex('discord', '#5865f2')
 
-
 if (!BOT_TOKEN || !BOT_CLIENT_ID) {
 	bunLog.log('error', 'Missing BOT_TOKEN or CLIENT_ID in .env file')
 	process.exit(1)
@@ -103,14 +102,60 @@ const commands = [
 		],
 	},
 	{
-		name: 'ticket',
-		description: 'Manage the ticket system',
+		name: 'config',
+		description: 'Configure bot plugins and settings',
+		default_member_permissions: '32', // MANAGE_GUILD permission
 		options: [
 			{
-				type: 1, // SUB_COMMAND
-				name: 'config',
-				description: 'Configure ticket settings',
+				type: 3, // STRING
+				name: 'plugin',
+				description: 'The plugin to configure',
+				required: true,
+				choices: [
+					{
+						name: 'Tickets',
+						value: 'tickets',
+					},
+					{
+						name: 'Starboard',
+						value: 'starboard',
+					},
+					{
+						name: 'Levels',
+						value: 'levels',
+					},
+					{
+						name: 'Welcome & Goodbye',
+						value: 'welcome_goodbye',
+					},
+					{
+						name: 'Birthday',
+						value: 'birthday',
+					},
+					{
+						name: 'Temporary VC',
+						value: 'tempvc',
+					},
+					{
+						name: 'Economy',
+						value: 'economy',
+					},
+					{
+						name: 'Music',
+						value: 'music',
+					},
+					{
+						name: 'Moderation',
+						value: 'moderation',
+					},
+				],
 			},
+		],
+	},
+	{
+		name: 'ticket',
+		description: 'Manage tickets',
+		options: [
 			{
 				type: 1, // SUB_COMMAND
 				name: 'manage',

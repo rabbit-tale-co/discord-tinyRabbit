@@ -1,5 +1,9 @@
 import * as Discord from 'discord.js'
-import { DatabaseLogger, PluginLogger, StatusLogger } from '@/utils/bunnyLogger.js'
+import {
+	DatabaseLogger,
+	PluginLogger,
+	StatusLogger,
+} from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
 import type { API, TicketTemplates, ComponentsV2 } from '@/types/plugins.js'
 import type {
@@ -681,9 +685,11 @@ const default_configs: DefaultConfigs = {
 
 /**
  * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
- * @returns {Plugins} - The plugin name.
+ * @returns {DefaultConfigs[keyof DefaultConfigs]} - The plugin configuration.
  */
-function getDefaultConfig(plugin_name: keyof DefaultConfigs): Plugins {
+function getDefaultConfig<T extends keyof DefaultConfigs>(
+	plugin_name: T
+): DefaultConfigs[T] {
 	return default_configs[plugin_name]
 }
 
@@ -768,7 +774,9 @@ async function saveGuildPlugins(
 		// Check if there is an error inserting the plugins
 		if (pluginError) throw pluginError
 	} catch (error) {
-		DatabaseLogger.error(`Error saving guild plugins: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error saving guild plugins: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }
@@ -846,13 +854,13 @@ export async function getGuildPlugins(
 /**
  * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
  * @param {Discord.Guild['id']} guild_id - The ID of the guild.
- * @param {Plugins} plugin_name - The name of the plugin.
+ * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  * @param {boolean} enabled - Whether the plugin is enabled.
  */
 async function togglePlugin(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins,
+	plugin_name: keyof DefaultConfigs,
 	enabled: boolean
 ): Promise<void> {
 	try {
@@ -896,14 +904,14 @@ async function togglePlugin(
 /**
  * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
  * @param {Discord.Guild['id']} guild_id - The ID of the guild.
- * @param {Plugins} plugin_name - The name of the plugin.
+ * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  * @param {object} config - The configuration object.
  */
-async function setPluginConfig(
+async function setPluginConfig<T extends keyof DefaultConfigs>(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins,
-	config: object
+	plugin_name: T,
+	config: DefaultConfigs[T]
 ): Promise<void> {
 	// Update the plugin in the database
 	const { error } = await supabase
@@ -922,7 +930,7 @@ async function setPluginConfig(
 /**
  * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
  * @param {Discord.Guild['id']} guild_id - The ID of the guild.
- * @param {Plugins} plugin_name - The name of the plugin.
+ * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  * @returns {Promise<PluginResponse<DefaultConfigs[T]>>} - The plugin configuration.
  */
 async function getPluginConfig<T extends keyof DefaultConfigs>(
@@ -965,7 +973,10 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 			...data.config,
 		} as PluginResponse<DefaultConfigs[T]>
 	} catch (error) {
-		PluginLogger.error(String(plugin_name), error instanceof Error ? error : new Error(String(error)))
+		PluginLogger.error(
+			String(plugin_name),
+			error instanceof Error ? error : new Error(String(error))
+		)
 		// Return default config as fallback
 		const default_config = getDefaultConfig(plugin_name) as DefaultConfigs[T]
 		return {
@@ -978,12 +989,12 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
 /**
  * @param {Discord.ClientUser['id']} bot_id - The ID of the bot user.
  * @param {Discord.Guild['id']} guild_id - The ID of the guild.
- * @param {Plugins} plugin_name - The name of the plugin.
+ * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  */
 async function enablePlugin(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins
+	plugin_name: keyof DefaultConfigs
 ): Promise<void> {
 	await togglePlugin(bot_id, guild_id, plugin_name, true)
 }
@@ -991,7 +1002,7 @@ async function enablePlugin(
 async function disablePlugin(
 	bot_id: Discord.ClientUser['id'],
 	guild_id: Discord.Guild['id'],
-	plugin_name: Plugins
+	plugin_name: keyof DefaultConfigs
 ): Promise<void> {
 	await togglePlugin(bot_id, guild_id, plugin_name, false)
 }
@@ -1025,7 +1036,10 @@ async function updatePluginConfig<T extends keyof DefaultConfigs>(
 		// Log the success
 		StatusLogger.success('Plugin configuration updated successfully')
 	} catch (error) {
-		PluginLogger.error(String(plugin_name), error instanceof Error ? error : new Error(String(error)))
+		PluginLogger.error(
+			String(plugin_name),
+			error instanceof Error ? error : new Error(String(error))
+		)
 		throw error
 	}
 }
@@ -1068,7 +1082,9 @@ async function migrateTicketEmbeds(
 			Object.assign(ticketConfig, cleanConfig)
 
 			migrated = true
-			StatusLogger.info('Removed legacy embeds property from ticket configuration')
+			StatusLogger.info(
+				'Removed legacy embeds property from ticket configuration'
+			)
 		}
 
 		// If migrations were performed, update the config
@@ -1076,14 +1092,18 @@ async function migrateTicketEmbeds(
 			// Update the config in the database
 			await updatePluginConfig(bot_id, guild_id, 'tickets', ticketConfig)
 
-			StatusLogger.success('Successfully migrated ticket configuration to remove legacy embeds')
+			StatusLogger.success(
+				'Successfully migrated ticket configuration to remove legacy embeds'
+			)
 			return true
 		}
 
 		StatusLogger.info('No ticket embeds needed migration')
 		return false
 	} catch (error) {
-		StatusLogger.error(`Error migrating ticket embeds: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Error migrating ticket embeds: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return false
 	}
 }

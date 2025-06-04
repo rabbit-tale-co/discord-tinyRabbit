@@ -1,6 +1,8 @@
 import type { ButtonInteraction, ThreadChannel } from 'discord.js'
 import * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
+import { config as starboardConfig } from '@/discord/commands/config/starboard.js'
 import { PLUGINS } from '@/discord/commands/constants.js'
 import { updateTicketRating } from '@/discord/api/tickets.js'
 import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
@@ -69,19 +71,19 @@ const buttonMap: Record<string, ButtonStructure> = {
 				}
 				case 'back': {
 					if (params[0] === 'config') {
-						await commands.ticket.config(inter)
+						await centralizedConfig(inter)
 					}
 					break
 				}
 				case 'add': {
 					if (params[0] === 'role_limit') {
-						await commands.ticket.handleRoleTimeLimitAdd(inter)
+						await centralizedConfig(inter)
 					}
 					break
 				}
 				case 'remove': {
 					if (params[0] === 'role_limit') {
-						await commands.ticket.handleRoleTimeLimitRemove(inter)
+						await centralizedConfig(inter)
 					}
 					break
 				}
@@ -101,6 +103,18 @@ export async function buttonInteractionHandler(
 	inter: ButtonInteraction
 ): Promise<void> {
 	try {
+		// Handle starboard interactions directly
+		if (inter.customId.startsWith('starboard_')) {
+			await starboardConfig(inter)
+			return
+		}
+
+		// Check for other configuration buttons (centralized config system)
+		if (inter.customId.startsWith('ticket_')) {
+			await centralizedConfig(inter)
+			return
+		}
+
 		// First check if it's a direct ticket action
 		if (inter.customId.startsWith('open_ticket_')) {
 			await commands.ticket.openTicket(inter)
@@ -202,7 +216,8 @@ async function handleTicketRating(
 		)
 
 		// Extract and disable only the rating buttons from the original message
-		const updatedActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] = []
+		const updatedActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
+			[]
 
 		for (const row of inter.message.components) {
 			if (row.type === Discord.ComponentType.ActionRow) {

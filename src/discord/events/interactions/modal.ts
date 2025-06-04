@@ -1,5 +1,7 @@
 import type * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
+import { config as starboardConfig } from '@/discord/commands/config/starboard.js'
 import * as api from '@/discord/api/index.js'
 import * as utils from '@/utils/index.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
@@ -13,7 +15,9 @@ interface ModalStructure {
 // Modal map structure for different modal types
 const modalMap: Record<string, ModalStructure> = {
 	ticket_auto_close_modal: {
-		handler: handleAutoCloseModal,
+		handler: async (inter: Discord.ModalSubmitInteraction) => {
+			await centralizedConfig(inter)
+		},
 	},
 	// Add more modal handlers here as needed
 }
@@ -27,9 +31,24 @@ export async function modalInteractionHandler(
 		return
 	}
 
+	// Handle starboard modals directly
+	if (inter.customId.startsWith('starboard_')) {
+		await starboardConfig(inter)
+		return
+	}
+
+	// Check for other configuration modals
+	if (
+		inter.customId.includes('_modal') &&
+		inter.customId.startsWith('ticket_')
+	) {
+		await centralizedConfig(inter)
+		return
+	}
+
 	// Check for role limits modal
 	if (inter.customId.startsWith('ticket_role_limits_modal_')) {
-		await handleRoleLimitsModal(inter)
+		await centralizedConfig(inter)
 		return
 	}
 
@@ -91,10 +110,12 @@ async function handleRoleLimitsModal(inter: Discord.ModalSubmitInteraction) {
 		'tickets'
 	)) as PluginResponse<DefaultConfigs['tickets']>
 
-	ticketConfig.role_time_limits = roles.map((roleId) => ({
-		role_id: roleId,
-		limit: limit.toString(),
-	}))
+	ticketConfig.role_time_limits = {
+		included: roles.map((roleId) => ({
+			role_id: roleId,
+			limit: limit.toString(),
+		})),
+	}
 
 	await api.updatePluginConfig(
 		inter.client.user.id,

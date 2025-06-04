@@ -1,5 +1,6 @@
 import * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import * as api from '@/discord/api/index.js'
 import * as utils from '@/utils/index.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
@@ -17,10 +18,10 @@ const roleSelectMap: Record<string, RoleSelectStructure> = {
 	ticket: {
 		handler: async (inter: Discord.RoleSelectMenuInteraction) => {
 			if (
-				inter.custom_id === 'ticket_mod_roles_select' ||
-				inter.custom_id === 'ticket_role_limits_select'
+				inter.customId === 'ticket_mod_roles_select' ||
+				inter.customId === 'ticket_role_limits_select'
 			) {
-				await commands.ticket.config(inter)
+				await centralizedConfig(inter)
 				return
 			}
 		},
@@ -30,8 +31,18 @@ const roleSelectMap: Record<string, RoleSelectStructure> = {
 export async function roleSelectInteractionHandler(
 	inter: Discord.RoleSelectMenuInteraction
 ): Promise<void> {
-	// Extract the base identifier from the custom_id
-	const baseId = inter.custom_id.split('_')[0]
+	// Check for configuration role selects first
+	if (
+		inter.customId.startsWith('ticket_') ||
+		inter.customId.includes('_roles_select') ||
+		inter.customId.includes('_role_limits_select')
+	) {
+		await centralizedConfig(inter)
+		return
+	}
+
+	// Extract the base identifier from the customId
+	const baseId = inter.customId.split('_')[0]
 
 	const roleSelectConfig = roleSelectMap[baseId]
 	if (!roleSelectConfig) return
@@ -76,13 +87,13 @@ async function handleRoleLimitsSelect(
 
 	const roles = inter.values
 	const modal = new Discord.ModalBuilder()
-		.setcustom_id(`ticket_role_limits_modal_${roles.join(',')}`)
+		.setCustomId(`ticket_role_limits_modal_${roles.join(',')}`)
 		.setTitle('Role Time Limits')
 
 	const limitRow =
 		new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
 			new Discord.TextInputBuilder()
-				.setcustom_id('limit')
+				.setCustomId('limit')
 				.setLabel('Time limit between tickets (hours)')
 				.setStyle(Discord.TextInputStyle.Short)
 				.setValue('24')

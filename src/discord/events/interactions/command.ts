@@ -1,10 +1,14 @@
 import * as Discord from 'discord.js'
 import * as utils from '@/utils/index.js'
-import { config } from '@/discord/commands/moderation/tickets/config.js'
 import { loadCfg } from '@/discord/commands/moderation/tickets/limits.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
 import * as commands from '@/discord/commands/index.js'
-import { StatusLogger, CommandLogger, EventLogger } from '@/utils/bunnyLogger.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
+import {
+	StatusLogger,
+	CommandLogger,
+	EventLogger,
+} from '@/utils/bunnyLogger.js'
 
 type commandHandler = (
 	inter: Discord.ChatInputCommandInteraction
@@ -203,9 +207,11 @@ const commandMap: Record<string, commandStructure> = {
 			remove: commands.bday.removeBirthday,
 		},
 	},
+	config: {
+		handler: centralizedConfig, // Route to centralized config
+	},
 	ticket: {
 		subcommands: {
-			config, // Using the new config from tickets/config.ts
 			list: async (inter: Discord.ChatInputCommandInteraction) => {
 				await utils.handleResponse(
 					inter,
@@ -227,7 +233,10 @@ export async function commandInteractionHandler(
 	try {
 		const cmd = commandMap[inter.commandName]
 		if (!cmd) {
-			CommandLogger.error(inter.commandName, new Error(`Unknown command: ${inter.commandName}`))
+			CommandLogger.error(
+				inter.commandName,
+				new Error(`Unknown command: ${inter.commandName}`)
+			)
 			return
 		}
 
@@ -239,13 +248,19 @@ export async function commandInteractionHandler(
 		if (cmd.subcommands) {
 			const sub = inter.options.getSubcommand()
 			if (!sub) {
-				CommandLogger.error(inter.commandName, new Error(`No subcommand provided for ${inter.commandName}`))
+				CommandLogger.error(
+					inter.commandName,
+					new Error(`No subcommand provided for ${inter.commandName}`)
+				)
 				return
 			}
 
 			const fn = cmd.subcommands[sub]
 			if (!fn) {
-				CommandLogger.error(inter.commandName, new Error(`Unknown subcommand: ${inter.commandName} ${sub}`))
+				CommandLogger.error(
+					inter.commandName,
+					new Error(`Unknown subcommand: ${inter.commandName} ${sub}`)
+				)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -259,7 +274,10 @@ export async function commandInteractionHandler(
 			return
 		}
 	} catch (error) {
-		EventLogger.error(`command interaction ${inter.commandName}`, error as Error)
+		EventLogger.error(
+			`command interaction ${inter.commandName}`,
+			error as Error
+		)
 
 		if (inter.isRepliable() && !inter.replied && !inter.deferred) {
 			try {

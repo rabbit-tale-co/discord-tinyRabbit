@@ -2,7 +2,10 @@ import * as Discord from 'discord.js'
 import * as utils from '@/utils/index.js'
 import { ID } from '@/discord/commands/constants.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
-import { loadCfg, saveCfg } from './limits.js'
+import {
+	loadCfg,
+	saveCfg,
+} from '@/discord/commands/moderation/tickets/limits.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
 import {
 	ticketUtils,
@@ -37,7 +40,7 @@ export async function config(
 			inter,
 			'error',
 			'This command can only be used in a server',
-			{ code: 'TC 001' }
+			{ code: 'TC001' }
 		)
 		return
 	}
@@ -79,7 +82,7 @@ async function handleInitialConfig(
 			inter,
 			'error',
 			'You do not have permission to manage ticket configuration',
-			{ code: 'TC 002' }
+			{ code: 'TC002' }
 		)
 		return
 	}
@@ -297,19 +300,23 @@ async function handleChannelSelect(
 	if (inter.customId === 'ticket_admin_channel_select') {
 		ticketConfig.admin_channel_id = channel
 		await saveCfg(inter, ticketConfig)
-		await utils.handleResponse(
-			inter,
-			'success',
-			`Admin channel set to <#${channel}>`
-		)
+		// Send success message as ephemeral follow-up
+		await inter.followUp({
+			content: `✅ Admin channel set to <#${channel}>`,
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+		// Update the main config message
+		await updateMainConfigMessageFromChannelSelect(inter)
 	} else if (inter.customId === 'ticket_transcript_channel_select') {
 		ticketConfig.transcript_channel_id = channel
 		await saveCfg(inter, ticketConfig)
-		await utils.handleResponse(
-			inter,
-			'success',
-			`Transcript channel set to <#${channel}>`
-		)
+		// Send success message as ephemeral follow-up
+		await inter.followUp({
+			content: `✅ Transcript channel set to <#${channel}>`,
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+		// Update the main config message
+		await updateMainConfigMessageFromChannelSelect(inter)
 	}
 }
 
@@ -322,11 +329,13 @@ async function handleRoleSelect(inter: Discord.RoleSelectMenuInteraction) {
 	if (inter.customId === 'ticket_mod_roles_select') {
 		ticketConfig.mods_role_ids = roles
 		await saveCfg(inter, ticketConfig)
-		await utils.handleResponse(
-			inter,
-			'success',
-			`Moderator roles set to ${roles.map((id) => `<@&${id}>`).join(', ')}`
-		)
+		// Send success message as ephemeral follow-up
+		await inter.followUp({
+			content: `✅ Moderator roles set to ${roles.map((id) => `<@&${id}>`).join(', ')}`,
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+		// Update the main config message
+		await updateMainConfigMessageFromRoleSelect(inter)
 	} else if (inter.customId === 'ticket_role_limits_select') {
 		const modal = new Discord.ModalBuilder()
 			.setCustomId(`ticket_role_limits_modal_${roles.join(',')}`)
@@ -369,11 +378,13 @@ async function handleModalSubmit(inter: Discord.ModalSubmitInteraction) {
 
 		await saveCfg(inter, ticketConfig)
 
-		await utils.handleResponse(
-			inter,
-			'success',
-			`Auto-close settings updated:\nEnabled: ${enabled ? '✅' : '❌'}\nThreshold: ${threshold / 3600} hours`
-		)
+		// Send success message as ephemeral follow-up
+		await inter.followUp({
+			content: `✅ Auto-close settings updated:\nEnabled: ${enabled ? '✅' : '❌'}\nThreshold: ${threshold / 3600} hours`,
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+		// Update the main config message
+		await updateMainConfigMessageFromModal(inter)
 	} else if (inter.customId.startsWith('ticket_role_limits_modal_')) {
 		const roles = inter.customId.split('_').pop()?.split(',') ?? []
 		const limit =
@@ -383,16 +394,18 @@ async function handleModalSubmit(inter: Discord.ModalSubmitInteraction) {
 			included: roles.map((roleId) => ({
 				role_id: roleId,
 				limit: limit.toString(),
-			}))
+			})),
 		}
 
 		await saveCfg(inter, ticketConfig)
 
-		await utils.handleResponse(
-			inter,
-			'success',
-			`Time limits set to ${limit / 3600} hours for roles: ${roles.map((id) => `<@&${id}>`).join(', ')}`
-		)
+		// Send success message as ephemeral follow-up
+		await inter.followUp({
+			content: `✅ Time limits set to ${limit / 3600} hours for roles: ${roles.map((id) => `<@&${id}>`).join(', ')}`,
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+		// Update the main config message
+		await updateMainConfigMessageFromModal(inter)
 	}
 }
 
@@ -648,7 +661,7 @@ async function handleRoleTimeLimitsConfig(
 			'error',
 			'Failed to load role time limits configuration.',
 			{
-				code: 'RTL 001',
+				code: 'RTL001',
 				error: error,
 			}
 		)
@@ -744,7 +757,7 @@ export async function handleTimeValueSelect(
 		included: selectedRoles.map((roleId) => ({
 			role_id: roleId,
 			limit: selectedValue, // Store the original format (e.g., "24h", "3d")
-		}))
+		})),
 	}
 
 	await saveCfg(inter, config)
@@ -857,7 +870,7 @@ export async function handleRoleTimeLimitRemoveSelect(
 	config.role_time_limits = {
 		included: currentLimits.filter(
 			(limit) => !selectedRoles.includes(limit.role_id)
-		)
+		),
 	}
 
 	await saveCfg(inter, config)
@@ -876,11 +889,6 @@ export async function handleRoleTimeLimitRemoveSelect(
 	}, 2000)
 }
 
-async function handleBackToMainMenu(inter: Discord.ButtonInteraction) {
-	// Instead of deferUpdate, we'll reuse the existing reply
-	await handleInitialConfig(inter)
-}
-
 async function handleButtonClick(inter: Discord.ButtonInteraction) {
 	await inter.deferUpdate()
 	const ticketConfig = await loadCfg(inter)
@@ -889,23 +897,25 @@ async function handleButtonClick(inter: Discord.ButtonInteraction) {
 		case 'ticket_system_enable':
 			ticketConfig.enabled = true
 			await saveCfg(inter, ticketConfig)
-			await utils.handleResponse(
-				inter,
-				'success',
-				'Ticket system has been enabled'
-			)
-			await handleTicketSystemConfig(inter, ticketConfig)
+			// Send success message as ephemeral follow-up
+			await inter.followUp({
+				content: '✅ Ticket system has been enabled',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			// Update the main config message
+			await updateMainConfigMessage(inter)
 			break
 
 		case 'ticket_system_disable':
 			ticketConfig.enabled = false
 			await saveCfg(inter, ticketConfig)
-			await utils.handleResponse(
-				inter,
-				'success',
-				'Ticket system has been disabled'
-			)
-			await handleTicketSystemConfig(inter, ticketConfig)
+			// Send success message as ephemeral follow-up
+			await inter.followUp({
+				content: '✅ Ticket system has been disabled',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			// Update the main config message
+			await updateMainConfigMessage(inter)
 			break
 
 		case ID.ROLE_LIMIT_ADD:
@@ -917,11 +927,540 @@ async function handleButtonClick(inter: Discord.ButtonInteraction) {
 			break
 
 		case ID.CONFIG_BACK:
-			await handleBackToMainMenu(inter)
+			await updateMainConfigMessage(inter)
 			break
 
 		default:
 			StatusLogger.warn(`Unhandled button ID: ${inter.customId}`)
 			break
 	}
+}
+
+// Helper function to update the main config message without deferring
+async function updateMainConfigMessage(inter: Discord.ButtonInteraction) {
+	// Load current config
+	const ticketConfig = await loadCfg(inter)
+
+	// Calculate status values
+	const autoClose = ticketConfig.auto_close?.[0]?.enabled
+		? `✅ ${formatTimeThreshold(ticketConfig.auto_close[0].threshold)}`
+		: '❌ Disabled'
+
+	// Handle role_time_limits as either array or object with included property
+	const roleTimeLimitsArray = Array.isArray(ticketConfig.role_time_limits)
+		? ticketConfig.role_time_limits
+		: ticketConfig.role_time_limits?.included || []
+
+	const roleLimits = roleTimeLimitsArray.length
+		? `✅ ${roleTimeLimitsArray.length} roles configured`
+		: '❌ No limits set'
+
+	// Create title section with system status
+	const titleSection = V2.makeSection(
+		[
+			'# 🎫 Ticket System Configuration\n\n',
+			`System Status: ${ticketConfig.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+		],
+		new Discord.ThumbnailBuilder().setURL(
+			'https://cdn.discordapp.com/attachments/1234567890/1234567890/ticket.png'
+		)
+	)
+
+	// Create sections with pre-generated emoji URLs
+	const channelSection = V2.makeTextDisplay(
+		[
+			'## 📢 Channel Configuration\n',
+			`Admin Channel: ${ticketConfig.admin_channel_id ? `<#${ticketConfig.admin_channel_id}>` : '❌ Not Set'}\n`,
+			`Transcript Channel: ${ticketConfig.transcript_channel_id ? `<#${ticketConfig.transcript_channel_id}>` : '❌ Not Set'}`,
+		].join('')
+	)
+
+	const roleSection = V2.makeTextDisplay(
+		[
+			'## 👮 Role Configuration\n',
+			`Moderator Roles: ${ticketConfig.mods_role_ids?.length ? ticketConfig.mods_role_ids.map((r) => `<@&${r}>`).join(' ') : '❌ None Set'}`,
+		].join('')
+	)
+
+	const limitSection = V2.makeTextDisplay(
+		[
+			'## ⚙️ System Limits\n',
+			`Auto-close: ${autoClose}\n`,
+			`Role Time Limits: ${roleLimits}`,
+		].join('')
+	)
+
+	// Create status buttons at bottom
+	const statusButtons = [
+		V2.makeButton({
+			custom_id: 'ticket_system_enable',
+			label: 'Enable',
+			style: Discord.ButtonStyle.Success,
+			disabled: ticketConfig.enabled,
+		}),
+		V2.makeButton({
+			custom_id: 'ticket_system_disable',
+			label: 'Disable',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !ticketConfig.enabled,
+		}),
+	]
+	const statusRow = V2.makeActionRow(statusButtons)
+
+	const spacer = V2.makeSeparator({
+		divider: false,
+		spacing: Discord.SeparatorSpacingSize.Large,
+	})
+
+	// Create configuration menu
+	const configMenu = V2.makeStringSelect(ID.CONFIG_SELECT)
+		.setPlaceholder('🔧 Select setting to configure...')
+		.addOptions([
+			{
+				label: 'Admin Channel',
+				value: 'admin_channel',
+				description: 'Set admin notification channel',
+				emoji: '📢',
+			},
+			{
+				label: 'Transcript Channel',
+				value: 'transcript_channel',
+				description: 'Set ticket transcript channel',
+				emoji: '📝',
+			},
+			{
+				label: 'Moderator Roles',
+				value: 'mod_roles',
+				description: 'Set ticket management roles',
+				emoji: '👮',
+			},
+			{
+				label: 'Auto-close',
+				value: 'auto_close',
+				description: 'Set inactive ticket auto-close',
+				emoji: '⏰',
+			},
+			{
+				label: 'Role Limits',
+				value: 'role_time_limits',
+				description: 'Set role-based time limits',
+				emoji: '⌛',
+			},
+		])
+
+	const menuRow = V2.makeActionRow([configMenu])
+
+	// Update the existing message with V2 components (no content field allowed)
+	await inter.editReply({
+		components: [
+			titleSection,
+			channelSection,
+			roleSection,
+			limitSection,
+			spacer,
+			menuRow,
+			statusRow,
+		],
+		flags: Discord.MessageFlags.IsComponentsV2,
+	})
+}
+
+async function handleBackToMainMenu(inter: Discord.ButtonInteraction) {
+	// Use deferUpdate since we're updating the existing message
+	await inter.deferUpdate()
+	// Now call the helper function to update the message
+	await updateMainConfigMessage(inter)
+}
+
+// Helper function to update the main config message from channel select interactions
+async function updateMainConfigMessageFromChannelSelect(
+	inter: Discord.ChannelSelectMenuInteraction
+) {
+	// Load current config
+	const ticketConfig = await loadCfg(inter)
+
+	// Calculate status values
+	const autoClose = ticketConfig.auto_close?.[0]?.enabled
+		? `✅ ${formatTimeThreshold(ticketConfig.auto_close[0].threshold)}`
+		: '❌ Disabled'
+
+	// Handle role_time_limits as either array or object with included property
+	const roleTimeLimitsArray = Array.isArray(ticketConfig.role_time_limits)
+		? ticketConfig.role_time_limits
+		: ticketConfig.role_time_limits?.included || []
+
+	const roleLimits = roleTimeLimitsArray.length
+		? `✅ ${roleTimeLimitsArray.length} roles configured`
+		: '❌ No limits set'
+
+	// Create title section with system status
+	const titleSection = V2.makeSection(
+		[
+			'# 🎫 Ticket System Configuration\n\n',
+			`System Status: ${ticketConfig.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+		],
+		new Discord.ThumbnailBuilder().setURL(
+			'https://cdn.discordapp.com/attachments/1234567890/1234567890/ticket.png'
+		)
+	)
+
+	// Create sections with pre-generated emoji URLs
+	const channelSection = V2.makeTextDisplay(
+		[
+			'## 📢 Channel Configuration\n',
+			`Admin Channel: ${ticketConfig.admin_channel_id ? `<#${ticketConfig.admin_channel_id}>` : '❌ Not Set'}\n`,
+			`Transcript Channel: ${ticketConfig.transcript_channel_id ? `<#${ticketConfig.transcript_channel_id}>` : '❌ Not Set'}`,
+		].join('')
+	)
+
+	const roleSection = V2.makeTextDisplay(
+		[
+			'## 👮 Role Configuration\n',
+			`Moderator Roles: ${ticketConfig.mods_role_ids?.length ? ticketConfig.mods_role_ids.map((r) => `<@&${r}>`).join(' ') : '❌ None Set'}`,
+		].join('')
+	)
+
+	const limitSection = V2.makeTextDisplay(
+		[
+			'## ⚙️ System Limits\n',
+			`Auto-close: ${autoClose}\n`,
+			`Role Time Limits: ${roleLimits}`,
+		].join('')
+	)
+
+	// Create status buttons at bottom
+	const statusButtons = [
+		V2.makeButton({
+			custom_id: 'ticket_system_enable',
+			label: 'Enable',
+			style: Discord.ButtonStyle.Success,
+			disabled: ticketConfig.enabled,
+		}),
+		V2.makeButton({
+			custom_id: 'ticket_system_disable',
+			label: 'Disable',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !ticketConfig.enabled,
+		}),
+	]
+	const statusRow = V2.makeActionRow(statusButtons)
+
+	const spacer = V2.makeSeparator({
+		divider: false,
+		spacing: Discord.SeparatorSpacingSize.Large,
+	})
+
+	// Create configuration menu
+	const configMenu = V2.makeStringSelect(ID.CONFIG_SELECT)
+		.setPlaceholder('🔧 Select setting to configure...')
+		.addOptions([
+			{
+				label: 'Admin Channel',
+				value: 'admin_channel',
+				description: 'Set admin notification channel',
+				emoji: '📢',
+			},
+			{
+				label: 'Transcript Channel',
+				value: 'transcript_channel',
+				description: 'Set ticket transcript channel',
+				emoji: '📝',
+			},
+			{
+				label: 'Moderator Roles',
+				value: 'mod_roles',
+				description: 'Set ticket management roles',
+				emoji: '👮',
+			},
+			{
+				label: 'Auto-close',
+				value: 'auto_close',
+				description: 'Set inactive ticket auto-close',
+				emoji: '⏰',
+			},
+			{
+				label: 'Role Limits',
+				value: 'role_time_limits',
+				description: 'Set role-based time limits',
+				emoji: '⌛',
+			},
+		])
+
+	const menuRow = V2.makeActionRow([configMenu])
+
+	// Update the existing message with V2 components (no content field allowed)
+	await inter.editReply({
+		components: [
+			titleSection,
+			channelSection,
+			roleSection,
+			limitSection,
+			spacer,
+			menuRow,
+			statusRow,
+		],
+		flags: Discord.MessageFlags.IsComponentsV2,
+	})
+}
+
+// Helper function to update the main config message from role select interactions
+async function updateMainConfigMessageFromRoleSelect(
+	inter: Discord.RoleSelectMenuInteraction
+) {
+	// Load current config
+	const ticketConfig = await loadCfg(inter)
+
+	// Calculate status values
+	const autoClose = ticketConfig.auto_close?.[0]?.enabled
+		? `✅ ${formatTimeThreshold(ticketConfig.auto_close[0].threshold)}`
+		: '❌ Disabled'
+
+	// Handle role_time_limits as either array or object with included property
+	const roleTimeLimitsArray = Array.isArray(ticketConfig.role_time_limits)
+		? ticketConfig.role_time_limits
+		: ticketConfig.role_time_limits?.included || []
+
+	const roleLimits = roleTimeLimitsArray.length
+		? `✅ ${roleTimeLimitsArray.length} roles configured`
+		: '❌ No limits set'
+
+	// Create title section with system status
+	const titleSection = V2.makeSection(
+		[
+			'# 🎫 Ticket System Configuration\n\n',
+			`System Status: ${ticketConfig.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+		],
+		new Discord.ThumbnailBuilder().setURL(
+			'https://cdn.discordapp.com/attachments/1234567890/1234567890/ticket.png'
+		)
+	)
+
+	// Create sections with pre-generated emoji URLs
+	const channelSection = V2.makeTextDisplay(
+		[
+			'## 📢 Channel Configuration\n',
+			`Admin Channel: ${ticketConfig.admin_channel_id ? `<#${ticketConfig.admin_channel_id}>` : '❌ Not Set'}\n`,
+			`Transcript Channel: ${ticketConfig.transcript_channel_id ? `<#${ticketConfig.transcript_channel_id}>` : '❌ Not Set'}`,
+		].join('')
+	)
+
+	const roleSection = V2.makeTextDisplay(
+		[
+			'## 👮 Role Configuration\n',
+			`Moderator Roles: ${ticketConfig.mods_role_ids?.length ? ticketConfig.mods_role_ids.map((r) => `<@&${r}>`).join(' ') : '❌ None Set'}`,
+		].join('')
+	)
+
+	const limitSection = V2.makeTextDisplay(
+		[
+			'## ⚙️ System Limits\n',
+			`Auto-close: ${autoClose}\n`,
+			`Role Time Limits: ${roleLimits}`,
+		].join('')
+	)
+
+	// Create status buttons at bottom
+	const statusButtons = [
+		V2.makeButton({
+			custom_id: 'ticket_system_enable',
+			label: 'Enable',
+			style: Discord.ButtonStyle.Success,
+			disabled: ticketConfig.enabled,
+		}),
+		V2.makeButton({
+			custom_id: 'ticket_system_disable',
+			label: 'Disable',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !ticketConfig.enabled,
+		}),
+	]
+	const statusRow = V2.makeActionRow(statusButtons)
+
+	const spacer = V2.makeSeparator({
+		divider: false,
+		spacing: Discord.SeparatorSpacingSize.Large,
+	})
+
+	// Create configuration menu
+	const configMenu = V2.makeStringSelect(ID.CONFIG_SELECT)
+		.setPlaceholder('🔧 Select setting to configure...')
+		.addOptions([
+			{
+				label: 'Admin Channel',
+				value: 'admin_channel',
+				description: 'Set admin notification channel',
+				emoji: '📢',
+			},
+			{
+				label: 'Transcript Channel',
+				value: 'transcript_channel',
+				description: 'Set ticket transcript channel',
+				emoji: '📝',
+			},
+			{
+				label: 'Moderator Roles',
+				value: 'mod_roles',
+				description: 'Set ticket management roles',
+				emoji: '👮',
+			},
+			{
+				label: 'Auto-close',
+				value: 'auto_close',
+				description: 'Set inactive ticket auto-close',
+				emoji: '⏰',
+			},
+			{
+				label: 'Role Limits',
+				value: 'role_time_limits',
+				description: 'Set role-based time limits',
+				emoji: '⌛',
+			},
+		])
+
+	const menuRow = V2.makeActionRow([configMenu])
+
+	// Update the existing message with V2 components (no content field allowed)
+	await inter.editReply({
+		components: [
+			titleSection,
+			channelSection,
+			roleSection,
+			limitSection,
+			spacer,
+			menuRow,
+			statusRow,
+		],
+		flags: Discord.MessageFlags.IsComponentsV2,
+	})
+}
+
+// Helper function to update the main config message from modal interactions
+async function updateMainConfigMessageFromModal(
+	inter: Discord.ModalSubmitInteraction
+) {
+	// Load current config
+	const ticketConfig = await loadCfg(inter)
+
+	// Calculate status values
+	const autoClose = ticketConfig.auto_close?.[0]?.enabled
+		? `✅ ${formatTimeThreshold(ticketConfig.auto_close[0].threshold)}`
+		: '❌ Disabled'
+
+	// Handle role_time_limits as either array or object with included property
+	const roleTimeLimitsArray = Array.isArray(ticketConfig.role_time_limits)
+		? ticketConfig.role_time_limits
+		: ticketConfig.role_time_limits?.included || []
+
+	const roleLimits = roleTimeLimitsArray.length
+		? `✅ ${roleTimeLimitsArray.length} roles configured`
+		: '❌ No limits set'
+
+	// Create title section with system status
+	const titleSection = V2.makeSection(
+		[
+			'# 🎫 Ticket System Configuration\n\n',
+			`System Status: ${ticketConfig.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+		],
+		new Discord.ThumbnailBuilder().setURL(
+			'https://cdn.discordapp.com/attachments/1234567890/1234567890/ticket.png'
+		)
+	)
+
+	// Create sections with pre-generated emoji URLs
+	const channelSection = V2.makeTextDisplay(
+		[
+			'## 📢 Channel Configuration\n',
+			`Admin Channel: ${ticketConfig.admin_channel_id ? `<#${ticketConfig.admin_channel_id}>` : '❌ Not Set'}\n`,
+			`Transcript Channel: ${ticketConfig.transcript_channel_id ? `<#${ticketConfig.transcript_channel_id}>` : '❌ Not Set'}`,
+		].join('')
+	)
+
+	const roleSection = V2.makeTextDisplay(
+		[
+			'## 👮 Role Configuration\n',
+			`Moderator Roles: ${ticketConfig.mods_role_ids?.length ? ticketConfig.mods_role_ids.map((r) => `<@&${r}>`).join(' ') : '❌ None Set'}`,
+		].join('')
+	)
+
+	const limitSection = V2.makeTextDisplay(
+		[
+			'## ⚙️ System Limits\n',
+			`Auto-close: ${autoClose}\n`,
+			`Role Time Limits: ${roleLimits}`,
+		].join('')
+	)
+
+	// Create status buttons at bottom
+	const statusButtons = [
+		V2.makeButton({
+			custom_id: 'ticket_system_enable',
+			label: 'Enable',
+			style: Discord.ButtonStyle.Success,
+			disabled: ticketConfig.enabled,
+		}),
+		V2.makeButton({
+			custom_id: 'ticket_system_disable',
+			label: 'Disable',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !ticketConfig.enabled,
+		}),
+	]
+	const statusRow = V2.makeActionRow(statusButtons)
+
+	const spacer = V2.makeSeparator({
+		divider: false,
+		spacing: Discord.SeparatorSpacingSize.Large,
+	})
+
+	// Create configuration menu
+	const configMenu = V2.makeStringSelect(ID.CONFIG_SELECT)
+		.setPlaceholder('🔧 Select setting to configure...')
+		.addOptions([
+			{
+				label: 'Admin Channel',
+				value: 'admin_channel',
+				description: 'Set admin notification channel',
+				emoji: '📢',
+			},
+			{
+				label: 'Transcript Channel',
+				value: 'transcript_channel',
+				description: 'Set ticket transcript channel',
+				emoji: '📝',
+			},
+			{
+				label: 'Moderator Roles',
+				value: 'mod_roles',
+				description: 'Set ticket management roles',
+				emoji: '👮',
+			},
+			{
+				label: 'Auto-close',
+				value: 'auto_close',
+				description: 'Set inactive ticket auto-close',
+				emoji: '⏰',
+			},
+			{
+				label: 'Role Limits',
+				value: 'role_time_limits',
+				description: 'Set role-based time limits',
+				emoji: '⌛',
+			},
+		])
+
+	const menuRow = V2.makeActionRow([configMenu])
+
+	// Update the existing message with V2 components (no content field allowed)
+	await inter.editReply({
+		components: [
+			titleSection,
+			channelSection,
+			roleSection,
+			limitSection,
+			spacer,
+			menuRow,
+			statusRow,
+		],
+		flags: Discord.MessageFlags.IsComponentsV2,
+	})
 }

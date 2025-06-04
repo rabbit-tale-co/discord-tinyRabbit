@@ -1,5 +1,7 @@
 import type * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
+import { config as starboardConfig } from '@/discord/commands/config/starboard.js'
 import * as api from '@/discord/api/index.js'
 import * as utils from '@/utils/index.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
@@ -17,10 +19,10 @@ const channelSelectMap: Record<string, ChannelSelectStructure> = {
 	ticket: {
 		handler: async (inter: Discord.ChannelSelectMenuInteraction) => {
 			if (
-				inter.custom_id === 'ticket_admin_channel_select' ||
-				inter.custom_id === 'ticket_transcript_channel_select'
+				inter.customId === 'ticket_admin_channel_select' ||
+				inter.customId === 'ticket_transcript_channel_select'
 			) {
-				await commands.ticket.config(inter)
+				await centralizedConfig(inter)
 				return
 			}
 		},
@@ -30,8 +32,23 @@ const channelSelectMap: Record<string, ChannelSelectStructure> = {
 export async function channelSelectInteractionHandler(
 	inter: Discord.ChannelSelectMenuInteraction
 ): Promise<void> {
-	// Extract the base identifier from the custom_id
-	const baseId = inter.custom_id.split('_')[0]
+	// Handle starboard interactions directly
+	if (inter.customId.startsWith('starboard_')) {
+		await starboardConfig(inter)
+		return
+	}
+
+	// Check for other configuration channel selects
+	if (
+		inter.customId.startsWith('ticket_') ||
+		inter.customId.includes('_channel_select')
+	) {
+		await centralizedConfig(inter)
+		return
+	}
+
+	// Extract the base identifier from the customId
+	const baseId = inter.customId.split('_')[0]
 
 	const channelSelectConfig = channelSelectMap[baseId]
 	if (!channelSelectConfig) return
