@@ -120,8 +120,8 @@ class PresenceService {
 			const stats = await api.fetchAllStats(user.id, this.client)
 
 			const description = `- configure me with \`/config\`
-- [website](https://discord.rabbittale.co)
-- [support](https://discord.gg/RfBydgJpmU)
+- website: [https://discord.rabbittale.co
+- support: https://discord.gg/RfBydgJpmU
 
 🐇 Tiny Rabbit Stats:
 🏰 Servers: ${stats.servers.toLocaleString()}
