@@ -120,8 +120,6 @@ class PresenceService {
 			const stats = await api.fetchAllStats(user.id, this.client)
 
 			const description = `- configure me with \`/config\`
-- website: [https://discord.rabbittale.co
-- support: https://discord.gg/RfBydgJpmU
 
 🐇 Tiny Rabbit Stats:
 🏰 Servers: ${stats.servers.toLocaleString()}
@@ -131,6 +129,9 @@ class PresenceService {
 🔈 Temp Channels: ${stats.temp_channels.toLocaleString()}
 🎫 Tickets: ${stats.tickets_opened.toLocaleString()}
 📈 Total XP: ${stats.total_xp.toLocaleString()}
+
+- website: https://discord.rabbittale.co
+- support: https://discord.gg/RfBydgJpmU
 
 Questions? Contact @Hasiradoo`
 
