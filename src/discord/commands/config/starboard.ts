@@ -6,6 +6,41 @@ import * as V2 from 'discord-components-v2'
 import type { DefaultConfigs } from '@/types/index.js'
 
 /* -------------------------------------------------------------------------- */
+/*                               HELPER FUNCTIONS                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Validates if a string is a valid emoji (Unicode emoji or Discord custom emoji)
+ */
+function isValidEmoji(input: string): boolean {
+	// Trim whitespace
+	const trimmed = input.trim()
+
+	// Check for Discord custom emoji format: <:name:id> or <a:name:id>
+	const discordEmojiRegex = /^<a?:\w+:\d+>$/
+	if (discordEmojiRegex.test(trimmed)) {
+		return true
+	}
+
+	// Check for Unicode emoji
+	// This regex matches most Unicode emoji sequences
+	const unicodeEmojiRegex =
+		/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?)+$/u
+	if (unicodeEmojiRegex.test(trimmed)) {
+		return true
+	}
+
+	// Additional check for common emoji patterns that might not be caught by the above
+	const commonEmojiRegex =
+		/^[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$/u
+	if (commonEmojiRegex.test(trimmed)) {
+		return true
+	}
+
+	return false
+}
+
+/* -------------------------------------------------------------------------- */
 /*                               PUBLIC ENTRY                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -787,19 +822,31 @@ async function handleModalSubmit(inter: Discord.ModalSubmitInteraction) {
 	if (inter.customId === 'starboard_emoji_modal') {
 		const emoji = inter.fields.getTextInputValue('emoji')
 
+		// Validate emoji input
+		if (!isValidEmoji(emoji)) {
+			StatusLogger.warn(`[Starboard Config] Invalid emoji input: ${emoji}`)
+			// Send error message as ephemeral follow-up
+			await inter.followUp({
+				content:
+					'❌ Please enter a valid emoji only. Examples: ⭐, 🌟, or custom Discord emojis like <:star:123456789>',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			return
+		}
+
 		await api.setPluginConfig(
 			inter.client.user.id,
 			inter.guildId,
 			'starboard',
 			{
 				...starboardConfig,
-				emoji: emoji,
+				emoji: emoji.trim(),
 			}
 		)
 
 		// Send success message as ephemeral follow-up
 		await inter.followUp({
-			content: `✅ Starboard emoji set to ${emoji}`,
+			content: `✅ Starboard emoji set to ${emoji.trim()}`,
 			flags: Discord.MessageFlags.Ephemeral,
 		})
 
