@@ -60,7 +60,7 @@ export async function selectMenuInteractionHandler(
 		}
 
 		// Handle direct ticket actions - these use the select menu for ticket creation
-		if (inter.customId.startsWith('open_ticket_')) {
+		if (inter.customId.startsWith('open_ticket:')) {
 			await openTicketFromSelect(inter)
 			return
 		}

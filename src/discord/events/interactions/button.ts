@@ -116,7 +116,7 @@ export async function buttonInteractionHandler(
 		}
 
 		// First check if it's a direct ticket action
-		if (inter.customId.startsWith('open_ticket_')) {
+		if (inter.customId.startsWith('open_ticket:')) {
 			await commands.ticket.openTicket(inter)
 			return
 		}
