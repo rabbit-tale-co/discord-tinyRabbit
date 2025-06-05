@@ -6,6 +6,8 @@ import type { PluginResponse, DefaultConfigs } from '@/types/plugins.js'
 import { threadMetadataStore as store } from './state.js'
 import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
+import { replacecustom_idPlaceholders } from '@/utils/replacePlaceholders.js'
+import type { ButtonBuilder } from 'discord.js'
 
 /* -------------------------------------------------------------------------- */
 /*                               PUBLIC ENTRY                                 */
@@ -61,18 +63,20 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 	if (cfg.components?.confirm_close_ticket) {
 		try {
 			// Check if the template has the expected button structure
-			const hasActionRows =
-				cfg.components.confirm_close_ticket.components?.some(
-					(comp: { type: number; components?: { type: number }[] }) =>
-						comp.type === 1 &&
-						comp.components?.some(
-							(subComp: { type: number }) => subComp.type === 2
-						)
-				)
+			// The confirm_close_ticket is an array of components, not an object with components property
+			const hasActionRows = Array.isArray(cfg.components.confirm_close_ticket)
+				? cfg.components.confirm_close_ticket.some(
+						(comp: { type: number; components?: { type: number }[] }) =>
+							comp.type === 1 &&
+							comp.components?.some(
+								(subComp: { type: number }) => subComp.type === 2
+							)
+					)
+				: false
 
 			if (!hasActionRows) {
 				StatusLogger.warn(
-					'⚠️ Configuration template missing buttons, clearing cache and using fallback'
+					'Configuration template missing buttons, clearing cache and using fallback'
 				)
 
 				// Clear the configuration cache to force a fresh reload next time
@@ -94,6 +98,28 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 				interaction.guild,
 				placeholders
 			)
+
+			// Process components to replace placeholders in custom_ids
+			for (const row of actionRows) {
+				for (const component of row.components) {
+					if (
+						'data' in component &&
+						component.data &&
+						typeof component.data === 'object'
+					) {
+						const button = component as ButtonBuilder
+						const data = component.data as { custom_id?: string }
+						if (data.custom_id) {
+							// Replace placeholders in custom_id using the same function as open.ts
+							const customId = replacecustom_idPlaceholders(
+								data.custom_id,
+								placeholders
+							)
+							button.setCustomId(customId)
+						}
+					}
+				}
+			}
 
 			// Prepare message options with all components
 			const messageOptions: Discord.InteractionReplyOptions = {
@@ -533,7 +559,7 @@ async function sendTranscriptUnified(
 				typeof meta.claimed_by === 'object'
 					? `<@${meta.claimed_by.id}>`
 					: (meta.claimed_by ?? 'Not claimed'),
-			category: meta.ticket_type ?? 'Support',
+			topic: meta.ticket_type ?? 'Support',
 			thread_id: thread.id,
 			guild_id: thread.guild.id,
 			reason: meta.reason ?? 'No reason',
@@ -597,8 +623,8 @@ async function sendTranscriptUnified(
 			const manualActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
 				[]
 
-			if (transcriptConfig.components) {
-				for (const component of transcriptConfig.components) {
+			if (Array.isArray(transcriptConfig)) {
+				for (const component of transcriptConfig) {
 					// Check if this is an ActionRow (type 1)
 					if (
 						component.type === 1 &&
@@ -610,17 +636,19 @@ async function sendTranscriptUnified(
 
 						for (const subComp of component.components) {
 							// Check if this is a Button (type 2)
-							if (subComp.type === 2 && 'label' in subComp) {
+							if (
+								subComp.type === 2 &&
+								'label' in subComp &&
+								'style' in subComp
+							) {
 								const button = new Discord.ButtonBuilder().setLabel(
 									String(subComp.label)
 								)
 
+								const style = Number(subComp.style)
+
 								// Handle URL buttons (style 5)
-								if (
-									'style' in subComp &&
-									subComp.style === 5 &&
-									'url' in subComp
-								) {
+								if (style === 5 && 'url' in subComp) {
 									// Replace placeholders in URL
 									let url = String(subComp.url)
 									for (const [key, value] of Object.entries(
@@ -630,8 +658,8 @@ async function sendTranscriptUnified(
 									}
 									button.setStyle(Discord.ButtonStyle.Link).setURL(url)
 								}
-								// Handle other button styles
-								else if ('custom_id' in subComp && 'style' in subComp) {
+								// Handle other button styles (need custom_id for these)
+								else if ('custom_id' in subComp) {
 									let customId = String(subComp.custom_id)
 									// Replace placeholders in custom_id
 									for (const [key, value] of Object.entries(
@@ -644,7 +672,6 @@ async function sendTranscriptUnified(
 									}
 									button.setCustomId(customId)
 
-									const style = Number(subComp.style)
 									switch (style) {
 										case 1:
 											button.setStyle(Discord.ButtonStyle.Primary)
@@ -661,6 +688,12 @@ async function sendTranscriptUnified(
 										default:
 											button.setStyle(Discord.ButtonStyle.Secondary)
 									}
+								} else {
+									// Skip buttons without proper configuration
+									StatusLogger.warn(
+										`Skipping button with incomplete configuration: ${JSON.stringify(subComp)}`
+									)
+									continue
 								}
 
 								actionRow.addComponents(button)
@@ -677,23 +710,17 @@ async function sendTranscriptUnified(
 			// Send all components in one message
 			const messageOptions: Discord.MessageCreateOptions = {}
 
-			// Filter out ActionRow components from v2Components (they'll be handled manually)
-			const filteredV2Components = v2Components.filter((comp) => {
-				// Keep only non-ActionRow components (TextDisplay, etc.)
-				return !('components' in comp)
-			})
-
-			// Add filtered v2Components (TextDisplay, Separator, etc.)
-			if (filteredV2Components.length > 0) {
-				messageOptions.components = filteredV2Components
+			// Add all v2Components (including potential action rows from buildUniversalComponents)
+			if (v2Components.length > 0) {
+				messageOptions.components = v2Components
 				messageOptions.flags = Discord.MessageFlags.IsComponentsV2
 			}
 
-			// Use manual action rows if available, fallback to buildUniversalComponents result
+			// Use manual action rows if available, otherwise use buildUniversalComponents result
 			const finalActionRows =
 				manualActionRows.length > 0 ? manualActionRows : actionRows
 
-			// Add action rows (buttons)
+			// Add action rows (buttons) - these will be regular Discord action rows
 			if (finalActionRows.length > 0) {
 				// If we already have components, append the action rows
 				if (messageOptions.components) {
@@ -871,7 +898,7 @@ async function sendRatingDMUnified(
 							ticket_id: meta.ticket_id?.toString() ?? 'unknown',
 							opened_by: `<@${meta.opened_by.id}>`,
 							closed_by: `<@${meta.closed_by?.id}>`,
-							category: meta.ticket_type ?? 'Support',
+							topic: meta.ticket_type ?? 'Support',
 							thread_id: thread.id,
 							guild_id: thread.guild.id,
 							reason: meta.reason ?? 'No reason',
@@ -1019,7 +1046,7 @@ async function sendAutoCloseMessage(
 				ticket_id: meta.ticket_id?.toString() ?? 'unknown',
 				opened_by: meta.opened_by ? `<@${meta.opened_by.id}>` : 'unknown',
 				closed_by: `<@${meta.closed_by?.id}>`,
-				category: meta.ticket_type ?? 'Support',
+				topic: meta.ticket_type ?? 'Support',
 				thread_id: thread.id,
 				guild_id: thread.guild.id,
 			}

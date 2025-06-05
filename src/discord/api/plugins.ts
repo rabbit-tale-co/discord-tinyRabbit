@@ -47,7 +47,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 🎫 Ticket #{ticket_id} - {category}',
+					text: '## 🎫 Ticket #{ticket_id} - {topic}',
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -218,7 +218,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '>>> **Opened by:** {opened_by}\n**Category:** {category}\n**Claimed by:** {claimed_by}',
+					text: '>>> **Opened by:** {opened_by}\n**Topic:** {topic}\n**Claimed by:** {claimed_by}',
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -227,7 +227,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '*Click the buttons below to manage this ticket*',
+					text: '-# Click the buttons below to manage this ticket',
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.ActionRow,
@@ -252,32 +252,52 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 🎫 Ticket #{ticket_id} - {category}',
+					text: '## 🎟️ Ticket #{ticket_id} - {category}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '📌 **Ticket Information**',
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '**Ticket Information**',
+					text: '>>>🔹 **Opened by:** {opened_by}\n🕒 **Opened at:** {open_time}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '📥 **Handling:**',
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '>>> **Opened by:** {opened_by}\n**Opened at:** {open_time}',
+					text: '>>> 🔖 **Claimed by:** {claimed_by}\n🔒 **Closed by:** {closed_by}\n📅 **Closed at:** {close_time}',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '✅ **Resolution Details:**',
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '**Handling**',
+					text: '>>> ✏️ **Reason:** {reason}\n⭐ **Rating:** {rating}',
 				} as unknown as API.TextDisplay,
 				{
-					type: Discord.ComponentType.TextDisplay,
-					text: '>>> **Claimed by:** {claimed_by}\n**Closed by:** {closed_by}\n**Closed at:** {close_time}',
-				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.TextDisplay,
-					text: '**Resolution**',
-				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.TextDisplay,
-					text: '>>> **Reason:** {reason}\n**Rating:** {rating}',
-				} as unknown as API.TextDisplay,
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
 					text: '-# Click the button below to view the full ticket conversation:',
