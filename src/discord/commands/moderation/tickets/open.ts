@@ -1217,13 +1217,13 @@ function resolveTopic(
 
 	// Check if there's an open_ticket component template
 	const openTicketTemplate = cfg.components?.open_ticket
-	if (!openTicketTemplate?.components) {
+	if (!Array.isArray(openTicketTemplate)) {
 		StatusLogger.warn('No open_ticket components found in config')
 		return 'General'
 	}
 
 	// Look for buttons in the components array
-	for (const component of openTicketTemplate.components) {
+	for (const component of openTicketTemplate) {
 		// Check if this is an ActionRow component (type 1 or has components array)
 		const isActionRow =
 			component.type === Discord.ComponentType.ActionRow ||
