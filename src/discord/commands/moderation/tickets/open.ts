@@ -99,6 +99,20 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 		/* ------------------------------------------------------ */
 		/*                OBTAIN NEXT TICKET NUMBER               */
 		/* ------------------------------------------------------ */
+		// Increment counter first to ensure atomicity and avoid race conditions
+		try {
+			await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
+		} catch (error) {
+			StatusLogger.error('Failed to increment ticket counter:', error)
+			await utils.handleResponse(
+				inter,
+				'error',
+				'Failed to generate ticket number',
+				{ code: 'OT004' }
+			)
+			return
+		}
+
 		const ticket_id = await api.getTicketCounter(
 			inter.client.user.id,
 			inter.guild.id
@@ -151,9 +165,6 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 			meta,
 			[]
 		)
-
-		// Increment counter
-		await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
 
 		/* ------------------------------------------------------ */
 		/*                 SEND TEMPLATE MESSAGES                 */
@@ -445,6 +456,21 @@ export async function openTicketFromSelect(
 		await inter.deferUpdate()
 
 		const topic = resolveTopic(inter.values[0], cfg)
+
+		// Increment counter first to ensure atomicity and avoid race conditions
+		try {
+			await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
+		} catch (error) {
+			StatusLogger.error('Failed to increment ticket counter:', error)
+			await utils.handleResponse(
+				inter,
+				'error',
+				'Failed to generate ticket number',
+				{ code: 'OT004', followUp: true }
+			)
+			return
+		}
+
 		const ticket_id = await api.getTicketCounter(
 			inter.client.user.id,
 			inter.guild.id
@@ -488,7 +514,6 @@ export async function openTicketFromSelect(
 			meta,
 			[]
 		)
-		await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
 
 		const placeholders: PlaceholderMap = {
 			ticket_id: ticket_id.toString(),
