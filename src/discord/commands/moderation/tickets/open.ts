@@ -99,7 +99,23 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 		/* ------------------------------------------------------ */
 		/*                OBTAIN NEXT TICKET NUMBER               */
 		/* ------------------------------------------------------ */
-		// Increment counter first to ensure atomicity and avoid race conditions
+		// Get current counter value first
+		const current_counter = await api.getTicketCounter(
+			inter.client.user.id,
+			inter.guild.id
+		)
+		if (!current_counter) {
+			await utils.handleResponse(
+				inter,
+				'error',
+				'Failed to get ticket counter',
+				{ code: 'OT004' }
+			)
+			return
+		}
+
+		// Use current counter as ticket ID, then increment for next ticket
+		const ticket_id = current_counter
 		try {
 			await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
 		} catch (error) {
@@ -107,21 +123,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 			await utils.handleResponse(
 				inter,
 				'error',
-				'Failed to generate ticket number',
-				{ code: 'OT004' }
-			)
-			return
-		}
-
-		const ticket_id = await api.getTicketCounter(
-			inter.client.user.id,
-			inter.guild.id
-		)
-		if (!ticket_id) {
-			await utils.handleResponse(
-				inter,
-				'error',
-				'Failed to get ticket counter',
+				'Failed to update ticket counter',
 				{ code: 'OT004' }
 			)
 			return
@@ -457,7 +459,23 @@ export async function openTicketFromSelect(
 
 		const topic = resolveTopic(inter.values[0], cfg)
 
-		// Increment counter first to ensure atomicity and avoid race conditions
+		// Get current counter value first
+		const current_counter = await api.getTicketCounter(
+			inter.client.user.id,
+			inter.guild.id
+		)
+		if (!current_counter) {
+			await utils.handleResponse(
+				inter,
+				'error',
+				'Failed to get ticket counter',
+				{ code: 'OT004', followUp: true }
+			)
+			return
+		}
+
+		// Use current counter as ticket ID, then increment for next ticket
+		const ticket_id = current_counter
 		try {
 			await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
 		} catch (error) {
@@ -465,22 +483,7 @@ export async function openTicketFromSelect(
 			await utils.handleResponse(
 				inter,
 				'error',
-				'Failed to generate ticket number',
-				{ code: 'OT004', followUp: true }
-			)
-			return
-		}
-
-		const ticket_id = await api.getTicketCounter(
-			inter.client.user.id,
-			inter.guild.id
-		)
-
-		if (!ticket_id) {
-			await utils.handleResponse(
-				inter,
-				'error',
-				'Failed to get ticket counter',
+				'Failed to update ticket counter',
 				{ code: 'OT004', followUp: true }
 			)
 			return
