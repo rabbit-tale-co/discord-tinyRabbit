@@ -28,6 +28,7 @@ export async function roleSelectInteractionHandler(
 		inter.customId.startsWith('tickets:') ||
 		inter.customId.startsWith('starboard_') ||
 		inter.customId.startsWith('starboard:') ||
+		inter.customId.startsWith('levels_') ||
 		inter.customId.includes('_roles_select') ||
 		inter.customId.includes('_role_limits_select') ||
 		inter.customId.includes('config')

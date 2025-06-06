@@ -588,14 +588,32 @@ const createBirthdayComponents = () => {
 	}
 }
 
+const createLevelsComponents = () => {
+	return {
+		reward_message: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					content:
+						'🎉 Congratulations {user}, you have leveled up to level {level}! 🚀',
+				} as unknown as TextDisplayComponent,
+			] as ComponentsV2[],
+		},
+	}
+}
+
 const default_configs: DefaultConfigs = {
 	levels: {
 		enabled: false,
-		reward_message: 'Congratulations, you have leveled up to level {level}!',
-		channel_id: null, // TODO:change to reward_channel_id
+		reward_channel_id: null,
 		command_channel_id: null,
 		reward_roles: [],
-		boost_3x_roles: [],
+		boost_roles: {
+			x2: [], // Discord Boost role will be added here by default
+			x3: [],
+			x5: [],
+		},
+		components: createLevelsComponents(),
 	},
 	tickets: {
 		enabled: false,
@@ -1040,10 +1058,15 @@ async function updatePluginConfig<T extends keyof DefaultConfigs>(
 	config: DefaultConfigs[T]
 ): Promise<void> {
 	try {
-		// Update the plugin in the database
+		// Use upsert to either update existing record or create new one
 		const { error } = await supabase
 			.from('plugins')
-			.update({ config })
+			.upsert({
+				bot_id,
+				guild_id,
+				plugin_name,
+				config,
+			})
 			.eq('bot_id', bot_id)
 			.eq('guild_id', guild_id)
 			.eq('plugin_name', plugin_name)

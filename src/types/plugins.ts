@@ -3,15 +3,20 @@ import type * as Discord from 'discord.js'
 type Level = {
 	enabled?: boolean
 	reward_message?: string | null
-	channel_id?: string | null
+	reward_channel_id?: string | null
 	command_channel_id?: string | null
 	reward_roles?: Array<{
 		level: number
 		role_id: string
 	}> | null
-	boost_3x_roles?: Array<{
-		role_id: string
-	}> | null
+	boost_roles?: {
+		x2?: string[] | null
+		x3?: string[] | null
+		x5?: string[] | null
+	} | null
+	components?: {
+		[key: string]: ComponentContainer
+	}
 }
 
 // Definicja mapy przycisków dla embedów

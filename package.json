@@ -1,6 +1,6 @@
 {
   "name": "tiny-rabbit-discord",
-  "version": "2.3.3",
+  "version": "2.3.4",
   "description": "A modular Discord bot with core functionality for community management and engagement.",
   "scripts": {
     "start": "bun run dist/server.js",

@@ -91,6 +91,7 @@ export async function buttonInteractionHandler(
 			inter.customId.startsWith('tickets:') ||
 			inter.customId.startsWith('starboard_') ||
 			inter.customId.startsWith('starboard:') ||
+			inter.customId.startsWith('levels_') ||
 			inter.customId.includes('config')
 		) {
 			await centralizedConfig(inter)

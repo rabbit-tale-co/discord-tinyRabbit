@@ -3,6 +3,7 @@ import * as utils from '@/utils/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
 import { config as ticketConfig } from './ticket.js'
 import { config as starboardConfig } from './starboard.js'
+import { config as levelsConfig } from './levels.js'
 
 type ConfigHandler = (
 	inter:
@@ -18,8 +19,8 @@ type ConfigHandler = (
 const configHandlers: Record<string, ConfigHandler> = {
 	tickets: ticketConfig,
 	starboard: starboardConfig,
+	levels: levelsConfig,
 	// Add more handlers as needed
-	// levels: levelsConfig,
 	// welcome_goodbye: welcomeGoodbyeConfig,
 	// birthday: birthdayConfig,
 	// tempvc: tempvcConfig,
@@ -144,6 +145,14 @@ export async function config(
 		) {
 			// Handle starboard configuration
 			await configHandlers.starboard(inter)
+		} else if (
+			customId.startsWith('levels_') ||
+			customId.includes('levels') ||
+			customId.includes('reward_role') ||
+			customId.includes('boost_roles')
+		) {
+			// Handle levels configuration
+			await configHandlers.levels(inter)
 		} else {
 			StatusLogger.warn(`[Config Router] Unhandled interaction: ${customId}`)
 			if (!inter.replied && !inter.deferred) {

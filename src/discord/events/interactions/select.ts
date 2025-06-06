@@ -49,6 +49,7 @@ export async function selectMenuInteractionHandler(
 			inter.customId.startsWith('tickets:') ||
 			inter.customId.startsWith('starboard_') ||
 			inter.customId.startsWith('starboard:') ||
+			inter.customId.startsWith('levels_') ||
 			inter.customId.startsWith('role_limit_') ||
 			inter.customId.includes('config_select') ||
 			inter.customId.includes('config')
