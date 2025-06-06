@@ -558,12 +558,12 @@ const createBirthdayComponents = () => {
 					components: [
 						{
 							type: Discord.ComponentType.TextDisplay,
-							content: '## 🎂 Birthday Celebration!',
+							content: '## 🎂 Happy Birthday {user}!',
 						} as unknown as TextDisplayComponent,
 						{
 							type: Discord.ComponentType.TextDisplay,
 							content:
-								"Today we celebrate {user}'s birthday!\n\n*Wishing you a fantastic day filled with joy and happiness!* ✨",
+								"🎉 Today we celebrate {display_name}'s special day!\n\n*Wishing you a fantastic day filled with joy and happiness!* ✨",
 						} as unknown as TextDisplayComponent,
 					],
 					accessory: {

@@ -27,6 +27,7 @@ export async function channelSelectInteractionHandler(
 		inter.customId.startsWith('tickets:') ||
 		inter.customId.startsWith('starboard_') ||
 		inter.customId.startsWith('starboard:') ||
+		inter.customId.startsWith('welcome_goodbye_') ||
 		inter.customId.includes('_channel_select') ||
 		inter.customId.includes('config')
 	) {

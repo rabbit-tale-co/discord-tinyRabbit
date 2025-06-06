@@ -32,6 +32,7 @@ export async function modalInteractionHandler(
 		inter.customId.startsWith('tickets:') ||
 		inter.customId.startsWith('starboard_') ||
 		inter.customId.startsWith('starboard:') ||
+		inter.customId.startsWith('welcome_goodbye_') ||
 		inter.customId.includes('_modal') ||
 		inter.customId.includes('config')
 	) {

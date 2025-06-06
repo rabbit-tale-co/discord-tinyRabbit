@@ -196,7 +196,6 @@ type Birthday = {
 	enabled?: boolean
 	channel_id?: string | null
 	message?: string | null
-	show_age?: boolean
 	components?: {
 		[key: string]: ComponentContainer
 	}

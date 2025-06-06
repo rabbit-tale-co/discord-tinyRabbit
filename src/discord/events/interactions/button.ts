@@ -92,6 +92,8 @@ export async function buttonInteractionHandler(
 			inter.customId.startsWith('starboard_') ||
 			inter.customId.startsWith('starboard:') ||
 			inter.customId.startsWith('levels_') ||
+			inter.customId.startsWith('welcome_goodbye_') ||
+			inter.customId.startsWith('birthday_') ||
 			inter.customId.includes('config')
 		) {
 			await centralizedConfig(inter)

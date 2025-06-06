@@ -4,6 +4,8 @@ import { StatusLogger } from '@/utils/bunnyLogger.js'
 import { config as ticketConfig } from './ticket.js'
 import { config as starboardConfig } from './starboard.js'
 import { config as levelsConfig } from './levels.js'
+import { config as welcomeGoodbyeConfig } from './welcomeGoodbye.js'
+import { config as birthdayConfig } from './birthday.js'
 
 type ConfigHandler = (
 	inter:
@@ -20,9 +22,9 @@ const configHandlers: Record<string, ConfigHandler> = {
 	tickets: ticketConfig,
 	starboard: starboardConfig,
 	levels: levelsConfig,
+	welcome_goodbye: welcomeGoodbyeConfig,
+	birthday: birthdayConfig,
 	// Add more handlers as needed
-	// welcome_goodbye: welcomeGoodbyeConfig,
-	// birthday: birthdayConfig,
 	// tempvc: tempvcConfig,
 	// economy: economyConfig,
 	// music: musicConfig,
@@ -153,6 +155,24 @@ export async function config(
 		) {
 			// Handle levels configuration
 			await configHandlers.levels(inter)
+		} else if (
+			customId.startsWith('welcome_goodbye_') ||
+			customId.includes('welcome_goodbye') ||
+			customId.includes('welcome_channel') ||
+			customId.includes('goodbye_channel') ||
+			customId.includes('join_roles')
+		) {
+			// Handle welcome & goodbye configuration
+			await configHandlers.welcome_goodbye(inter)
+		} else if (
+			customId.startsWith('birthday_') ||
+			customId.includes('birthday') ||
+			customId.includes('birthday_channel') ||
+			customId.includes('birthday_message') ||
+			customId.includes('birthday_age')
+		) {
+			// Handle birthday configuration
+			await configHandlers.birthday(inter)
 		} else {
 			StatusLogger.warn(`[Config Router] Unhandled interaction: ${customId}`)
 			if (!inter.replied && !inter.deferred) {
