@@ -1696,7 +1696,7 @@ async function handleRoleTimeLimitsConfig(
 				excludedContent,
 				'',
 				'### ⚙️ **Management**',
-				'Use the buttons below to manage role time limits:',
+				'-# Use the buttons below to manage role time limits:',
 			].join('\n')
 		)
 

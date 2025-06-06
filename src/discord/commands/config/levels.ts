@@ -715,7 +715,7 @@ async function handleRewardRolesConfig(
 			'• **Level 5+**: Achievement roles (bot removes previous role and assigns new one)',
 			'',
 			'### ⚙️ **Management**',
-			'Use the buttons below to manage reward roles:',
+			'-#  below to manage reward roles:',
 		].join('\n')
 	)
 
