@@ -16,21 +16,10 @@ await mkdir('dist', { recursive: true })
 console.log('📦 Building TypeScript files for production...')
 
 // Build the main server file (production build) - exclude Discord.js from bundling
-await $`bun build src/server.ts --outdir ./dist --target bun --sourcemap --external discord.js --external @discordjs/rest --external @discordjs/builders`
+await $`bun build src/server.ts --outdir ./dist --target bun --sourcemap --external discord.js --external @discordjs/rest --external @discordjs/builders --minify`
 
 // Build the deploy-commands script (production build) - exclude Discord.js from bundling
-await $`bun build src/deploy-commands.ts --outdir ./dist --target bun --sourcemap --external discord.js --external @discordjs/rest --external @discordjs/builders`
-
-console.log('📁 Copying essential files...')
-
-// Copy package.json and other necessary files
-const essentialFiles = ['package.json', 'bun.lockb']
-for (const file of essentialFiles) {
-	if (existsSync(file)) {
-		await copyFile(file, join('dist', file))
-		console.log(`📄 Copied ${file}`)
-	}
-}
+await $`bun build src/deploy-commands.ts --outdir ./dist --target bun --sourcemap --external discord.js --external @discordjs/rest --external @discordjs/builders --minify`
 
 // Create start script for production
 const startScript = `#!/usr/bin/env bun
