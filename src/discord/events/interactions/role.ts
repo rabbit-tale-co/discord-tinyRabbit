@@ -13,39 +13,40 @@ interface RoleSelectStructure {
 	handler: RoleSelectHandler
 }
 
-// Role select menu map structure for different menu types
+// Role select menu map structure for different menu types (non-config interactions only)
 const roleSelectMap: Record<string, RoleSelectStructure> = {
-	ticket: {
-		handler: async (inter: Discord.RoleSelectMenuInteraction) => {
-			if (
-				inter.customId === 'ticket_mod_roles_select' ||
-				inter.customId === 'ticket_role_limits_select'
-			) {
-				await centralizedConfig(inter)
-				return
-			}
-		},
-	},
+	// Reserved for future non-config role selects
+	// ticket: { handler: ... }, - now handled by centralized config
 }
 
 export async function roleSelectInteractionHandler(
 	inter: Discord.RoleSelectMenuInteraction
 ): Promise<void> {
-	// Check for configuration role selects first
+	// For all configuration-related role selects, delegate to centralized config
 	if (
 		inter.customId.startsWith('ticket_') ||
+		inter.customId.startsWith('tickets:') ||
+		inter.customId.startsWith('starboard_') ||
+		inter.customId.startsWith('starboard:') ||
 		inter.customId.includes('_roles_select') ||
-		inter.customId.includes('_role_limits_select')
+		inter.customId.includes('_role_limits_select') ||
+		inter.customId.includes('config')
 	) {
 		await centralizedConfig(inter)
 		return
 	}
 
-	// Extract the base identifier from the customId
+	// Extract the base identifier from the customId for non-config interactions
 	const baseId = inter.customId.split('_')[0]
 
 	const roleSelectConfig = roleSelectMap[baseId]
-	if (!roleSelectConfig) return
+	if (!roleSelectConfig) {
+		// If no specific handler found, log and ignore
+		console.log(
+			`[Role Select] No handler found for customId: ${inter.customId}`
+		)
+		return
+	}
 
 	await roleSelectConfig.handler(inter)
 }

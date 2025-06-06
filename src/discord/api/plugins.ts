@@ -613,8 +613,8 @@ const default_configs: DefaultConfigs = {
 		counter: 1,
 		mods_role_ids: [],
 		role_time_limits: {
-			included: [],
-			excluded: [],
+			included: [], // Array of {role_id: string, threshold: number (seconds)}
+			excluded: [], // Array of role_ids that bypass all limits
 		},
 	},
 	welcome_goodbye: {

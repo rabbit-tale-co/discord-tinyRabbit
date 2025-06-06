@@ -144,7 +144,7 @@ export const UI_BUILDERS = {
 		label = 'Back to Main Menu'
 	) {
 		return new Discord.ButtonBuilder()
-			.setcustom_id(custom_id)
+			.setCustomId(custom_id)
 			.setLabel(label)
 			.setStyle(Discord.ButtonStyle.Secondary)
 	},
@@ -178,7 +178,7 @@ export const UI_BUILDERS = {
 	) {
 		return new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
 			new Discord.ButtonBuilder()
-				.setcustom_id(enableId)
+				.setCustomId(enableId)
 				.setLabel('Enable')
 				.setStyle(
 					enabledState
@@ -187,7 +187,7 @@ export const UI_BUILDERS = {
 				)
 				.setDisabled(enabledState),
 			new Discord.ButtonBuilder()
-				.setcustom_id(disableId)
+				.setCustomId(disableId)
 				.setLabel('Disable')
 				.setStyle(
 					!enabledState
@@ -209,7 +209,7 @@ export const UI_BUILDERS = {
 		// Add set reason button
 		row.addComponents(
 			new Discord.ButtonBuilder()
-				.setcustom_id('autoclose_set_reason')
+				.setCustomId('autoclose_set_reason')
 				.setLabel('Set Reason')
 				.setStyle(Discord.ButtonStyle.Primary)
 		)
@@ -239,7 +239,7 @@ export const UI_BUILDERS = {
 				]
 
 		return new Discord.StringSelectMenuBuilder()
-			.setcustom_id(custom_id)
+			.setCustomId(custom_id)
 			.setPlaceholder(placeholder)
 			.addOptions(optionsArray)
 	},
@@ -275,7 +275,7 @@ export const UI_BUILDERS = {
 		const optionsArray = [...UI_COMPONENTS.PREDEFINED_TIME_OPTIONS]
 
 		return new Discord.StringSelectMenuBuilder()
-			.setcustom_id(custom_id)
+			.setCustomId(custom_id)
 			.setPlaceholder(placeholder)
 			.addOptions(optionsArray)
 	},
@@ -309,7 +309,7 @@ export const UI_BUILDERS = {
 	) {
 		return new Discord.ActionRowBuilder<Discord.ChannelSelectMenuBuilder>().addComponents(
 			new Discord.ChannelSelectMenuBuilder()
-				.setcustom_id(custom_id)
+				.setCustomId(custom_id)
 				.setPlaceholder(placeholder)
 				.setChannelTypes(channelTypes)
 		)
@@ -331,7 +331,7 @@ export const UI_BUILDERS = {
 	) {
 		return new Discord.ActionRowBuilder<Discord.RoleSelectMenuBuilder>().addComponents(
 			new Discord.RoleSelectMenuBuilder()
-				.setcustom_id(custom_id)
+				.setCustomId(custom_id)
 				.setPlaceholder(placeholder)
 				.setMinValues(minValues)
 				.setMaxValues(maxValues)
@@ -496,7 +496,7 @@ export const ticketUtils = {
 	createToggleButtons(enabled: boolean) {
 		return new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
 			new Discord.ButtonBuilder()
-				.setcustom_id('autoclose_enable')
+				.setCustomId('autoclose_enable')
 				.setLabel('Enable')
 				.setStyle(
 					enabled ? Discord.ButtonStyle.Success : Discord.ButtonStyle.Secondary

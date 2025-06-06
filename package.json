@@ -1,14 +1,15 @@
 {
   "name": "tiny-rabbit-discord",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "A modular Discord bot with core functionality for community management and engagement.",
   "scripts": {
     "start": "bun run src/server.ts",
-    "deploy": "pm2 start src/server.ts --name TinyRabbit_Discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
+    "deploy": "pm2 start src/server.ts --name discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
+    "build": "bun run src/utils/build.ts",
     "cloc": "bun run src/utils/cloc.ts",
     "add-commands": "bun run src/deploy-commands.ts",
-    "stop": "pm2 stop TinyRabbit_Discord",
-    "restart": "pm2 restart TinyRabbit_Discord --time"
+    "stop": "pm2 stop discord",
+    "restart": "pm2 restart discord --time"
   },
   "type": "module",
   "author": "Hasiradoo",

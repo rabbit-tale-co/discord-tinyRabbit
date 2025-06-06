@@ -1,7 +1,6 @@
 import type * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
 import { config as centralizedConfig } from '@/discord/commands/config/index.js'
-import { config as starboardConfig } from '@/discord/commands/config/starboard.js'
 import * as api from '@/discord/api/index.js'
 import * as utils from '@/utils/index.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
@@ -14,44 +13,38 @@ interface ChannelSelectStructure {
 	handler: ChannelSelectHandler
 }
 
-// Channel select menu map structure for different menu types
+// Channel select menu map structure for different menu types (non-config interactions only)
 const channelSelectMap: Record<string, ChannelSelectStructure> = {
-	ticket: {
-		handler: async (inter: Discord.ChannelSelectMenuInteraction) => {
-			if (
-				inter.customId === 'ticket_admin_channel_select' ||
-				inter.customId === 'ticket_transcript_channel_select'
-			) {
-				await centralizedConfig(inter)
-				return
-			}
-		},
-	},
+	// Reserved for future non-config channel selects
+	// ticket: { handler: ... }, - now handled by centralized config
 }
 
 export async function channelSelectInteractionHandler(
 	inter: Discord.ChannelSelectMenuInteraction
 ): Promise<void> {
-	// Handle starboard interactions directly
-	if (inter.customId.startsWith('starboard_')) {
-		await starboardConfig(inter)
-		return
-	}
-
-	// Check for other configuration channel selects
+	// For all configuration-related channel selects, delegate to centralized config
 	if (
-		inter.customId.startsWith('ticket_') ||
-		inter.customId.includes('_channel_select')
+		inter.customId.startsWith('tickets:') ||
+		inter.customId.startsWith('starboard_') ||
+		inter.customId.startsWith('starboard:') ||
+		inter.customId.includes('_channel_select') ||
+		inter.customId.includes('config')
 	) {
 		await centralizedConfig(inter)
 		return
 	}
 
-	// Extract the base identifier from the customId
+	// Extract the base identifier from the customId for non-config interactions
 	const baseId = inter.customId.split('_')[0]
 
 	const channelSelectConfig = channelSelectMap[baseId]
-	if (!channelSelectConfig) return
+	if (!channelSelectConfig) {
+		// If no specific handler found, log and ignore
+		console.log(
+			`[Channel Select] No handler found for customId: ${inter.customId}`
+		)
+		return
+	}
 
 	await channelSelectConfig.handler(inter)
 }

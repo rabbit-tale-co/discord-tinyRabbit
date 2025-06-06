@@ -1,7 +1,6 @@
 import type * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
 import { config as centralizedConfig } from '@/discord/commands/config/index.js'
-import { config as starboardConfig } from '@/discord/commands/config/starboard.js'
 import { PLUGINS, TICKET_ACTIONS } from '@/discord/commands/constants.js'
 import {
 	openTicketFromSelect,
@@ -44,16 +43,15 @@ export async function selectMenuInteractionHandler(
 	inter: Discord.StringSelectMenuInteraction
 ): Promise<void> {
 	try {
-		// Handle starboard interactions directly
-		if (inter.customId.startsWith('starboard_')) {
-			await starboardConfig(inter)
-			return
-		}
-
-		// Check for other configuration select menus
+		// For all configuration-related select menus, delegate to centralized config
 		if (
+			inter.customId.startsWith('ticket_') ||
+			inter.customId.startsWith('tickets:') ||
+			inter.customId.startsWith('starboard_') ||
+			inter.customId.startsWith('starboard:') ||
+			inter.customId.startsWith('role_limit_') ||
 			inter.customId.includes('config_select') ||
-			inter.customId.startsWith('ticket_')
+			inter.customId.includes('config')
 		) {
 			await centralizedConfig(inter)
 			return

@@ -1,7 +1,6 @@
 import type * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
 import { config as centralizedConfig } from '@/discord/commands/config/index.js'
-import { config as starboardConfig } from '@/discord/commands/config/starboard.js'
 import * as api from '@/discord/api/index.js'
 import * as utils from '@/utils/index.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
@@ -12,42 +11,30 @@ interface ModalStructure {
 	handler: ModalHandler
 }
 
-// Modal map structure for different modal types
+// Modal map structure for different modal types (non-config modals only)
 const modalMap: Record<string, ModalStructure> = {
-	ticket_auto_close_modal: {
-		handler: async (inter: Discord.ModalSubmitInteraction) => {
-			await centralizedConfig(inter)
-		},
-	},
-	// Add more modal handlers here as needed
+	// Reserved for future non-config modals
+	// ticket_auto_close_modal: { handler: ... }, - now handled by centralized config
 }
 
 export async function modalInteractionHandler(
 	inter: Discord.ModalSubmitInteraction
 ): Promise<void> {
-	// Check for close ticket modal (with thread ID suffix)
+	// Check for close ticket modal (with thread ID suffix) - non-config modal
 	if (inter.customId.startsWith('close_ticket_modal:')) {
 		await commands.ticket.modalClose(inter)
 		return
 	}
 
-	// Handle starboard modals directly
-	if (inter.customId.startsWith('starboard_')) {
-		await starboardConfig(inter)
-		return
-	}
-
-	// Check for other configuration modals
+	// For all configuration-related modals, delegate to centralized config
 	if (
-		inter.customId.includes('_modal') &&
-		inter.customId.startsWith('ticket_')
+		inter.customId.startsWith('ticket_') ||
+		inter.customId.startsWith('tickets:') ||
+		inter.customId.startsWith('starboard_') ||
+		inter.customId.startsWith('starboard:') ||
+		inter.customId.includes('_modal') ||
+		inter.customId.includes('config')
 	) {
-		await centralizedConfig(inter)
-		return
-	}
-
-	// Check for role limits modal
-	if (inter.customId.startsWith('ticket_role_limits_modal_')) {
 		await centralizedConfig(inter)
 		return
 	}

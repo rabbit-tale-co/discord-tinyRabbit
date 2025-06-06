@@ -338,7 +338,7 @@ function createV2Button(
 		} else if (btnComp.custom_id) {
 			const custom_id = replacePlaceholders(btnComp.custom_id, placeholders)
 			if (custom_id) {
-				button.setcustom_id(custom_id)
+				button.setCustomId(custom_id)
 			}
 		}
 
@@ -492,7 +492,7 @@ function convertButton(
 			}
 			button.setURL(replacePlaceholders(btn.url, map))
 		} else {
-			button.setcustom_id(btn.custom_id ?? `${ID.TICKET_OPEN}:${idx}`)
+			button.setCustomId(btn.customId ?? `${ID.TICKET_OPEN}:${idx}`)
 		}
 
 		return button

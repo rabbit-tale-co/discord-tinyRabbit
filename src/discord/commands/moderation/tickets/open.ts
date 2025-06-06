@@ -142,6 +142,10 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 
 		await thread.members.add(inter.user.id)
 
+		// Note: Thread permissions are inherited from the parent channel
+		// To allow users to send attachments/embeds in tickets, ensure the parent
+		// channel has appropriate permissions set for @everyone or user roles
+
 		/* ------------------------------------------------------ */
 		/*                     SAVE METADATA                      */
 		/* ------------------------------------------------------ */
@@ -498,6 +502,10 @@ export async function openTicketFromSelect(
 		})
 
 		await thread.members.add(inter.user.id)
+
+		// Note: Thread permissions are inherited from the parent channel
+		// To allow users to send attachments/embeds in tickets, ensure the parent
+		// channel has appropriate permissions set for @everyone or user roles
 
 		const meta: ThreadMetadata = {
 			ticket_id,

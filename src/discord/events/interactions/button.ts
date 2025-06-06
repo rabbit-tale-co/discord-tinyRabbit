@@ -2,7 +2,6 @@ import type { ButtonInteraction, ThreadChannel } from 'discord.js'
 import * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
 import { config as centralizedConfig } from '@/discord/commands/config/index.js'
-import { config as starboardConfig } from '@/discord/commands/config/starboard.js'
 import { PLUGINS } from '@/discord/commands/constants.js'
 import { updateTicketRating } from '@/discord/api/tickets.js'
 import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
@@ -69,28 +68,11 @@ const buttonMap: Record<string, ButtonStructure> = {
 					}
 					break
 				}
-				case 'back': {
-					if (params[0] === 'config') {
-						await centralizedConfig(inter)
-					}
-					break
-				}
-				case 'add': {
-					if (params[0] === 'role_limit') {
-						await centralizedConfig(inter)
-					}
-					break
-				}
-				case 'remove': {
-					if (params[0] === 'role_limit') {
-						await centralizedConfig(inter)
-					}
-					break
-				}
 				case 'rate': {
 					await handleTicketRating(inter, params[0], Number.parseInt(params[1]))
 					break
 				}
+				// Config-related actions now handled by centralized config
 				default:
 					StatusLogger.warn(`Unhandled tickets action: ${action}`)
 					break
@@ -103,14 +85,14 @@ export async function buttonInteractionHandler(
 	inter: ButtonInteraction
 ): Promise<void> {
 	try {
-		// Handle starboard interactions directly
-		if (inter.customId.startsWith('starboard_')) {
-			await starboardConfig(inter)
-			return
-		}
-
-		// Check for other configuration buttons (centralized config system)
-		if (inter.customId.startsWith('ticket_')) {
+		// For all configuration-related buttons, delegate to centralized config
+		if (
+			inter.customId.startsWith('ticket_') ||
+			inter.customId.startsWith('tickets:') ||
+			inter.customId.startsWith('starboard_') ||
+			inter.customId.startsWith('starboard:') ||
+			inter.customId.includes('config')
+		) {
 			await centralizedConfig(inter)
 			return
 		}

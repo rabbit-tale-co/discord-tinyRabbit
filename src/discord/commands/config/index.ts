@@ -40,7 +40,25 @@ export async function config(
 	// Check if interaction has already been replied to
 	if (inter.replied || inter.deferred) {
 		const customId = inter.isChatInputCommand() ? 'chat_input' : inter.customId
-		StatusLogger.warn(`Config interaction already handled: ${customId}`)
+		StatusLogger.warn(
+			`[Config Router] Interaction already handled: ${customId}`
+		)
+		return
+	}
+
+	// Additional safety check for interaction state
+	try {
+		if (inter.isRepliable() && (inter.replied || inter.deferred)) {
+			StatusLogger.warn(
+				`[Config Router] Interaction state conflict for: ${inter.isChatInputCommand() ? 'chat_input' : inter.customId}`
+			)
+			return
+		}
+	} catch (stateError) {
+		StatusLogger.error(
+			'[Config Router] Error checking interaction state:',
+			stateError
+		)
 		return
 	}
 
@@ -108,11 +126,26 @@ export async function config(
 	const customId = inter.customId
 
 	try {
-		// Route to appropriate handler based on custom ID prefix
-		if (customId.startsWith('ticket_') || customId.startsWith('tickets:')) {
+		// Route to appropriate handler based on custom ID
+		if (
+			customId.startsWith('tickets:') ||
+			customId.startsWith('ticket_') ||
+			customId.includes('role_limit') ||
+			customId.includes('autoclose') ||
+			(customId.includes('config') && customId.includes('ticket'))
+		) {
+			// Handle tickets configuration
 			await configHandlers.tickets(inter)
+		} else if (
+			customId.startsWith('starboard:') ||
+			customId.startsWith('starboard_') ||
+			customId.includes('starboard') ||
+			customId.includes('clear_watch_channels')
+		) {
+			// Handle starboard configuration
+			await configHandlers.starboard(inter)
 		} else {
-			StatusLogger.warn(`Unhandled config interaction: ${customId}`)
+			StatusLogger.warn(`[Config Router] Unhandled interaction: ${customId}`)
 			if (!inter.replied && !inter.deferred) {
 				await utils.handleResponse(
 					inter,
