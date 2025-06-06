@@ -15,11 +15,11 @@ await mkdir('dist', { recursive: true })
 
 console.log('📦 Building TypeScript files for production...')
 
-// Build the main server file (production build)
-await $`bun build src/server.ts --outdir ./dist --target bun --minify --sourcemap --splitting`
+// Build the main server file (production build) - exclude Discord.js from bundling
+await $`bun build src/server.ts --outdir ./dist --target bun --sourcemap --external discord.js --external @discordjs/rest --external @discordjs/builders`
 
-// Build the deploy-commands script (production build)
-await $`bun build src/deploy-commands.ts --outdir ./dist --target bun --minify --sourcemap`
+// Build the deploy-commands script (production build) - exclude Discord.js from bundling
+await $`bun build src/deploy-commands.ts --outdir ./dist --target bun --sourcemap --external discord.js --external @discordjs/rest --external @discordjs/builders`
 
 console.log('📁 Copying essential files...')
 
@@ -39,30 +39,6 @@ import "./server.js";
 `
 
 await writeFile('dist/start.js', startScript)
-
-// Create production package.json with only runtime dependencies
-const packageJsonContent = await Bun.file('package.json').text()
-const packageJson = JSON.parse(packageJsonContent)
-
-const prodPackageJson = {
-	name: packageJson.name,
-	version: packageJson.version,
-	description: packageJson.description,
-	type: 'module',
-	main: 'server.js',
-	scripts: {
-		start: 'bun start.js',
-		deploy:
-			"pm2 start server.js --name discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
-		stop: 'pm2 stop discord',
-		restart: 'pm2 restart discord --time',
-	},
-	dependencies: packageJson.dependencies,
-	author: packageJson.author,
-	license: packageJson.license,
-}
-
-await writeFile('dist/package.json', JSON.stringify(prodPackageJson, null, 2))
 
 console.log('✅ Build completed successfully!')
 console.log('📁 Output directory: dist/')

@@ -3,7 +3,7 @@
   "version": "2.3.3",
   "description": "A modular Discord bot with core functionality for community management and engagement.",
   "scripts": {
-    "start": "bun run src/server.ts",
+    "start": "bun run dist/server.js",
     "deploy": "pm2 start dist/server.js --name discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
     "build": "bun run src/utils/build.ts",
     "cloc": "bun run src/utils/cloc.ts",

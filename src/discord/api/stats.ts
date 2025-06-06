@@ -12,26 +12,6 @@ type BotStats = {
 	total_xp: number
 }
 
-/**
- * Lightweight guild fetching for stats only - avoids rate limits
- */
-async function fetchGuildsForStats() {
-	const response = await fetch(
-		'https://discord.com/api/users/@me/guilds?with_counts=true',
-		{
-			headers: {
-				Authorization: `Bot ${process.env.BOT_TOKEN}`,
-			},
-		}
-	)
-
-	if (!response.ok) {
-		throw new Error(`Failed to fetch guilds: Status ${response.status}`)
-	}
-
-	return response.json()
-}
-
 export async function fetchAllStats(
 	botId: string,
 	client?: Discord.Client
@@ -45,12 +25,8 @@ export async function fetchAllStats(
 
 		if (error || !data) {
 			// Fallback to direct counting if stats missing
-			const [servers, birthdays, starboards, tempChannels, tickets, xp] =
+			const [birthdays, starboards, tempChannels, tickets, xp] =
 				await Promise.all([
-					supabase
-						.from('guilds')
-						.select('*', { count: 'exact' })
-						.eq('bot_id', botId),
 					supabase
 						.from('user_bdays')
 						.select('*', { count: 'exact' })
@@ -70,9 +46,11 @@ export async function fetchAllStats(
 					supabase.from('leaderboard').select('xp').eq('bot_id', botId),
 				])
 
-			// Get user count from Discord client cache (no API calls!)
+			// Get server and user counts from Discord client cache (no API calls, more accurate!)
+			let totalServers = 0
 			let totalUsers = 0
 			if (client?.guilds?.cache) {
+				totalServers = client.guilds.cache.size
 				totalUsers = client.guilds.cache.reduce(
 					(acc, guild) => acc + (guild.memberCount || 0),
 					0
@@ -80,7 +58,7 @@ export async function fetchAllStats(
 			}
 
 			return {
-				servers: servers.count || 0,
+				servers: totalServers,
 				users: totalUsers,
 				birthday_messages: birthdays.count || 0,
 				starboard_posts: starboards.count || 0,
