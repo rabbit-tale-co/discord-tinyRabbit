@@ -2,15 +2,15 @@
 
 <div align="center">
 
-[![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.0+-black?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
+[![Discord.js](https://img.shields.io/badge/discord.js-v14-5865f2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-4A90E2?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-70AD47?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
+[![Bun](https://img.shields.io/badge/Bun-1.0+-2D3748?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
 
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Supabase](https://img.shields.io/badge/Database-Supabase-green?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
-[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-blueviolet?logo=discord&logoColor=white&style=for-the-badge)]()
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge)]()
+[![License](https://img.shields.io/badge/License-MIT-F4A261?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Supabase](https://img.shields.io/badge/Database-Supabase-4ECDC4?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
+[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-8B5CF6?logo=discord&logoColor=white&style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-Active-A9D18E?style=for-the-badge)]()
 
 [![Support Server](https://img.shields.io/discord/1004735926234271864?color=7289da&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
 [![GitHub Stars](https://img.shields.io/github/stars/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
@@ -268,9 +268,9 @@ Track comprehensive bot usage:
 
 ### 🔗 Links & Community
 
-[![Documentation](https://img.shields.io/badge/📚-Documentation-blue?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/wiki)
-[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-red?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
-[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-green?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
+[![Documentation](https://img.shields.io/badge/📚-Documentation-5B9BD5?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/wiki)
+[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-FF6B6B?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
+[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-A9D18E?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
 
 </div>
 
@@ -329,8 +329,6 @@ If this project helped you, please consider giving it a ⭐ on GitHub!
 
 <div align="center">
 
-**Made with ❤️ by the community**
-
-*Last updated: December 2024*
+**Made with ❤️ by the community & Rabbit Tale Studio**
 
 </div>
