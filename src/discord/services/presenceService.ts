@@ -119,7 +119,9 @@ class PresenceService {
 
 			const stats = await api.fetchAllStats(user.id, this.client)
 
-			const description = `- configure me with \`/config\`
+			const totalPlugins = api.getAllPluginsCount()
+
+			const description = `- configure me with \`/config\` (3 done / ${totalPlugins} plugins)
 
 🐇 Tiny Rabbit Stats:
 🏰 Servers: ${stats.servers.toLocaleString()}

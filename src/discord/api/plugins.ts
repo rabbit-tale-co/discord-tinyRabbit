@@ -1151,6 +1151,27 @@ async function migrateTicketEmbeds(
 	}
 }
 
+/**
+ * Get the total number of available plugins
+ * @returns {number} - The total count of available plugins
+ */
+function getAllPluginsCount(): number {
+	// Return the number of plugins defined in PluginTypes
+	return Object.keys({
+		levels: true,
+		tickets: true,
+		welcome_goodbye: true,
+		starboard: true,
+		birthday: true,
+		tempvc: true,
+		slowmode: true,
+		connectSocial: true,
+		moderation: true,
+		music: true,
+		economy: true,
+	} satisfies Record<keyof DefaultConfigs, boolean>).length
+}
+
 export {
 	updateMissingPlugins,
 	getPluginConfig,
@@ -1161,4 +1182,5 @@ export {
 	togglePlugin,
 	saveGuildPlugins,
 	migrateTicketEmbeds,
+	getAllPluginsCount,
 }
