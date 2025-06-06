@@ -1165,7 +1165,7 @@ function getAllPluginsCount(): number {
 		birthday: true,
 		tempvc: true,
 		slowmode: true,
-		connectSocial: true,
+		connectSocial: false,
 		moderation: true,
 		music: true,
 		economy: true,
