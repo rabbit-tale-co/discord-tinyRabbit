@@ -5,7 +5,8 @@
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-5865f2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.0+-F6DEFF?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
+[![Bun](https://img.shields.io/badge/Bun-1.0+-F6DEFF?logo=bun&logoColor=black&style=for-the-badge)](https://bun.sh/)
+[![PM2](https://img.shields.io/badge/PM2-Process%20Manager-98D8E8?style=for-the-badge&logo=pm2&logoColor=white)](https://pm2.keymetrics.io/)
 
 [![License](https://img.shields.io/badge/License-MIT-FFB6C1?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
@@ -123,6 +124,8 @@
 - **Database**: Supabase PostgreSQL with real-time subscriptions
 - **Validation**: Comprehensive input validation and sanitization
 - **Logging**: Advanced logging system with multiple output targets
+- **Process Manager**: PM2 for production deployment and monitoring
+- **Build System**: Custom TypeScript build pipeline with Bun
 
 ### Database Schema Overview
 
@@ -203,13 +206,61 @@ The `schema.sql` file contains:
 bun install
 
 # Deploy Discord slash commands
+bun run add-commands
+
+# Build for production
+bun run build
+
+# Start development server (development)
+bun run start
+
+# Production deployment with PM2 (recommended)
 bun run deploy
 
-# Start development server
-bun run dev
+# PM2 management commands
+bun run stop     # Stop the bot
+bun run restart  # Restart the bot with timing info
+pm2 logs discord # View bot logs
+pm2 status       # Check PM2 process status
+```
 
-# Start production server
-bun start
+### 🔄 PM2 Process Management
+
+This bot uses **PM2** for production process management with the following benefits:
+- **Auto-restart** on crashes or file changes
+- **Log management** with date formatting
+- **Memory monitoring** and leak detection
+- **Cluster mode** support for scaling
+- **Built-in monitoring** dashboard
+
+```bash
+# PM2 Configuration
+pm2 start dist/server.js \
+  --name discord \
+  --log-date-format 'DD-MM' \
+  --interpreter ~/.bun/bin/bun
+
+# Monitor processes
+pm2 monit
+
+# View detailed logs
+pm2 logs discord --lines 100
+```
+
+### 🛠️ Development Scripts
+
+Additional utility scripts available for development:
+
+```bash
+# Code analysis and statistics
+bun run cloc        # Count lines of code across the project
+
+# Build system
+bun run build       # Compile TypeScript and prepare for production
+
+# Development workflow
+bun run add-commands # Deploy slash commands to Discord
+bun run start       # Start from built files (production mode)
 ```
 
 ## 🔧 Plugin Configuration
