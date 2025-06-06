@@ -5,7 +5,7 @@
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-5865f2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.0+-F6DEFF?logo=bun&logoColor=black&style=for-the-badge)](https://bun.sh/)
+[![Bun](https://img.shields.io/badge/Bun-1.0+-F6DEFF?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
 [![PM2](https://img.shields.io/badge/PM2-Process%20Manager-98D8E8?style=for-the-badge&logo=pm2&logoColor=white)](https://pm2.keymetrics.io/)
 
 [![License](https://img.shields.io/badge/License-MIT-FFB6C1?style=for-the-badge)](https://opensource.org/licenses/MIT)
