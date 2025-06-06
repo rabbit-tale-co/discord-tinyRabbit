@@ -2,19 +2,19 @@
 
 <div align="center">
 
-[![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?logo=discord&logoColor=white)](https://discord.js.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.0+-black?logo=bun&logoColor=white)](https://bun.sh/)
+[![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
+[![Bun](https://img.shields.io/badge/Bun-1.0+-black?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
 
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Supabase](https://img.shields.io/badge/Database-Supabase-green?logo=supabase&logoColor=white)](https://supabase.com/)
-[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-blueviolet?logo=discord&logoColor=white)]()
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Supabase](https://img.shields.io/badge/Database-Supabase-green?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
+[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-blueviolet?logo=discord&logoColor=white&style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge)]()
 
-[![Support Server](https://img.shields.io/discord/1234567890?color=7289da&label=Support%20Server&logo=discord&logoColor=white)](https://discord.gg/RfBydgJpmU)
-[![GitHub Stars](https://img.shields.io/github/stars/username/repo?style=social)](https://github.com/username/repo)
-[![GitHub Forks](https://img.shields.io/github/forks/username/repo?style=social)](https://github.com/username/repo)
+[![Support Server](https://img.shields.io/discord/1234567890?color=7289da&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
+[![GitHub Stars](https://img.shields.io/github/stars/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
+[![GitHub Forks](https://img.shields.io/github/forks/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
 
 </div>
 
@@ -125,6 +125,9 @@
 - **Logging**: Advanced logging system with multiple output targets
 
 ### Database Schema Overview
+
+> 📄 **Complete schema available in [`schema.sql`](schema.sql)**
+
 ```sql
 -- Core Tables
 bots (bot_id, bot_name, bot_token, bot_owner)
@@ -132,18 +135,25 @@ guilds (bot_id, guild_id, guild_name, premium)
 plugins (bot_id, guild_id, plugin_name, config)
 
 -- Feature Tables
-user_bdays (bot_id, guild_id, user_id, birthday)
-user_levels (bot_id, guild_id, user_id, xp, level)
+user_bdays (bot_id, guild_id, user_id, birthday_day, birthday_month, birthday_year)
+user_levels (bot_id, guild_id, user_id, xp, level, last_message_at)
 user_balances (bot_id, guild_id, user_id, amount)
-tickets (bot_id, guild_id, thread_id, messages, metadata)
+tickets (bot_id, guild_id, thread_id, creator_id, status, messages, metadata)
 starboards (bot_id, guild_id, author_message_id, starboard_message_id, star_count)
 temp_voice_channels (bot_id, guild_id, channel_id, creator_id, expire_at)
 
 -- Advanced Features
-linked_accounts (user_id, discord_id, minecraft_id, youtube_id, ...)
+linked_accounts (user_id, discord_id, minecraft_id, youtube_id, twitter_id, ...)
 currency_transactions (id, bot_id, guild_id, user_id, amount, type, reason)
-bot_stats (bot_id, servers, birthday_messages, starboard_posts, ...)
+bot_stats (bot_id, total_servers, birthday_messages_sent, tickets_opened, ...)
 ```
+
+**Key Features:**
+- **Foreign Key Constraints**: Ensures data integrity across all tables
+- **Performance Indexes**: Optimized for common queries (leaderboards, lookups)
+- **Automatic Timestamps**: `created_at` and `updated_at` with triggers
+- **Data Validation**: Check constraints for valid ranges and formats
+- **Helpful Views**: Pre-built queries for guild summaries and user activity
 
 ## 🚀 Setup Guide
 
@@ -153,7 +163,7 @@ bot_stats (bot_id, servers, birthday_messages, starboard_posts, ...)
 curl -fsSL https://bun.sh/install | bash
 
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/rabbit-tale-co/discord-tinyRabbit.git
 cd discord
 ```
 
@@ -166,16 +176,26 @@ GUILD_ID=your_development_server_id
 # Database Configuration
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_KEY=your_supabase_service_role_key
-
-# Optional: Multiple Bot Support
-ADDITIONAL_BOT_TOKENS=token1,token2,token3
 ```
 
 ### 3. Database Setup
-```sql
--- Run the provided schema.sql to create all tables
--- Or use Supabase migrations for automated setup
+```bash
+# Option 1: Use provided schema file
+psql -d your_database -f schema.sql
+
+# Option 2: Use Supabase Dashboard
+# Import schema.sql through Supabase SQL Editor
+
+# Option 3: Use Supabase CLI (if available)
+supabase db reset
 ```
+
+The `schema.sql` file contains:
+- Complete table definitions with foreign keys and constraints
+- Performance-optimized indexes for all major queries
+- Automatic timestamp triggers for audit trails
+- Helpful views for common operations
+- Sample data structure (commented out for production)
 
 ### 4. Installation & Deployment
 ```bash
@@ -248,9 +268,9 @@ Track comprehensive bot usage:
 
 ### 🔗 Links & Community
 
-[![Documentation](https://img.shields.io/badge/📚-Documentation-blue?style=for-the-badge)](https://github.com/username/repo/wiki)
-[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-red?style=for-the-badge)](https://github.com/username/repo/issues)
-[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-green?style=for-the-badge)](https://github.com/username/repo/issues)
+[![Documentation](https://img.shields.io/badge/📚-Documentation-blue?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/wiki)
+[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-red?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
+[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-green?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
 
 </div>
 
@@ -283,7 +303,7 @@ We welcome contributions! Here's how to get started:
 
 ```bash
 # Clone and setup
-git clone <repository-url>
+git clone https://github.com/rabbit-tale-co/discord-tinyRabbit.git
 cd discord
 bun install
 
