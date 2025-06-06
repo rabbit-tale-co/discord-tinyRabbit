@@ -12,7 +12,7 @@
 [![Components V2](https://img.shields.io/badge/Discord-Components%20V2-blueviolet?logo=discord&logoColor=white&style=for-the-badge)]()
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge)]()
 
-[![Support Server](https://img.shields.io/discord/1234567890?color=7289da&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
+[![Support Server](https://img.shields.io/discord/1004735926234271864?color=7289da&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
 [![GitHub Stars](https://img.shields.io/github/stars/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
 [![GitHub Forks](https://img.shields.io/github/forks/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
 
