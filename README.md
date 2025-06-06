@@ -3,18 +3,18 @@
 <div align="center">
 
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-5865f2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-4A90E2?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-70AD47?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.0+-2D3748?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
+[![Bun](https://img.shields.io/badge/Bun-1.0+-F6DEFF?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
 
-[![License](https://img.shields.io/badge/License-MIT-F4A261?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Supabase](https://img.shields.io/badge/Database-Supabase-4ECDC4?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
-[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-8B5CF6?logo=discord&logoColor=white&style=for-the-badge)]()
-[![Status](https://img.shields.io/badge/Status-Active-A9D18E?style=for-the-badge)]()
+[![License](https://img.shields.io/badge/License-MIT-FFB6C1?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
+[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-D4A5D8?logo=discord&logoColor=white&style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-Active-B5E4CA?style=for-the-badge)]()
 
-[![Support Server](https://img.shields.io/discord/1004735926234271864?color=7289da&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
-[![GitHub Stars](https://img.shields.io/github/stars/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
-[![GitHub Forks](https://img.shields.io/github/forks/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
+[![Support Server](https://img.shields.io/discord/1004735926234271864?color=5865f2&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
+[![GitHub Stars](https://img.shields.io/github/stars/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github&color=181717)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
+[![GitHub Forks](https://img.shields.io/github/forks/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github&color=181717)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
 
 </div>
 
@@ -268,9 +268,9 @@ Track comprehensive bot usage:
 
 ### 🔗 Links & Community
 
-[![Documentation](https://img.shields.io/badge/📚-Documentation-5B9BD5?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/wiki)
-[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-FF6B6B?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
-[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-A9D18E?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
+[![Documentation](https://img.shields.io/badge/📚-Documentation-98D8E8?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/wiki)
+[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-F7B2BD?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
+[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-B5E4CA?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
 
 </div>
 
