@@ -20,7 +20,11 @@ export * from './licenseManager.js'
 export * from './licenseEndpoints.js'
 
 // Helper exports
-export { getPluginConfig, updatePluginConfig } from './plugins.js'
+export {
+	getPluginConfig,
+	updatePluginConfig,
+	getAllPluginsCount,
+} from './plugins.js'
 export { checkHeartbeat } from './heartbeat/BotStatus.js'
 export { saveBirthday } from './bday.js'
 export { getGlobalRank, getServerRank } from './userRank.js'

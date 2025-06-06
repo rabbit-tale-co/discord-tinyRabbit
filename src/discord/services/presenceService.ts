@@ -9,7 +9,7 @@ class PresenceService {
 			dates: { start: '04-01', end: '04-02' }, // April Fools
 			activity: {
 				type: Discord.ActivityType.Custom,
-				name: 'Jokes around!',
+				name: '🤡 Jokes around!',
 			},
 			status: 'online' as Discord.PresenceStatusData,
 		},
@@ -18,6 +18,14 @@ class PresenceService {
 			activity: {
 				type: Discord.ActivityType.Custom,
 				name: '❤️ Spread love!',
+			},
+			status: 'online' as Discord.PresenceStatusData,
+		},
+		{
+			dates: { start: '06-01', end: '06-30' }, // pride month
+			activity: {
+				type: Discord.ActivityType.Custom,
+				name: '🌈 Happy Pride Month!',
 			},
 			status: 'online' as Discord.PresenceStatusData,
 		},
@@ -109,18 +117,23 @@ class PresenceService {
 			const user = this.client.user
 			if (!user) return
 
-			const stats = await api.fetchAllStats(user.id)
+			const stats = await api.fetchAllStats(user.id, this.client)
 
-			const description = `website: https://discord.rabbittale.co
-support: https://discord.gg/RfBydgJpmU
+			const totalPlugins = api.getAllPluginsCount()
+
+			const description = `- configure me with \`/config\` (5 done / ${totalPlugins} plugins)
 
 🐇 Tiny Rabbit Stats:
 🏰 Servers: ${stats.servers.toLocaleString()}
+👥 Users: ${stats.users.toLocaleString()}
 🎉 Birthdays: ${stats.birthday_messages.toLocaleString()}
 ⭐ Starboards: ${stats.starboard_posts.toLocaleString()}
 🔈 Temp Channels: ${stats.temp_channels.toLocaleString()}
 🎫 Tickets: ${stats.tickets_opened.toLocaleString()}
 📈 Total XP: ${stats.total_xp.toLocaleString()}
+
+- website: https://discord.rabbittale.co
+- support: https://discord.gg/RfBydgJpmU
 
 Questions? Contact @Hasiradoo`
 
@@ -129,7 +142,10 @@ Questions? Contact @Hasiradoo`
 				//bunnyLog.info('Updated application description')
 			}
 		} catch (error) {
-			StatusLogger.error('Error updating application description', error as Error)
+			StatusLogger.error(
+				'Error updating application description',
+				error as Error
+			)
 		}
 	}
 }

@@ -1,4 +1,3 @@
-export * from './config.js'
 export * from './close.js'
 export * from './open.js'
 export * from './message.js'
@@ -76,8 +75,32 @@ async function scanAllExistingTickets(client: Discord.Client) {
 				)
 
 				// Filter out tickets that are actually closed (status: "closed")
-				const activeTickets = allTickets.filter(ticket =>
-					ticket.metadata.status !== 'closed'
+				const activeTickets = allTickets.filter((ticket) => {
+					const status = ticket.metadata.status?.toLowerCase()
+					const isActive = status !== 'closed' && status !== 'archived'
+
+					// Debug logging for status checking
+					if (status === 'closed' || status === 'archived') {
+						StatusLogger.info(
+							`🔍 Filtering out ticket ${ticket.metadata.ticket_id}: status="${status}"`
+						)
+					}
+
+					return isActive
+				})
+
+				// If no active tickets after filtering, skip this guild
+				if (activeTickets.length === 0) {
+					if (allTickets.length > 0) {
+						StatusLogger.info(
+							`🎫 Guild ${guild.name}: ${allTickets.length} tickets found, all are closed/archived`
+						)
+					}
+					continue
+				}
+
+				StatusLogger.info(
+					`🎫 Guild ${guild.name}: Processing ${activeTickets.length}/${allTickets.length} active tickets`
 				)
 
 				const inactivityThreshold =
@@ -162,7 +185,9 @@ async function checkTicketForInactivityOnStartup(
 		// Check last message time
 		const messages = await thread.messages.fetch({ limit: 50 }) // Fetch more messages to find non-bot message
 		if (messages.size === 0) {
-			StatusLogger.warn(`No messages found in ticket ${ticketMetadata.ticket_id}`)
+			StatusLogger.warn(
+				`No messages found in ticket ${ticketMetadata.ticket_id}`
+			)
 			return false
 		}
 
@@ -207,7 +232,10 @@ async function checkTicketForInactivityOnStartup(
 
 		return false
 	} catch (error) {
-		StatusLogger.error(`Error checking ticket #${ticketMetadata.ticket_id}:`, error)
+		StatusLogger.error(
+			`Error checking ticket #${ticketMetadata.ticket_id}:`,
+			error
+		)
 		return false
 	}
 }

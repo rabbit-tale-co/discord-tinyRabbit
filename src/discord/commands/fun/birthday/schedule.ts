@@ -66,6 +66,14 @@ async function sendBirthdayAnnouncements(client: Discord.Client) {
 							nextBirthday.getTime() / 1000
 						)
 
+						// Prepare birthday placeholders
+						const birthdayPlaceholders = {
+							next_birthday: nextBirthdayTimestamp.toString(),
+							birthday_day: birthdayUser.birthday.day,
+							birthday_month: birthdayUser.birthday.month,
+							birthday_year: birthdayUser.birthday.year,
+						}
+
 						// Create a copy of the components to avoid modifying the original
 						const components = JSON.parse(JSON.stringify(config.components))
 
@@ -85,9 +93,7 @@ async function sendBirthdayAnnouncements(client: Discord.Client) {
 														subComponent.content,
 														member,
 														guild,
-														{
-															next_birthday: nextBirthdayTimestamp.toString(),
-														}
+														birthdayPlaceholders
 													),
 												}
 											}
@@ -116,9 +122,7 @@ async function sendBirthdayAnnouncements(client: Discord.Client) {
 											component.content,
 											member,
 											guild,
-											{
-												next_birthday: nextBirthdayTimestamp.toString(),
-											}
+											birthdayPlaceholders
 										),
 									}
 								}
@@ -134,7 +138,9 @@ async function sendBirthdayAnnouncements(client: Discord.Client) {
 					})
 				)
 			} catch (error) {
-				BirthdayLogger.error(`Birthday announcement failed in ${guild.name}: ${error}`)
+				BirthdayLogger.error(
+					`Birthday announcement failed in ${guild.name}: ${error}`
+				)
 			}
 		})
 	)

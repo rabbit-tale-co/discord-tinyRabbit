@@ -1,5 +1,5 @@
 import * as Discord from 'discord.js'
-import { ticketUtils } from '@/utils/tickets.js'
+import { ticketUtils, formatTimeThreshold } from '@/utils/tickets.js'
 import * as api from '@/discord/api/index.js'
 import type { PluginResponse, DefaultConfigs } from '@/types/plugins.js'
 import * as V2 from 'discord-components-v2'
@@ -57,17 +57,35 @@ function findStrictestLimit(
 	cfg: PluginResponse<DefaultConfigs['tickets']>
 ) {
 	let best: {
-		raw: Discord.Snowflake
+		raw: string
 		ms: number
 	} | null = null
 
 	for (const rl of cfg.role_time_limits?.included ?? []) {
 		if (!member.roles.cache.has(rl.role_id)) continue
 
-		const ms = ticketUtils.parseTimeValue(rl.limit)
-		if (ms === 0) continue // Skip invalid time values
+		// Handle migration from old format to new format
+		let thresholdInSeconds: number
+		if ('threshold' in rl && typeof rl.threshold === 'number') {
+			// New format: threshold in seconds
+			thresholdInSeconds = rl.threshold
+		} else if (
+			'limit' in rl &&
+			typeof (rl as { role_id: string; limit: string }).limit === 'string'
+		) {
+			// Old format: convert limit string to seconds
+			const legacyLimit = (rl as { role_id: string; limit: string }).limit
+			const ms = ticketUtils.parseTimeValue(legacyLimit)
+			thresholdInSeconds = Math.floor(ms / 1000)
+		} else {
+			continue // Skip invalid entries
+		}
 
-		if (!best || ms < best.ms) best = { raw: rl.limit, ms }
+		if (thresholdInSeconds === 0) continue // Skip invalid time values
+
+		const ms = thresholdInSeconds * 1000 // Convert to milliseconds for time calculations
+
+		if (!best || ms < best.ms) best = { raw: thresholdInSeconds.toString(), ms }
 	}
 
 	return best
@@ -136,12 +154,42 @@ async function showLimitsPanel(
 	const includedLimits = cfg.role_time_limits?.included ?? []
 	const excludedRoles = cfg.role_time_limits?.excluded ?? []
 
-	const limitsLines = includedLimits.map(
-		(l, idx) => `**${idx + 1}.** <@&${l.role_id}> - ${l.limit}`
+	const limitsLines = await Promise.all(
+		includedLimits.map(async (l, idx) => {
+			// Handle migration from old format to new format
+			let thresholdInSeconds: number
+			if ('threshold' in l && typeof l.threshold === 'number') {
+				// New format: threshold in seconds
+				thresholdInSeconds = l.threshold
+			} else if (
+				'limit' in l &&
+				typeof (l as { role_id: string; limit: string }).limit === 'string'
+			) {
+				// Old format: convert limit string to seconds
+				const legacyLimit = (l as { role_id: string; limit: string }).limit
+				const ms = ticketUtils.parseTimeValue(legacyLimit)
+				thresholdInSeconds = Math.floor(ms / 1000)
+			} else {
+				thresholdInSeconds = 0 // Fallback for invalid data
+			}
+
+			const displayTime = formatTimeThreshold(thresholdInSeconds * 1000)
+
+			// Fetch role name instead of using numbered list
+			const role = await i.guild?.roles.fetch(l.role_id).catch(() => null)
+			const roleName = role ? role.name : `Unknown Role (${l.role_id})`
+
+			return `**${roleName}** - ${displayTime}`
+		})
 	)
 
-	const excludedLines = excludedRoles.map(
-		(roleId, idx) => `**${idx + 1}.** <@&${roleId}>`
+	const excludedLines = await Promise.all(
+		excludedRoles.map(async (roleId, idx) => {
+			// Fetch role name instead of using numbered list
+			const role = await i.guild?.roles.fetch(roleId).catch(() => null)
+			const roleName = role ? role.name : `Unknown Role (${roleId})`
+			return `**${roleName}**`
+		})
 	)
 
 	const content = [
@@ -247,10 +295,30 @@ async function handleRemovePicker(i: Discord.ButtonInteraction) {
 			const role = (await i.guild.roles
 				.fetch(l.role_id)
 				.catch(() => null)) as Discord.Role | null
+
+			// Handle migration from old format to new format
+			let thresholdInSeconds: number
+			if ('threshold' in l && typeof l.threshold === 'number') {
+				// New format: threshold in seconds
+				thresholdInSeconds = l.threshold
+			} else if (
+				'limit' in l &&
+				typeof (l as { role_id: string; limit: string }).limit === 'string'
+			) {
+				// Old format: convert limit string to seconds
+				const legacyLimit = (l as { role_id: string; limit: string }).limit
+				const ms = ticketUtils.parseTimeValue(legacyLimit)
+				thresholdInSeconds = Math.floor(ms / 1000)
+			} else {
+				thresholdInSeconds = 0 // Fallback for invalid data
+			}
+
+			const displayTime = formatTimeThreshold(thresholdInSeconds * 1000)
+
 			return {
 				label: role ? `@${role.name}` : `ID:${l.role_id}`,
 				value: idx.toString(),
-				description: `Limit: ${l.limit}`,
+				description: `Limit: ${displayTime}`,
 			}
 		})
 	)

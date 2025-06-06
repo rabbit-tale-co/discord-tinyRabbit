@@ -7,7 +7,11 @@ import * as limits from './limits.js'
 import { threadMetadataStore as store } from './state.js'
 import type { ThreadMetadata } from '@/types/tickets.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
-import { StatusLogger, ServiceLogger, CommandLogger } from '@/utils/bunnyLogger.js'
+import {
+	StatusLogger,
+	ServiceLogger,
+	CommandLogger,
+} from '@/utils/bunnyLogger.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
 import {
 	replacePlaceholders,
@@ -88,22 +92,38 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 		}
 
 		/* ------------------------------------------------------ */
-		/*                  RESOLVE TICKET CATEGORY               */
+		/*                  RESOLVE TICKET TOPIC               */
 		/* ------------------------------------------------------ */
-		const category = resolveCategory(inter.customId, cfg)
+		const topic = resolveTopic(inter.customId, cfg)
 
 		/* ------------------------------------------------------ */
 		/*                OBTAIN NEXT TICKET NUMBER               */
 		/* ------------------------------------------------------ */
-		const ticket_id = await api.getTicketCounter(
+		// Get current counter value first
+		const current_counter = await api.getTicketCounter(
 			inter.client.user.id,
 			inter.guild.id
 		)
-		if (!ticket_id) {
+		if (!current_counter) {
 			await utils.handleResponse(
 				inter,
 				'error',
 				'Failed to get ticket counter',
+				{ code: 'OT004' }
+			)
+			return
+		}
+
+		// Use current counter as ticket ID, then increment for next ticket
+		const ticket_id = current_counter
+		try {
+			await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
+		} catch (error) {
+			StatusLogger.error('Failed to increment ticket counter:', error)
+			await utils.handleResponse(
+				inter,
+				'error',
+				'Failed to update ticket counter',
 				{ code: 'OT004' }
 			)
 			return
@@ -117,10 +137,14 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 			name: `Ticket #${ticket_id}`,
 			autoArchiveDuration: Discord.ThreadAutoArchiveDuration.ThreeDays,
 			type: Discord.ChannelType.PrivateThread,
-			reason: `Ticket #${ticket_id} - ${category}`,
+			reason: `Ticket #${ticket_id} - ${topic}`,
 		})
 
 		await thread.members.add(inter.user.id)
+
+		// Note: Thread permissions are inherited from the parent channel
+		// To allow users to send attachments/embeds in tickets, ensure the parent
+		// channel has appropriate permissions set for @everyone or user roles
 
 		/* ------------------------------------------------------ */
 		/*                     SAVE METADATA                      */
@@ -131,7 +155,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 			thread_id: thread.id,
 			opened_by: author,
 			open_time: Math.floor(Date.now() / 1_000),
-			ticket_type: category,
+			ticket_type: topic,
 			guild_id: inter.guild.id,
 			status: 'open',
 		}
@@ -148,16 +172,13 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 			[]
 		)
 
-		// Increment counter
-		await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
-
 		/* ------------------------------------------------------ */
 		/*                 SEND TEMPLATE MESSAGES                 */
 		/* ------------------------------------------------------ */
 		const placeholders: PlaceholderMap = {
 			ticket_id: ticket_id.toString(),
-			ticket_type: category,
-			category: category,
+			ticket_type: topic,
+			topic: topic,
 			opened_by: inter.user.toString(),
 			thread_id: thread.id,
 			channel_id: `<#${thread.id}>`,
@@ -171,7 +192,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 				// Convert placeholders to string format
 				const additionalPlaceholders = {
 					ticket_id: ticket_id.toString(),
-					category,
+					topic,
 					thread_id: thread.id,
 					channel_id: `<#${thread.id}>`,
 					open_time: Math.floor(Date.now() / 1000).toString(),
@@ -210,31 +231,31 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 					}
 				}
 
-				// Convert text displays to content
-				const contentParts: string[] = []
-				for (const comp of v2Components) {
-					if ('content' in comp) {
-						contentParts.push(
-							replacePlaceholders(
-								comp.content,
-								member,
-								inter.guild,
-								additionalPlaceholders
-							)
-						)
-					}
-				}
-
 				// Prepare message options
-				const messageOptions: Discord.MessageCreateOptions = {
-					content:
-						contentParts.length > 0 ? contentParts.join('\n') : undefined,
-				}
+				const messageOptions: Discord.MessageCreateOptions = {}
 
 				// Add components if we have any
 				if (v2Components.length > 0) {
 					messageOptions.components = v2Components
 					messageOptions.flags = Discord.MessageFlags.IsComponentsV2
+				} else {
+					// Only use content if we don't have v2Components
+					const contentParts: string[] = []
+					for (const comp of v2Components) {
+						if ('content' in comp) {
+							contentParts.push(
+								replacePlaceholders(
+									comp.content,
+									member,
+									inter.guild,
+									additionalPlaceholders
+								)
+							)
+						}
+					}
+					if (contentParts.length > 0) {
+						messageOptions.content = contentParts.join('\n')
+					}
 				}
 
 				// Add action rows if we have any
@@ -254,7 +275,10 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 
 				// Update metadata with message info is now handled in sendAdminNotification
 			} catch (error) {
-				StatusLogger.error('Error sending thread message with universal components:', error)
+				StatusLogger.error(
+					'Error sending thread message with universal components:',
+					error
+				)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -270,7 +294,7 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 				// Convert placeholders to string format
 				const additionalPlaceholders = {
 					ticket_id: ticket_id.toString(),
-					category,
+					topic,
 					thread_id: thread.id,
 					channel_id: `<#${thread.id}>`,
 					open_time: Math.floor(Date.now() / 1000).toString(),
@@ -309,25 +333,8 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 					}
 				}
 
-				// Convert text displays to content
-				const contentParts: string[] = []
-				for (const comp of v2Components) {
-					if ('content' in comp) {
-						contentParts.push(
-							replacePlaceholders(
-								comp.content,
-								member,
-								inter.guild,
-								additionalPlaceholders
-							)
-						)
-					}
-				}
-
 				// Prepare message options
 				const messageOptions: Discord.InteractionEditReplyOptions = {
-					content:
-						contentParts.length > 0 ? contentParts.join('\n') : undefined,
 					flags: Discord.MessageFlags.SuppressEmbeds,
 				}
 
@@ -337,6 +344,24 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 					messageOptions.flags =
 						Discord.MessageFlags.SuppressEmbeds |
 						Discord.MessageFlags.IsComponentsV2
+				} else {
+					// Only use content if we don't have v2Components
+					const contentParts: string[] = []
+					for (const comp of v2Components) {
+						if ('content' in comp) {
+							contentParts.push(
+								replacePlaceholders(
+									comp.content,
+									member,
+									inter.guild,
+									additionalPlaceholders
+								)
+							)
+						}
+					}
+					if (contentParts.length > 0) {
+						messageOptions.content = contentParts.join('\n')
+					}
 				}
 
 				// Add action rows if we have any
@@ -357,7 +382,10 @@ export async function openTicket(inter: Discord.ButtonInteraction) {
 				// Send admin notification
 				await sendAdminNotification(inter, cfg, thread, meta, placeholders)
 			} catch (error) {
-				StatusLogger.error('Error sending user confirmation with universal components:', error)
+				StatusLogger.error(
+					'Error sending user confirmation with universal components:',
+					error
+				)
 				await utils.handleResponse(
 					inter,
 					'error',
@@ -433,17 +461,33 @@ export async function openTicketFromSelect(
 		// Use deferUpdate instead of deferReply to prevent select menu from staying selected
 		await inter.deferUpdate()
 
-		const category = resolveCategory(inter.values[0], cfg)
-		const ticket_id = await api.getTicketCounter(
+		const topic = resolveTopic(inter.values[0], cfg)
+
+		// Get current counter value first
+		const current_counter = await api.getTicketCounter(
 			inter.client.user.id,
 			inter.guild.id
 		)
-
-		if (!ticket_id) {
+		if (!current_counter) {
 			await utils.handleResponse(
 				inter,
 				'error',
 				'Failed to get ticket counter',
+				{ code: 'OT004', followUp: true }
+			)
+			return
+		}
+
+		// Use current counter as ticket ID, then increment for next ticket
+		const ticket_id = current_counter
+		try {
+			await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
+		} catch (error) {
+			StatusLogger.error('Failed to increment ticket counter:', error)
+			await utils.handleResponse(
+				inter,
+				'error',
+				'Failed to update ticket counter',
 				{ code: 'OT004', followUp: true }
 			)
 			return
@@ -454,17 +498,21 @@ export async function openTicketFromSelect(
 			name: `Ticket #${ticket_id}`,
 			autoArchiveDuration: Discord.ThreadAutoArchiveDuration.ThreeDays,
 			type: Discord.ChannelType.PrivateThread,
-			reason: `Ticket #${ticket_id} - ${category}`,
+			reason: `Ticket #${ticket_id} - ${topic}`,
 		})
 
 		await thread.members.add(inter.user.id)
+
+		// Note: Thread permissions are inherited from the parent channel
+		// To allow users to send attachments/embeds in tickets, ensure the parent
+		// channel has appropriate permissions set for @everyone or user roles
 
 		const meta: ThreadMetadata = {
 			ticket_id,
 			thread_id: thread.id,
 			opened_by: toAuthor(inter),
 			open_time: Math.floor(Date.now() / 1_000),
-			ticket_type: category,
+			ticket_type: topic,
 			guild_id: inter.guild.id,
 			status: 'open',
 		}
@@ -477,12 +525,11 @@ export async function openTicketFromSelect(
 			meta,
 			[]
 		)
-		await api.incrementTicketCounter(inter.client.user.id, inter.guild.id)
 
 		const placeholders: PlaceholderMap = {
 			ticket_id: ticket_id.toString(),
-			ticket_type: category,
-			category: category,
+			ticket_type: topic,
+			topic: topic,
 			opened_by: inter.user.toString(),
 			thread_id: thread.id,
 			channel_id: `<#${thread.id}>`,
@@ -494,7 +541,7 @@ export async function openTicketFromSelect(
 			try {
 				const additionalPlaceholders = {
 					ticket_id: ticket_id.toString(),
-					category,
+					topic,
 					thread_id: thread.id,
 					channel_id: `<#${thread.id}>`,
 					open_time: Math.floor(Date.now() / 1000).toString(),
@@ -507,19 +554,22 @@ export async function openTicketFromSelect(
 					additionalPlaceholders
 				)
 
-				const messageOptions: Discord.MessageCreateOptions = {
-					content: '',
-					components: [],
-				}
+				const messageOptions: Discord.MessageCreateOptions = {}
 
 				if (v2Components.length > 0) {
 					messageOptions.components = v2Components
 					messageOptions.flags = Discord.MessageFlags.IsComponentsV2
+				} else {
+					messageOptions.components = []
 				}
 
 				if (actionRows.length > 0) {
-					messageOptions.components =
-						messageOptions.components.concat(actionRows)
+					if (messageOptions.components) {
+						messageOptions.components =
+							messageOptions.components.concat(actionRows)
+					} else {
+						messageOptions.components = actionRows
+					}
 				}
 
 				const sentMessage = await thread.send(messageOptions)
@@ -538,7 +588,7 @@ export async function openTicketFromSelect(
 
 		// Send success notification as followUp instead of editing reply
 		await inter.followUp({
-			content: `✅ **Ticket Created Successfully!**\n\n📋 **Ticket #${ticket_id}** - ${category}\n🎯 **Thread:** <#${thread.id}>`,
+			content: `✅ **Ticket Created Successfully!**\n\n📋 **Ticket #${ticket_id}** - ${topic}\n🎯 **Thread:** <#${thread.id}>`,
 			flags: Discord.MessageFlags.Ephemeral,
 		})
 
@@ -643,7 +693,10 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 					store.set(threadId, ticketData)
 				}
 			} catch (error) {
-				StatusLogger.error('Error loading ticket from database for claim:', error)
+				StatusLogger.error(
+					'Error loading ticket from database for claim:',
+					error
+				)
 			}
 		}
 
@@ -711,7 +764,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			// but only modify the claim button
 			const placeholders: PlaceholderMap = {
 				ticket_id: String(ticketData.ticket_id),
-				category: String(ticketData.ticket_type),
+				topic: String(ticketData.ticket_type),
 				thread_id: String(threadId),
 				channel_id: `<#${threadId}>`,
 				opened_by: `<@${ticketData.opened_by.id}>`,
@@ -813,7 +866,10 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			// Edit the message with all components
 			await inter.message.edit(messageOptions)
 		} catch (error) {
-			StatusLogger.error('Error during admin message update after claim:', error)
+			StatusLogger.error(
+				'Error during admin message update after claim:',
+				error
+			)
 			// Fallback logic remains the same...
 			try {
 				const originalMessageComponents = inter.message.components
@@ -865,7 +921,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			try {
 				const placeholders = {
 					ticket_id: ticketData.ticket_id.toString(),
-					category: ticketData.ticket_type,
+					topic: ticketData.ticket_type,
 					thread_id: threadId,
 					channel_id: `<#${threadId}>`,
 					opened_by: `<@${ticketData.opened_by.id}>`,
@@ -883,19 +939,22 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 					placeholders
 				)
 
-				const messageOptions: Discord.MessageCreateOptions = {
-					content: '',
-					components: [],
-				}
+				const messageOptions: Discord.MessageCreateOptions = {}
 
 				if (v2Components.length > 0) {
 					messageOptions.components = v2Components
 					messageOptions.flags = Discord.MessageFlags.IsComponentsV2
+				} else {
+					messageOptions.components = []
 				}
 
 				if (actionRows.length > 0) {
-					messageOptions.components =
-						messageOptions.components.concat(actionRows)
+					if (messageOptions.components) {
+						messageOptions.components =
+							messageOptions.components.concat(actionRows)
+					} else {
+						messageOptions.components = actionRows
+					}
 				}
 
 				await thread.send(messageOptions)
@@ -1170,21 +1229,37 @@ async function checkRoleTimeLimits(
 }
 
 /**
- * Resolve ticket category from button custom_id
+ * Resolve ticket topic from button custom_id
  */
-function resolveCategory(
+function resolveTopic(
 	customId: Discord.ButtonInteraction['customId'],
 	cfg: PluginResponse<DefaultConfigs['tickets']>
 ): string {
+	// Handle new format: open_ticket:topic_id@/tickets
+	if (customId.includes(':') && customId.includes('@')) {
+		const [action, rest] = customId.split(':')
+		if (action === 'open_ticket' && rest) {
+			const [topicId] = rest.split('@')
+			// Convert topic_id to readable format
+			return topicId.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+		}
+	}
+
+	// Handle old format: open_ticket_topic_name
+	if (customId.startsWith('open_ticket_')) {
+		const topicPart = customId.replace('open_ticket_', '')
+		return topicPart.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+	}
+
 	// Check if there's an open_ticket component template
 	const openTicketTemplate = cfg.components?.open_ticket
-	if (!openTicketTemplate?.components) {
+	if (!Array.isArray(openTicketTemplate)) {
 		StatusLogger.warn('No open_ticket components found in config')
-		return 'General Support'
+		return 'General'
 	}
 
 	// Look for buttons in the components array
-	for (const component of openTicketTemplate.components) {
+	for (const component of openTicketTemplate) {
 		// Check if this is an ActionRow component (type 1 or has components array)
 		const isActionRow =
 			component.type === Discord.ComponentType.ActionRow ||
@@ -1233,7 +1308,7 @@ function resolveCategory(
 	StatusLogger.warn(
 		`No matching button or select option found for custom_id: ${customId}`
 	)
-	return 'General Support'
+	return 'General'
 }
 
 /**

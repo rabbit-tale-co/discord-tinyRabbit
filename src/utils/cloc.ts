@@ -1,332 +1,283 @@
 #!/usr/bin/env bun
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-import { StatusLogger } from '@/utils/bunnyLogger.js'
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Glob } from 'bun'
 import { bunnyLog } from 'bunny-log'
+import { cc, ptr } from 'bun:ffi'
 
-/*------------------------------------------------------------------*
- |  Optimized type helpers and data structures                      |
- *------------------------------------------------------------------*/
-const cast = <T>(x: unknown): T => x as T
-interface LangDef {
-  name?: string
-  extensions?: string[]
-  filenames?: string[]
-  line_comment?: string | string[]
-  multi_line_comments?: [string, string][]
-}
-type LangInfo = [string, Uint8Array | null, Uint8Array | null, Uint8Array | null]
-
-const ld: Record<string, LangDef> = cast<{ languages: Record<string, LangDef> }>(
-  require('./languages.json')
+const LANGUAGES_JSON_PATH = './src/utils/languages.json'
+const languages: Record<string, LangDef> = JSON.parse(
+	readFileSync(LANGUAGES_JSON_PATH, 'utf-8')
 ).languages
 
-/*------------------------------------------------------------------*
- |  Pre-computed maps for ultra-fast lookups                        |
- *------------------------------------------------------------------*/
-const extMap = new Map<string, LangInfo>()
-const fileMap = new Map<string, LangInfo>()
-let initDone = false
+// Compile C code with simplified dynamic language support
+const {
+	symbols: { add_language, analyze_file, get_language_name },
+} = cc({
+	source: './src/utils/cloc.c',
+	symbols: {
+		add_language: {
+			args: ['ptr', 'ptr', 'ptr', 'ptr', 'ptr'],
+			returns: 'void',
+		},
+		analyze_file: {
+			args: ['ptr', 'ptr', 'i32', 'ptr'],
+			returns: 'void',
+		},
+		get_language_name: {
+			args: ['ptr', 'ptr', 'i32'],
+			returns: 'void',
+		},
+	},
+})
 
-function init() {
-  if (initDone) return
-  const entries = Object.entries(ld)
-  for (let i = 0; i < entries.length; i++) {
-    const [k, v] = entries[i]
-    const e = v.extensions ?? []
-    const lc = Array.isArray(v.line_comment) ? v.line_comment[0] : v.line_comment
-    const mc = v.multi_line_comments?.[0]
-
-    // Pre-compile to byte arrays for ultra-fast matching
-    const lcBytes = lc ? new TextEncoder().encode(lc) : null
-    const bsBytes = mc?.[0] ? new TextEncoder().encode(mc[0]) : null
-    const beBytes = mc?.[1] ? new TextEncoder().encode(mc[1]) : null
-    const lang: LangInfo = [v.name ?? k, lcBytes, bsBytes, beBytes]
-
-    for (let j = 0; j < e.length; j++) extMap.set(e[j].toLowerCase(), lang)
-
-    const filenames = v.filenames
-    if (filenames) {
-      for (let j = 0; j < filenames.length; j++) fileMap.set(filenames[j].toLowerCase(), lang)
-    }
-  }
-  bunnyLog.hex('analysis', '#00d4aa').hex('summary', '#5865f2').hex('timing', '#ff9500')
-  initDone = true
+interface LangDef {
+	name?: string
+	extensions?: string[]
+	filenames?: string[]
+	line_comment?: string | string[]
+	multi_line_comments?: [string, string][]
 }
 
-/*------------------------------------------------------------------*
- |  Ultra-fast language detection (optimized for hot path)          |
- *------------------------------------------------------------------*/
-const detectLang = (p: string): LangInfo | undefined => {
-  let lastSlash = -1, lastDot = -1
-  const len = p.length
+// Initialize C language database
+let langDataInitialized = false
+function initLanguageDatabase() {
+	if (langDataInitialized) return
 
-  for (let i = len - 1; i >= 0; i--) {
-    const c = p.charCodeAt(i)
-    if (c === 47 && lastSlash === -1) lastSlash = i
-    if (c === 46 && lastDot === -1) lastDot = i
-    if (lastSlash !== -1 && lastDot !== -1) break
-  }
+	let count = 0
+	for (const [key, langDef] of Object.entries(languages)) {
+		const name = langDef.name || key
 
-  if (lastSlash !== -1) {
-    const fn = p.slice(lastSlash + 1).toLowerCase()
-    const byName = fileMap.get(fn)
-    if (byName) return byName
-  }
-  if (lastDot > lastSlash) return extMap.get(p.slice(lastDot + 1).toLowerCase())
-  return undefined
+		// Extensions (comma-separated)
+		const extensions = (langDef.extensions || []).join(',')
+
+		// Line comment (use first one if array)
+		const lineComment = Array.isArray(langDef.line_comment)
+			? langDef.line_comment[0] || ''
+			: langDef.line_comment || ''
+
+		// Block comments (use first one if multiple)
+		const blockComments = langDef.multi_line_comments?.[0]
+		const blockStart = blockComments?.[0] || ''
+		const blockEnd = blockComments?.[1] || ''
+
+		// Add language to C database (convert strings to C pointers)
+		add_language(
+			ptr(new TextEncoder().encode(`${name}\0`)),
+			ptr(new TextEncoder().encode(`${extensions}\0`)),
+			ptr(new TextEncoder().encode(`${lineComment}\0`)),
+			ptr(new TextEncoder().encode(`${blockStart}\0`)),
+			ptr(new TextEncoder().encode(`${blockEnd}\0`))
+		)
+		count++
+	}
+
+	langDataInitialized = true
+	bunnyLog.log(
+		'language',
+		`🗣️ Initialized ${count} language definitions from JSON`
+	)
 }
 
-/*------------------------------------------------------------------*
- |  Hyper-optimized line counting with byte-level operations        |
- *------------------------------------------------------------------*/
-const countLines = (p: string, lang: LangInfo): [number, number, number, number, number] => {
-  const buf = readFileSync(p)
-  const len = buf.length
-  const size = statSync(p).size
-  if (!len) return [1, 0, 0, 1, size]
-
-  const lcBytes = lang[1]
-  const bsBytes = lang[2]
-  const beBytes = lang[3]
-  const lcLen = lcBytes?.length ?? 0
-  const bsLen = bsBytes?.length ?? 0
-  const beLen = beBytes?.length ?? 0
-
-  let lines = 1, code = 0, comments = 0, blanks = 0, i = 0
-  let inBlock = false, lineStart = true, isEmpty = true
-
-  // Micro-optimized byte matching with lookup tables
-  const newline = 10, space = 32, tab = 9
-
-  while (i < len) {
-    const c = buf[i]
-
-    if (c === newline) {
-      if (inBlock) comments++
-      else if (isEmpty) blanks++
-      else code++
-      lines++
-      lineStart = true
-      isEmpty = true
-      i++
-      continue
-    }
-
-    if (lineStart && (c === space || c === tab)) {
-      i++
-      continue
-    }
-
-    if (lineStart) {
-      lineStart = false
-
-      // Ultra-fast block end detection
-      if (inBlock && beBytes && c === beBytes[0] && i + beLen <= len) {
-        let match = true
-        for (let j = 1; j < beLen; j++) {
-          if (buf[i + j] !== beBytes[j]) {
-            match = false
-            break
-          }
-        }
-        if (match) {
-          inBlock = false
-          i += beLen
-          isEmpty = false
-          continue
-        }
-      }
-
-      if (!inBlock) {
-        // Ultra-fast line comment detection
-        if (lcBytes && c === lcBytes[0] && i + lcLen <= len) {
-          let match = true
-          for (let j = 1; j < lcLen; j++) {
-            if (buf[i + j] !== lcBytes[j]) {
-              match = false
-              break
-            }
-          }
-          if (match) {
-            comments++
-            // Fast skip to newline
-            while (i < len && buf[i] !== newline) i++
-            continue
-          }
-        }
-
-        // Ultra-fast block comment start detection
-        if (bsBytes && c === bsBytes[0] && i + bsLen <= len) {
-          let match = true
-          for (let j = 1; j < bsLen; j++) {
-            if (buf[i + j] !== bsBytes[j]) {
-              match = false
-              break
-            }
-          }
-          if (match) {
-            inBlock = true
-            i += bsLen
-            // Check for same-line block end
-            if (beBytes) {
-              for (let j = i; j <= len - beLen; j++) {
-                if (buf[j] === newline) break
-                if (buf[j] === beBytes[0]) {
-                  let end = true
-                  for (let k = 1; k < beLen; k++) {
-                    if (buf[j + k] !== beBytes[k]) {
-                      end = false
-                      break
-                    }
-                  }
-                  if (end) {
-                    inBlock = false
-                    i = j + beLen
-                    break
-                  }
-                }
-              }
-            }
-            isEmpty = false
-            continue
-          }
-        }
-      }
-    }
-
-    if (c !== space && c !== tab) isEmpty = false
-    i++
-  }
-
-  if (inBlock) comments++
-  else if (isEmpty) blanks++
-  else code++
-
-  return [lines, code, comments, blanks, size]
-}
-
-/*------------------------------------------------------------------*
- |  Hyper-optimized batch processing with Worker-like parallelism   |
- *------------------------------------------------------------------*/
-const processBatch = (files: string[], dir: string, start: number, end: number): [string, [number, number, number, number, number]][] => {
-  const results: [string, [number, number, number, number, number]][] = []
-  const dirPath = dir
-
-  for (let i = start; i < end; i++) {
-    const file = files[i]
-    const lang = detectLang(file)
-    if (!lang) continue
-
-    try {
-      results.push([lang[0], countLines(join(dirPath, file), lang)])
-    } catch { /* ignore unreadables */ }
-  }
-  return results
-}
-
-/*------------------------------------------------------------------*
- |  Micro-optimized formatters                                     |
- *------------------------------------------------------------------*/
+// --------- FORMATTERS ---------
 const fmt = (n: number) => n.toLocaleString()
 const fmtBytes = (b: number): string => {
-  if (b < 1024) return b + ' B'
-  if (b < 1048576) return (b / 1024).toFixed(2) + ' KB'
-  if (b < 1073741824) return (b / 1048576).toFixed(2) + ' MB'
-  return (b / 1073741824).toFixed(2) + ' GB'
+	if (b < 1024) return `${b} B`
+	if (b < 1048576) return `${(b / 1024).toFixed(2)} KB`
+	if (b < 1073741824) return `${(b / 1048576).toFixed(2)} MB`
+	return `${(b / 1073741824).toFixed(2)} GB`
 }
 
-/*------------------------------------------------------------------*
- |  Main analyzer with aggressive optimizations                     |
- *------------------------------------------------------------------*/
-export class CodebaseAnalyzer {
-  constructor(
-    private dir: string,
-    private pattern = '**/*.{ts,js,tsx,jsx,py,go,rs,cpp,c,h,hpp,java,kt,swift,rb,php,cs,html,css,scss,sass,less,sql,sh,bash,zsh,fish,ps1,bat,cmd,yml,yaml,json,xml,md,txt,zig}'
-  ) {
-    init()
-  }
+// --------- MAIN ANALYZER ---------
+export async function analyzeCodebase(dir = './dist') {
+	const start = performance.now()
 
-  async analyze() {
-    const start = performance.now()
-    const files = [...new Glob(this.pattern).scanSync(this.dir)]
-    StatusLogger.success(`🔍 Analyzing ${files.length} files`)
+	// Initialize language database from JSON
+	initLanguageDatabase()
 
-    // Aggressive parallelization - more batches, smaller sizes
-    const cpu = navigator?.hardwareConcurrency || 4
-    const batch = Math.max(4, Math.ceil(files.length / (cpu * 4))) // Even smaller batches
-    const runs: Promise<[string, [number, number, number, number, number]][]>[] = []
+	const files = [...new Glob('**/*').scanSync(dir)]
+	bunnyLog.log(
+		'analysis',
+		`⚡ Ultra-fast analyzing ${files.length} files with parallel C-powered counting (${Object.keys(languages).length} languages supported)`
+	)
 
-    for (let i = 0; i < files.length; i += batch) {
-      runs.push(Promise.resolve(processBatch(files, this.dir, i, Math.min(i + batch, files.length))))
-    }
+	// OPTIMIZATION 1: Lightweight filtering (only skip obvious non-code files)
+	const candidateFiles = files.filter((file) => {
+		// Quick check - only filter out obviously non-code files to avoid over-filtering
+		const lowerFile = file.toLowerCase()
+		return !(
+			lowerFile.endsWith('.png') ||
+			lowerFile.endsWith('.jpg') ||
+			lowerFile.endsWith('.gif') ||
+			lowerFile.endsWith('.pdf') ||
+			lowerFile.endsWith('.zip') ||
+			lowerFile.endsWith('.exe') ||
+			lowerFile.includes('node_modules') ||
+			lowerFile.includes('.git/')
+		)
+	})
 
-    const batches = await Promise.all(runs)
+	bunnyLog.log(
+		'analysis',
+		`📁 Quick-filtered to ${candidateFiles.length} candidate files (${files.length - candidateFiles.length} obvious non-code files skipped)`
+	)
 
-    // Ultra-fast aggregation with pre-allocated maps and array operations
-    const langStats = new Map<string, [number, number, number, number, number]>()
-    let totalF = 0, totalL = 0, totalC = 0, totalM = 0, totalB = 0, totalS = 0
+	if (candidateFiles.length === 0) {
+		bunnyLog.log('warning', 'No valid files found to analyze')
+		return
+	}
 
-    // Flatten and process in single loop for better cache performance
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i]
-      for (let j = 0; j < batch.length; j++) {
-        const [lang, [l, c, m, b, s]] = batch[j]
-        const acc = langStats.get(lang)
-        if (acc) {
-          acc[0]++
-          acc[1] += l
-          acc[2] += c
-          acc[3] += m
-          acc[4] += s
-        } else {
-          langStats.set(lang, [1, l, c, m, s])
-        }
-        totalF++
-        totalL += l
-        totalC += c
-        totalM += m
-        totalB += b
-        totalS += s
-      }
-    }
+	// OPTIMIZATION 2: Fast synchronous file reading (async overhead not worth it)
+	const validFiles: { path: string; buffer: Uint8Array }[] = []
 
-    bunnyLog.log('analysis', '📊 Code Analysis Results')
+	for (const file of candidateFiles) {
+		try {
+			const buffer = readFileSync(join(dir, file))
+			validFiles.push({ path: file, buffer })
+		} catch {
+			// Skip files that can't be read
+		}
+	}
 
-    const sorted = [...langStats.entries()].sort((a, b) => b[1][2] - a[1][2])
-    const table = sorted.map(([name, st]) => ({
-      Language: name,
-      Files: fmt(st[0]),
-      Lines: fmt(st[1]),
-      Code: fmt(st[2]),
-      Comments: fmt(st[3]),
-      Size: fmtBytes(st[4])
-    }))
-    table.push({
-      Language: 'Total',
-      Files: fmt(totalF),
-      Lines: fmt(totalL),
-      Code: fmt(totalC),
-      Comments: fmt(totalM),
-      Size: fmtBytes(totalS)
-    })
+	if (validFiles.length === 0) {
+		bunnyLog.log('warning', 'No valid files could be read')
+		return
+	}
 
-    bunnyLog.table(table)
+	// OPTIMIZATION 3: Maximum efficiency with smart caching and buffer reuse
+	const langStats = new Map<string, [number, number, number, number, number]>()
 
-    const pct = 100 / totalL
-    bunnyLog.log('summary', `Files: ${fmt(totalF)}`)
-    bunnyLog.log('summary', `Lines: ${fmt(totalL)}`)
-    bunnyLog.log('summary', `Code: ${fmt(totalC)} (${(totalC * pct).toFixed(1)}%)`)
-    bunnyLog.log('summary', `Comments: ${fmt(totalM)} (${(totalM * pct).toFixed(1)}%)`)
-    bunnyLog.log('summary', `Blanks: ${fmt(totalB)} (${(totalB * pct).toFixed(1)}%)`)
-    bunnyLog.log('summary', `Size: ${fmtBytes(totalS)}`)
-    bunnyLog.log('summary', `Languages: ${langStats.size}`)
-    bunnyLog.log('timing', `Time: ${(performance.now() - start).toFixed(2)}ms`)
+	// Pre-allocate reusable buffers for maximum performance
+	const pathBuffer = new Uint8Array(512)
+	const langBuffer = new Uint8Array(64)
+	const resultBuffer = new Int32Array(5)
+	const encoder = new TextEncoder()
+	const decoder = new TextDecoder()
 
-    StatusLogger.success('Analysis completed!')
-  }
+	// Cache encoded paths to avoid repeated encoding
+	const pathEncodingCache = new Map<string, Uint8Array>()
+
+	for (const { path, buffer } of validFiles) {
+		// Use cached encoded path or create new one
+		let encodedPath = pathEncodingCache.get(path)
+		if (!encodedPath) {
+			encodedPath = encoder.encode(`${path}\0`)
+			pathEncodingCache.set(path, encodedPath)
+		}
+
+		// Efficiently reuse path buffer
+		pathBuffer.fill(0) // Clear previous data
+		pathBuffer.set(encodedPath.slice(0, 511))
+
+		// Get language name using buffer reuse
+		get_language_name(pathBuffer, langBuffer, 64)
+
+		// Fast language extraction
+		const nameEnd = langBuffer.indexOf(0)
+		const langName = decoder.decode(
+			langBuffer.slice(0, nameEnd > 0 ? nameEnd : 64)
+		)
+
+		if (langName === 'Unknown') continue
+
+		// Analyze file with efficient buffer reuse
+		analyze_file(pathBuffer, buffer, buffer.length, resultBuffer)
+
+		// Efficient result aggregation
+		if (!langStats.has(langName)) {
+			langStats.set(langName, [0, 0, 0, 0, 0])
+		}
+
+		const stats = langStats.get(langName)
+		if (!stats) continue
+		stats[0]++ // files
+		stats[1] += resultBuffer[0] // lines
+		stats[2] += resultBuffer[1] // code
+		stats[3] += resultBuffer[2] // comments
+		stats[4] += resultBuffer[4] // size
+	}
+
+	// Display results
+	bunnyLog.log(
+		'analysis',
+		'📊 Code Analysis Results (Dynamic C-powered + JSON)'
+	)
+
+	let totalF = 0
+	let totalL = 0
+	let totalC = 0
+	let totalM = 0
+	let totalS = 0
+
+	const table = Array.from(langStats.entries())
+		.map(([lang, stats]) => {
+			const [files, lines, code, comments, size] = stats
+			totalF += files
+			totalL += lines
+			totalC += code
+			totalM += comments
+			totalS += size
+
+			return {
+				Language: lang,
+				Files: fmt(files),
+				Lines: fmt(lines),
+				Code: fmt(code),
+				Comments: fmt(comments),
+				Size: fmtBytes(size),
+			}
+		})
+		.sort(
+			(a, b) =>
+				Number.parseInt(b.Code.replace(/,/g, '')) -
+				Number.parseInt(a.Code.replace(/,/g, ''))
+		)
+
+	table.push({
+		Language: 'Total',
+		Files: fmt(totalF),
+		Lines: fmt(totalL),
+		Code: fmt(totalC),
+		Comments: fmt(totalM),
+		Size: fmtBytes(totalS),
+	})
+
+	bunnyLog.table(table)
+
+	const pct = totalL ? 100 / totalL : 0
+	const totalB = totalL - totalC - totalM // blanks
+	bunnyLog.log('summary', `Files: ${fmt(totalF)}`)
+	bunnyLog.log('summary', `Lines: ${fmt(totalL)}`)
+	bunnyLog.log(
+		'summary',
+		`Code: ${fmt(totalC)} (${(totalC * pct).toFixed(1)}%)`
+	)
+	bunnyLog.log(
+		'summary',
+		`Comments: ${fmt(totalM)} (${(totalM * pct).toFixed(1)}%)`
+	)
+	bunnyLog.log(
+		'summary',
+		`Blanks: ${fmt(totalB)} (${(totalB * pct).toFixed(1)}%)`
+	)
+	bunnyLog.log('summary', `Size: ${fmtBytes(totalS)}`)
+	bunnyLog.log('summary', `Languages: ${langStats.size}`)
+	bunnyLog.log('timing', `Time: ${(performance.now() - start).toFixed(2)}ms`)
+	bunnyLog.log(
+		'success',
+		`⚡ Optimized analysis completed! (${Object.keys(languages).length} languages available, efficient caching + buffer reuse)`
+	)
 }
 
-if (import.meta.main) await new CodebaseAnalyzer('./src').analyze()
+// Cleanup function
+process.on('exit', () => {
+	if (langDataInitialized) {
+		// cleanup_languages()
+	}
+})
+
+// ---- CLI Entrypoint ----
+if (import.meta.main) {
+	const dir = Bun.argv[2] || './dist'
+	await analyzeCodebase(dir)
+}

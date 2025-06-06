@@ -1,5 +1,6 @@
 import type * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import { PLUGINS, TICKET_ACTIONS } from '@/discord/commands/constants.js'
 import {
 	openTicketFromSelect,
@@ -22,33 +23,16 @@ const selectMenuMap: Record<string, SelectMenuStructure> = {
 			const [plugin, action] = inter.customId.split(':')
 
 			switch (action) {
-				case 'config_select':
-					await commands.ticket.config(inter)
-					break
-				case 'select':
-					// Handle ticket selection actions
-					if (inter.customId === TICKET_ACTIONS.CONFIG.SELECT) {
-						await commands.ticket.config(inter)
-					} else if (inter.customId === TICKET_ACTIONS.ROLE_LIMITS.SELECT) {
-						await commands.ticket.config(inter)
-					} else {
-						// Handle regular ticket action selection
-						await handleTicketActionSelect(inter)
-					}
-					break
-				case 'role_limit_time_unit':
-					await commands.ticket.config(inter)
-					break
-				case 'role_limit_time_value':
-					await commands.ticket.config(inter)
-					break
 				case 'open': {
 					// Handle ticket opening with the selected value
 					await openTicketFromSelect(inter)
 					break
 				}
 				default:
-					StatusLogger.warn(`Unhandled tickets action: ${action}`)
+					// For other ticket actions, let the main handler route them
+					if (!inter.customId.startsWith('ticket_')) {
+						await handleTicketActionSelect(inter)
+					}
 					break
 			}
 		},
@@ -59,8 +43,24 @@ export async function selectMenuInteractionHandler(
 	inter: Discord.StringSelectMenuInteraction
 ): Promise<void> {
 	try {
+		// For all configuration-related select menus, delegate to centralized config
+		if (
+			inter.customId.startsWith('ticket_') ||
+			inter.customId.startsWith('tickets:') ||
+			inter.customId.startsWith('starboard_') ||
+			inter.customId.startsWith('starboard:') ||
+			inter.customId.startsWith('levels_') ||
+			inter.customId.startsWith('welcome_goodbye_') ||
+			inter.customId.startsWith('role_limit_') ||
+			inter.customId.includes('config_select') ||
+			inter.customId.includes('config')
+		) {
+			await centralizedConfig(inter)
+			return
+		}
+
 		// Handle direct ticket actions - these use the select menu for ticket creation
-		if (inter.customId.startsWith('open_ticket_')) {
+		if (inter.customId.startsWith('open_ticket:')) {
 			await openTicketFromSelect(inter)
 			return
 		}

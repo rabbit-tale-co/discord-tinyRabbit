@@ -29,7 +29,7 @@ async function updateMemberRoles(
 		}
 
 		// Get the reward roles and channel ID from the config
-		const { reward_roles, channel_id } = config
+		const { reward_roles, reward_channel_id } = config
 
 		// Sort the roles by level in descending order
 		const sortedRoles = reward_roles.sort((a, b) => b.level - a.level)
@@ -112,25 +112,32 @@ async function updateMemberRoles(
 
 		// Send a notification to the level-up channel if specified
 		if (
-			channel_id &&
+			reward_channel_id &&
 			(userData.levelChangeStatus === LevelUpResult.LevelDown ||
 				userData.levelChangeStatus === LevelUpResult.LevelUp)
 		) {
 			// Fetch the channel
 			const channel = (await guild.channels.fetch(
-				channel_id
+				reward_channel_id
 			)) as Discord.TextChannel | null
 
 			// If the channel was fetched successfully, send a message
 			if (channel) {
-				// Create the message
-				const message = `⭐️ <@${user.id}>, you've ${
-					userData.levelChangeStatus === LevelUpResult.LevelUp
-						? 'leveled up'
-						: 'leveled down'
-				} to level ${userData.level} and have been awarded the role \`${
-					newRoleObject.name
-				}\`! 🎉`
+				// Get reward message from config (prioritize components over reward_message)
+				let message =
+					(
+						config.components?.reward_message?.components?.[0] as {
+							content?: string
+						}
+					)?.content ||
+					config.reward_message ||
+					'Congratulations {user}, you have leveled up to level {level}!'
+
+				// Replace variables in the message
+				message = message
+					.replace(/{user}/g, `<@${user.id}>`)
+					.replace(/{username}/g, user.displayName || user.username)
+					.replace(/{level}/g, userData.level.toString())
 
 				// Send the message
 				await channel.send(message)

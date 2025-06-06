@@ -6,6 +6,8 @@ import type { PluginResponse, DefaultConfigs } from '@/types/plugins.js'
 import { threadMetadataStore as store } from './state.js'
 import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
+import { replacecustom_idPlaceholders } from '@/utils/replacePlaceholders.js'
+import type { ButtonBuilder } from 'discord.js'
 
 /* -------------------------------------------------------------------------- */
 /*                               PUBLIC ENTRY                                 */
@@ -61,18 +63,20 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 	if (cfg.components?.confirm_close_ticket) {
 		try {
 			// Check if the template has the expected button structure
-			const hasActionRows =
-				cfg.components.confirm_close_ticket.components?.some(
-					(comp: { type: number; components?: { type: number }[] }) =>
-						comp.type === 1 &&
-						comp.components?.some(
-							(subComp: { type: number }) => subComp.type === 2
-						)
-				)
+			// The confirm_close_ticket is an array of components, not an object with components property
+			const hasActionRows = Array.isArray(cfg.components.confirm_close_ticket)
+				? cfg.components.confirm_close_ticket.some(
+						(comp: { type: number; components?: { type: number }[] }) =>
+							comp.type === 1 &&
+							comp.components?.some(
+								(subComp: { type: number }) => subComp.type === 2
+							)
+					)
+				: false
 
 			if (!hasActionRows) {
 				StatusLogger.warn(
-					'⚠️ Configuration template missing buttons, clearing cache and using fallback'
+					'Configuration template missing buttons, clearing cache and using fallback'
 				)
 
 				// Clear the configuration cache to force a fresh reload next time
@@ -94,6 +98,28 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 				interaction.guild,
 				placeholders
 			)
+
+			// Process components to replace placeholders in custom_ids
+			for (const row of actionRows) {
+				for (const component of row.components) {
+					if (
+						'data' in component &&
+						component.data &&
+						typeof component.data === 'object'
+					) {
+						const button = component as ButtonBuilder
+						const data = component.data as { custom_id?: string }
+						if (data.custom_id) {
+							// Replace placeholders in custom_id using the same function as open.ts
+							const customId = replacecustom_idPlaceholders(
+								data.custom_id,
+								placeholders
+							)
+							button.setCustomId(customId)
+						}
+					}
+				}
+			}
 
 			// Prepare message options with all components
 			const messageOptions: Discord.InteractionReplyOptions = {
@@ -125,7 +151,9 @@ export async function requestClose(interaction: Discord.ButtonInteraction) {
 				return
 			}
 		} catch (error) {
-			StatusLogger.error(`Error using configuration template: ${error instanceof Error ? error.message : String(error)}`)
+			StatusLogger.error(
+				`Error using configuration template: ${error instanceof Error ? error.message : String(error)}`
+			)
 			// Fall through to hardcoded fallback
 		}
 	}
@@ -152,7 +180,9 @@ export async function confirmClose(interaction: Discord.ButtonInteraction) {
 		const thread = interaction.channel as Discord.ThreadChannel
 		await perfromClose(interaction, thread, 'No reason provided')
 	} catch (error) {
-		StatusLogger.error(`Error in confirmClose: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Error in confirmClose: ${error instanceof Error ? error.message : String(error)}`
+		)
 		// Attempt to respond to the user if we haven't already
 		try {
 			if (!interaction.replied && !interaction.deferred) {
@@ -163,7 +193,9 @@ export async function confirmClose(interaction: Discord.ButtonInteraction) {
 				})
 			}
 		} catch (replyError) {
-			StatusLogger.error(`Failed to send error response: ${replyError instanceof Error ? replyError.message : String(replyError)}`)
+			StatusLogger.error(
+				`Failed to send error response: ${replyError instanceof Error ? replyError.message : String(replyError)}`
+			)
 		}
 	}
 }
@@ -175,7 +207,9 @@ export async function modalClose(interaction: Discord.ModalSubmitInteraction) {
 		const thread = interaction.channel as Discord.ThreadChannel
 		await perfromClose(interaction, thread, reason)
 	} catch (error) {
-		StatusLogger.error(`Error in modalClose: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Error in modalClose: ${error instanceof Error ? error.message : String(error)}`
+		)
 		// Attempt to respond to the user if we haven't already
 		try {
 			if (!interaction.replied && !interaction.deferred) {
@@ -186,7 +220,9 @@ export async function modalClose(interaction: Discord.ModalSubmitInteraction) {
 				})
 			}
 		} catch (replyError) {
-			StatusLogger.error(`Failed to send error response: ${replyError instanceof Error ? replyError.message : String(replyError)}`)
+			StatusLogger.error(
+				`Failed to send error response: ${replyError instanceof Error ? replyError.message : String(replyError)}`
+			)
 		}
 	}
 }
@@ -236,7 +272,9 @@ export async function autoCloseTicket(
 			meta
 		)
 	} catch (error) {
-		StatusLogger.error(`Failed to save transcript messages for auto-close: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to save transcript messages for auto-close: ${error instanceof Error ? error.message : String(error)}`
+		)
 		// Continue with closure even if transcript saving fails
 	}
 
@@ -297,7 +335,9 @@ async function ensureMetaForAutoClose(
 			return meta
 		}
 	} catch (error) {
-		StatusLogger.error(`Failed to load ticket metadata from database: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to load ticket metadata from database: ${error instanceof Error ? error.message : String(error)}`
+		)
 	}
 
 	return null
@@ -330,7 +370,9 @@ export async function perfromClose(
 				'Ticket is being closed...'
 			)
 		} catch (error) {
-			StatusLogger.error(`Failed to respond to modal interaction: ${error instanceof Error ? error.message : String(error)}`)
+			StatusLogger.error(
+				`Failed to respond to modal interaction: ${error instanceof Error ? error.message : String(error)}`
+			)
 		}
 	}
 
@@ -367,7 +409,9 @@ export async function perfromClose(
 			meta
 		)
 	} catch (error) {
-		StatusLogger.error(`Failed to save transcript messages: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to save transcript messages: ${error instanceof Error ? error.message : String(error)}`
+		)
 		// Continue with closure even if transcript saving fails
 	}
 
@@ -403,7 +447,9 @@ export async function perfromClose(
 				'Ticket closed successfully.'
 			)
 		} catch (error) {
-			StatusLogger.error(`Failed to respond to button interaction: ${error instanceof Error ? error.message : String(error)}`)
+			StatusLogger.error(
+				`Failed to respond to button interaction: ${error instanceof Error ? error.message : String(error)}`
+			)
 		}
 	}
 }
@@ -454,7 +500,9 @@ async function closedMessage(
 				}
 			}
 		} catch (error) {
-			StatusLogger.error(`Error using closed_ticket configuration: ${error instanceof Error ? error.message : String(error)}`)
+			StatusLogger.error(
+				`Error using closed_ticket configuration: ${error instanceof Error ? error.message : String(error)}`
+			)
 			// Fall through to simple fallback
 		}
 	}
@@ -511,7 +559,7 @@ async function sendTranscriptUnified(
 				typeof meta.claimed_by === 'object'
 					? `<@${meta.claimed_by.id}>`
 					: (meta.claimed_by ?? 'Not claimed'),
-			category: meta.ticket_type ?? 'Support',
+			topic: meta.ticket_type ?? 'Support',
 			thread_id: thread.id,
 			guild_id: thread.guild.id,
 			reason: meta.reason ?? 'No reason',
@@ -571,41 +619,123 @@ async function sendTranscriptUnified(
 				stringPlaceholders
 			)
 
-			// Send only V2 components (includes content + buttons from embed.buttons_map)
-			if (v2Components.length > 0) {
-				const transcriptMessage = await transcriptChannel.send({
-					components: v2Components,
-					flags: Discord.MessageFlags.IsComponentsV2,
-				})
+			// Manual processing for ActionRows that buildUniversalComponents might miss
+			const manualActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
+				[]
 
-				// Store transcript message info in metadata for rating updates
-				meta.transcript_channel = {
-					id: transcriptChannel.id,
-					message_id: transcriptMessage.id,
+			if (Array.isArray(transcriptConfig)) {
+				for (const component of transcriptConfig) {
+					// Check if this is an ActionRow (type 1)
+					if (
+						component.type === 1 &&
+						'components' in component &&
+						Array.isArray(component.components)
+					) {
+						const actionRow =
+							new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+
+						for (const subComp of component.components) {
+							// Check if this is a Button (type 2)
+							if (
+								subComp.type === 2 &&
+								'label' in subComp &&
+								'style' in subComp
+							) {
+								const button = new Discord.ButtonBuilder().setLabel(
+									String(subComp.label)
+								)
+
+								const style = Number(subComp.style)
+
+								// Handle URL buttons (style 5)
+								if (style === 5 && 'url' in subComp) {
+									// Replace placeholders in URL
+									let url = String(subComp.url)
+									for (const [key, value] of Object.entries(
+										stringPlaceholders
+									)) {
+										url = url.replace(new RegExp(`\\{${key}\\}`, 'g'), value)
+									}
+									button.setStyle(Discord.ButtonStyle.Link).setURL(url)
+								}
+								// Handle other button styles (need custom_id for these)
+								else if ('custom_id' in subComp) {
+									let customId = String(subComp.custom_id)
+									// Replace placeholders in custom_id
+									for (const [key, value] of Object.entries(
+										stringPlaceholders
+									)) {
+										customId = customId.replace(
+											new RegExp(`\\{${key}\\}`, 'g'),
+											value
+										)
+									}
+									button.setCustomId(customId)
+
+									switch (style) {
+										case 1:
+											button.setStyle(Discord.ButtonStyle.Primary)
+											break
+										case 2:
+											button.setStyle(Discord.ButtonStyle.Secondary)
+											break
+										case 3:
+											button.setStyle(Discord.ButtonStyle.Success)
+											break
+										case 4:
+											button.setStyle(Discord.ButtonStyle.Danger)
+											break
+										default:
+											button.setStyle(Discord.ButtonStyle.Secondary)
+									}
+								} else {
+									// Skip buttons without proper configuration
+									StatusLogger.warn(
+										`Skipping button with incomplete configuration: ${JSON.stringify(subComp)}`
+									)
+									continue
+								}
+
+								actionRow.addComponents(button)
+							}
+						}
+
+						if (actionRow.components.length > 0) {
+							manualActionRows.push(actionRow)
+						}
+					}
 				}
-
-				// Update the ticket metadata with transcript channel info
-				const clientUser =
-					context.type === 'interaction'
-						? context.interaction.client.user
-						: context.client.user
-
-				if (clientUser) {
-					await api.updateTicketMetadata(
-						clientUser.id,
-						thread.guild.id,
-						thread.id,
-						meta as ThreadMetadata
-					)
-				}
-				return
 			}
 
-			// Fallback to action rows if no V2 components
-			if (actionRows.length > 0) {
-				const transcriptMessage = await transcriptChannel.send({
-					components: actionRows,
-				})
+			// Send all components in one message
+			const messageOptions: Discord.MessageCreateOptions = {}
+
+			// Add all v2Components (including potential action rows from buildUniversalComponents)
+			if (v2Components.length > 0) {
+				messageOptions.components = v2Components
+				messageOptions.flags = Discord.MessageFlags.IsComponentsV2
+			}
+
+			// Use manual action rows if available, otherwise use buildUniversalComponents result
+			const finalActionRows =
+				manualActionRows.length > 0 ? manualActionRows : actionRows
+
+			// Add action rows (buttons) - these will be regular Discord action rows
+			if (finalActionRows.length > 0) {
+				// If we already have components, append the action rows
+				if (messageOptions.components) {
+					messageOptions.components = [
+						...messageOptions.components,
+						...finalActionRows,
+					]
+				} else {
+					messageOptions.components = finalActionRows
+				}
+			}
+
+			// Send combined components if we have any
+			if (messageOptions.components && messageOptions.components.length > 0) {
+				const transcriptMessage = await transcriptChannel.send(messageOptions)
 
 				// Store transcript message info in metadata for rating updates
 				meta.transcript_channel = {
@@ -630,10 +760,14 @@ async function sendTranscriptUnified(
 				return
 			}
 		} catch (error) {
-			StatusLogger.error(`Error using transcript configuration: ${error instanceof Error ? error.message : String(error)}`)
+			StatusLogger.error(
+				`Error using transcript configuration: ${error instanceof Error ? error.message : String(error)}`
+			)
 		}
 	} catch (error) {
-		StatusLogger.error(`Failed to send transcript: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to send transcript: ${error instanceof Error ? error.message : String(error)}`
+		)
 	}
 }
 
@@ -764,7 +898,7 @@ async function sendRatingDMUnified(
 							ticket_id: meta.ticket_id?.toString() ?? 'unknown',
 							opened_by: `<@${meta.opened_by.id}>`,
 							closed_by: `<@${meta.closed_by?.id}>`,
-							category: meta.ticket_type ?? 'Support',
+							topic: meta.ticket_type ?? 'Support',
 							thread_id: thread.id,
 							guild_id: thread.guild.id,
 							reason: meta.reason ?? 'No reason',
@@ -824,10 +958,14 @@ async function sendRatingDMUnified(
 				})
 			}
 		} catch (error) {
-			StatusLogger.error(`Error using rating_survey configuration: ${error instanceof Error ? error.message : String(error)}`)
+			StatusLogger.error(
+				`Error using rating_survey configuration: ${error instanceof Error ? error.message : String(error)}`
+			)
 		}
 	} catch (error) {
-		StatusLogger.error(`Failed to send rating DM: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to send rating DM: ${error instanceof Error ? error.message : String(error)}`
+		)
 		// Don't fail the entire closing process for this error
 	}
 }
@@ -871,7 +1009,9 @@ async function deleteAdminMessageUnified(
 
 		await adminChannel.messages.delete(meta.admin_channel.message_id)
 	} catch (error) {
-		StatusLogger.error(`Failed to delete admin message: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to delete admin message: ${error instanceof Error ? error.message : String(error)}`
+		)
 		// Don't fail the entire closing process for this error
 	}
 }
@@ -906,7 +1046,7 @@ async function sendAutoCloseMessage(
 				ticket_id: meta.ticket_id?.toString() ?? 'unknown',
 				opened_by: meta.opened_by ? `<@${meta.opened_by.id}>` : 'unknown',
 				closed_by: `<@${meta.closed_by?.id}>`,
-				category: meta.ticket_type ?? 'Support',
+				topic: meta.ticket_type ?? 'Support',
 				thread_id: thread.id,
 				guild_id: thread.guild.id,
 			}
@@ -946,9 +1086,13 @@ async function sendAutoCloseMessage(
 				'No components generated from inactivity_notice configuration'
 			)
 		} catch (error) {
-			StatusLogger.error(`Error using inactivity_notice configuration: ${error instanceof Error ? error.message : String(error)}`)
+			StatusLogger.error(
+				`Error using inactivity_notice configuration: ${error instanceof Error ? error.message : String(error)}`
+			)
 		}
 	} catch (error) {
-		StatusLogger.error(`Failed to send auto-close message: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to send auto-close message: ${error instanceof Error ? error.message : String(error)}`
+		)
 	}
 }

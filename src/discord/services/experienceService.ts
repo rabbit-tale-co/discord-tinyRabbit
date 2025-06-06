@@ -79,17 +79,32 @@ async function assignXP(message: Message) {
 
 	if (!member) return
 
-	const boost_2x_roles = guild?.roles.premiumSubscriberRole?.id
-	const boost_3x_roles = config?.boost_3x_roles?.map((role) => role.role_id)
+	// Get boost roles from new boost_roles structure, with legacy fallback
+	const boostRoles = config?.boost_roles || { x2: [], x3: [], x5: [] }
 
+	// Get role IDs for each boost level (now they are already strings)
+	const x2RoleIds = boostRoles.x2 || []
+	const x3RoleIds = boostRoles.x3 || []
+	const x5RoleIds = boostRoles.x5 || []
+
+	// Get Discord Boost role ID
+	const discordBoostRoleId = guild?.roles.premiumSubscriberRole?.id
+
+	// Determine boost multiplier (highest wins)
 	let boost_multiplier = 1
 
-	if (member.roles.cache.some((role) => boost_3x_roles?.includes(role.id))) {
+	if (member.roles.cache.some((role) => x5RoleIds.includes(role.id))) {
+		boost_multiplier = 5
+		// bunnyLog.info(`${member.id} has 5x boost roles`)
+	} else if (member.roles.cache.some((role) => x3RoleIds.includes(role.id))) {
 		boost_multiplier = 3
-		// bunnyLog.info(`${member.id} has boost_3x_roles`)
-	} else if (member.roles.cache.has(boost_2x_roles ?? '')) {
+		// bunnyLog.info(`${member.id} has 3x boost roles`)
+	} else if (
+		member.roles.cache.some((role) => x2RoleIds.includes(role.id)) ||
+		(discordBoostRoleId && member.roles.cache.has(discordBoostRoleId))
+	) {
 		boost_multiplier = 2
-		// bunnyLog.info(`${member.id} has boost_2x_roles`)
+		// bunnyLog.info(`${member.id} has 2x boost roles`)
 	}
 
 	// Update points and level for the user

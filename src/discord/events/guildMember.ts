@@ -1,17 +1,8 @@
 import type * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
-import * as utils from '@/utils/index.js'
 import * as components from '@/discord/components/index.js'
-import * as V2 from 'discord-components-v2'
 import { bunnyLog } from 'bunny-log'
 import { MessageFlags, ThumbnailBuilder } from 'discord.js'
-
-// Add proper type definitions
-type EmbedFieldConfig = {
-	name: string
-	value: string
-	inline?: boolean
-}
 
 /**
  * Handles the guild member join event.
@@ -49,12 +40,13 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 			const role = member.guild.roles.cache.get(role_id)
 			if (role) {
 				await member.roles.add(role).catch((error) => {
-					bunnyLog.error(
+					bunnyLog.log(
+						'Error',
 						`Error adding role ${role_id} to ${member.user.username}: ${error}`
 					)
 				})
 			} else {
-				bunnyLog.error(`Role with ID ${role_id} not found`)
+				bunnyLog.log('Error', `Role with ID ${role_id} not found`)
 			}
 		}
 	}
@@ -81,7 +73,8 @@ async function handleMemberJoin(member: Discord.GuildMember) {
 			})
 		}
 	} catch (error) {
-		bunnyLog.error(
+		bunnyLog.log(
+			'Error',
 			`Error sending welcome message in guild ${member.guild.name}:`,
 			{
 				error,
@@ -133,7 +126,7 @@ async function handleMemberLeave(
 		if (config.components?.goodbye) {
 			// Ensure we have a full member
 			if (resolvedMember.partial) {
-				bunnyLog.error('Cannot send goodbye message: Member is partial')
+				bunnyLog.log('Error', 'Cannot send goodbye message: Member is partial')
 				return
 			}
 
@@ -153,7 +146,8 @@ async function handleMemberLeave(
 			})
 		}
 	} catch (error) {
-		bunnyLog.error(
+		bunnyLog.log(
+			'Error',
 			`Error sending goodbye message in guild ${resolvedMember.guild.name}:`,
 			{
 				error,

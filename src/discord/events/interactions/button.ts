@@ -1,6 +1,7 @@
 import type { ButtonInteraction, ThreadChannel } from 'discord.js'
 import * as Discord from 'discord.js'
 import * as commands from '@/discord/commands/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import { PLUGINS } from '@/discord/commands/constants.js'
 import { updateTicketRating } from '@/discord/api/tickets.js'
 import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
@@ -67,28 +68,11 @@ const buttonMap: Record<string, ButtonStructure> = {
 					}
 					break
 				}
-				case 'back': {
-					if (params[0] === 'config') {
-						await commands.ticket.config(inter)
-					}
-					break
-				}
-				case 'add': {
-					if (params[0] === 'role_limit') {
-						await commands.ticket.handleRoleTimeLimitAdd(inter)
-					}
-					break
-				}
-				case 'remove': {
-					if (params[0] === 'role_limit') {
-						await commands.ticket.handleRoleTimeLimitRemove(inter)
-					}
-					break
-				}
 				case 'rate': {
 					await handleTicketRating(inter, params[0], Number.parseInt(params[1]))
 					break
 				}
+				// Config-related actions now handled by centralized config
 				default:
 					StatusLogger.warn(`Unhandled tickets action: ${action}`)
 					break
@@ -101,8 +85,23 @@ export async function buttonInteractionHandler(
 	inter: ButtonInteraction
 ): Promise<void> {
 	try {
+		// For all configuration-related buttons, delegate to centralized config
+		if (
+			inter.customId.startsWith('ticket_') ||
+			inter.customId.startsWith('tickets:') ||
+			inter.customId.startsWith('starboard_') ||
+			inter.customId.startsWith('starboard:') ||
+			inter.customId.startsWith('levels_') ||
+			inter.customId.startsWith('welcome_goodbye_') ||
+			inter.customId.startsWith('birthday_') ||
+			inter.customId.includes('config')
+		) {
+			await centralizedConfig(inter)
+			return
+		}
+
 		// First check if it's a direct ticket action
-		if (inter.customId.startsWith('open_ticket_')) {
+		if (inter.customId.startsWith('open_ticket:')) {
 			await commands.ticket.openTicket(inter)
 			return
 		}
@@ -202,7 +201,8 @@ async function handleTicketRating(
 		)
 
 		// Extract and disable only the rating buttons from the original message
-		const updatedActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] = []
+		const updatedActionRows: Discord.ActionRowBuilder<Discord.ButtonBuilder>[] =
+			[]
 
 		for (const row of inter.message.components) {
 			if (row.type === Discord.ComponentType.ActionRow) {

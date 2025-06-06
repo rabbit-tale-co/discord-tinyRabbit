@@ -55,19 +55,25 @@ async function watchStarboard(
 			watch_channels.length > 0 &&
 			!watch_channels.includes(reaction.message.channel.id)
 		) {
-			StatusLogger.debug(`Message not in watched channels: ${reaction.message.channel.id}`)
+			// StatusLogger.debug(
+			// 	`Message not in watched channels: ${reaction.message.channel.id}`
+			// )
 			return null
 		}
 
 		// Check if the reaction matches the configured emoji
 		if (reaction.emoji.name !== emoji) {
-			StatusLogger.debug(`Reaction emoji ${reaction.emoji.name} does not match configured emoji ${emoji}`)
+			// StatusLogger.debug(
+			// 	`Reaction emoji ${reaction.emoji.name} does not match configured emoji ${emoji}`
+			// )
 			return null
 		}
 
 		// If the reaction count doesn't meet the threshold, exit
 		if ((reaction.count ?? 0) < (threshold ?? 0)) {
-			StatusLogger.debug(`Reaction count ${reaction.count} below threshold ${threshold}`)
+			// StatusLogger.debug(
+			// 	`Reaction count ${reaction.count} below threshold ${threshold}`
+			// )
 			return null
 		}
 
@@ -81,7 +87,9 @@ async function watchStarboard(
 			!starboardChannel ||
 			starboardChannel.type !== Discord.ChannelType.GuildText
 		) {
-			StatusLogger.error(`Starboard channel ${channel_id} not found or is not a text channel`)
+			StatusLogger.error(
+				`Starboard channel ${channel_id} not found or is not a text channel`
+			)
 			return null
 		}
 
@@ -99,7 +107,9 @@ async function watchStarboard(
 
 		// If the non-bot reaction count doesn't meet the threshold, exit
 		if (nonBotReactionCount < (threshold ?? 0)) {
-			StatusLogger.debug(`Non-bot reaction count ${nonBotReactionCount} below threshold ${threshold}`)
+			StatusLogger.debug(
+				`Non-bot reaction count ${nonBotReactionCount} below threshold ${threshold}`
+			)
 			return null
 		}
 
@@ -114,33 +124,80 @@ async function watchStarboard(
 		const attachments = reaction.message.attachments.map((attachment) => ({
 			url: attachment.url,
 			spoiler: attachment.spoiler,
+			description: attachment.description,
+			width: attachment.width,
+			height: attachment.height,
+			proxy_url: attachment.proxyURL,
+			content_type: attachment.contentType,
 		}))
 
 		let emojiDisplay: string
 		if (reaction.emoji.id) {
-			emojiDisplay = `<:${reaction.emoji.name}:${reaction.emoji.id}`
+			emojiDisplay = `<:${reaction.emoji.name}:${reaction.emoji.id}>`
 			if (reaction.emoji.animated) {
-				emojiDisplay = `<a:${reaction.emoji.name}:${reaction.emoji.id}`
+				emojiDisplay = `<a:${reaction.emoji.name}:${reaction.emoji.id}>`
 			}
 		} else {
-			emojiDisplay = reaction.emoji.name
+			emojiDisplay = reaction.emoji.name || '⭐'
 		}
 
-		const content = [
-			'✨ **Starboard Highlight!** ✨',
-			`> ${reaction.message.content || '*No text content*'}`,
-			'',
-			`👤 **Author:** <@${reaction.message.author?.id}>`,
-			`#️⃣ **Channel:** <#${reaction.message.channel.id}>`,
-			`${emojiDisplay} **Count:** ${reaction.count ?? 0}`,
-		].join('\n')
+		// Get user avatar URL
+		const avatarUrl =
+			reaction.message.author?.displayAvatarURL({ size: 512 }) || ''
 
-		const jumpButton = new ButtonBuilder()
-			.setLabel('Jump to message')
-			.setStyle(ButtonStyle.Link)
-			.setURL(reaction.message.url)
+		// Create components using V2 system
+		const components = [
+			{
+				type: Discord.ComponentType.Section,
+				components: [
+					{
+						type: Discord.ComponentType.TextDisplay,
+						content: `## ✨ ${reaction.message.author?.displayName || 'Unknown User'}'s Starboard Post`,
+					},
+					{
+						type: Discord.ComponentType.TextDisplay,
+						content: `>>> ${reaction.message.content || '*✨ No text content - check attachments below! ✨*'}`,
+					},
+					{
+						type: Discord.ComponentType.TextDisplay,
+						content: `${emojiDisplay} **${reaction.count ?? 0}** | 📍 <#${reaction.message.channel.id}> | 🕒 <t:${Math.floor(reaction.message.createdTimestamp / 1000)}:R>`,
+					},
+				],
+				accessory: {
+					type: Discord.ComponentType.Thumbnail,
+					media: {
+						url: avatarUrl,
+					},
+				},
+			},
+		]
 
-		const actionRow = new ActionRowBuilder().addComponents(jumpButton)
+		// Add MediaGallery for attachments
+		if (attachments.length > 0) {
+			const mediaGallery = {
+				type: Discord.ComponentType.MediaGallery,
+				items: attachments.map((attachment) => ({
+					media: {
+						url: attachment.url,
+						width: attachment.width,
+						height: attachment.height,
+						proxy_url: attachment.proxy_url,
+						content_type: attachment.content_type,
+					},
+					description: attachment.description,
+					spoiler: attachment.spoiler,
+				})),
+			}
+			;(components as unknown[]).push(mediaGallery)
+		}
+
+		// Prepare message options with files for attachments
+		const messageOptions = {
+			components: components,
+			flags:
+				Discord.MessageFlags.SuppressEmbeds |
+				Discord.MessageFlags.IsComponentsV2,
+		}
 
 		// If the existing starboard entry is found, update it
 		if (existingStarboardEntry) {
@@ -151,12 +208,7 @@ async function watchStarboard(
 				)
 
 				try {
-					await starboardMessage.edit({
-						content,
-						components: [actionRow.toJSON()],
-						files: attachments.map((a) => a.url),
-					})
-
+					await starboardMessage.edit(messageOptions)
 					// Update the DB with the new reaction count
 					await api.updateStarboardEntry(
 						reaction.client.user.id,
@@ -175,12 +227,7 @@ async function watchStarboard(
 						StatusLogger.warn('Cannot edit starboard message, creating new one')
 
 						// Send a new message
-						const newMessage = await starboardChannel.send({
-							content,
-							components: [actionRow.toJSON()],
-							files: attachments.map((a) => a.url),
-						})
-
+						const newMessage = await starboardChannel.send(messageOptions)
 						// Update the DB with the new message ID
 						await api.updateStarboardEntry(
 							reaction.client.user.id,
@@ -215,12 +262,7 @@ async function watchStarboard(
 		}
 
 		// Create new starboard entry
-		const starboardMessage = await starboardChannel.send({
-			content,
-			components: [actionRow.toJSON()],
-			files: attachments.map((a) => a.url),
-		})
-
+		const starboardMessage = await starboardChannel.send(messageOptions)
 		// Create the new starboard entry
 		const newEntry: StarboardEntry = {
 			starboard_message_id: starboardMessage.id,
