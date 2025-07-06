@@ -14,7 +14,6 @@ type BotStats = {
 	voice_channels: number
 	leaderboard_users: number
 	total_plugins: number
-	configured_plugins: number
 }
 
 export async function fetchAllStats(
@@ -64,7 +63,6 @@ export async function fetchAllStats(
 			xp,
 			voiceChannels,
 			leaderboardUsers,
-			configuredPlugins,
 		] = await Promise.all([
 			createQuery('user_bdays'),
 			createQuery('starboards'),
@@ -73,7 +71,6 @@ export async function fetchAllStats(
 			xpQuery,
 			createQuery('temp_voice_channels', 'channel_id'),
 			createQuery('leaderboard', 'user_id'),
-			createQuery('plugins'),
 		])
 
 		let totalServers = 0
@@ -127,7 +124,6 @@ export async function fetchAllStats(
 			voice_channels: voiceChannels.count || 0,
 			leaderboard_users: leaderboardUsers.count || 0,
 			total_plugins: getAllPluginsCount(),
-			configured_plugins: configuredPlugins.count || 0,
 		}
 	} catch (error: unknown) {
 		StatusLogger.error(

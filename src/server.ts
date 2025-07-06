@@ -14,13 +14,14 @@ import {
 	StatusLogger,
 	EventLogger,
 	BirthdayLogger,
-	StatsLogger
+	StatsLogger,
 } from '@/utils/bunnyLogger.js'
 import * as Birthday from './discord/commands/fun/birthday/index.js'
 import * as Database from './db/initDatabase.js'
 import PresenceService from '@/discord/services/presenceService.js'
 import * as Services from '@/discord/services/index.js'
 import * as Tickets from './discord/commands/moderation/tickets/index.js'
+import supabase from './db/supabase.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5000', 10)
 
@@ -218,7 +219,9 @@ async function collectAllPluginStats(client: Discord.Client) {
  */
 client.once('ready', async (c) => {
 	if (!c.user) {
-		StatusLogger.error('Client user is null - cannot proceed with bot initialization')
+		StatusLogger.error(
+			'Client user is null - cannot proceed with bot initialization'
+		)
 		return
 	}
 
@@ -256,6 +259,37 @@ client.once('ready', async (c) => {
 	ServiceLogger.init()
 	presenceService.initialize()
 
+	// Set up an interval to periodically update global stats
+	setInterval(
+		async () => {
+			try {
+				StatusLogger.info('Periodically updating global bot stats...')
+				const globalStats = await API.fetchAllStats(c.user.id, c)
+				const { error: upsertError } = await supabase
+					.from('bot_stats')
+					.upsert(
+						{ bot_id: c.user.id, ...globalStats },
+						{ onConflict: 'bot_id' }
+					)
+
+				if (upsertError) {
+					StatusLogger.error(
+						'Error during periodic upsert of bot stats',
+						upsertError
+					)
+				} else {
+					StatusLogger.success('Global bot stats updated periodically.')
+				}
+			} catch (statsError) {
+				StatusLogger.error(
+					'Failed to periodically update global bot stats',
+					statsError as Error
+				)
+			}
+		},
+		15 * 60 * 1000
+	) // 15 minutes, same as presence service
+
 	try {
 		// Start services in parallel
 		await Promise.all([
@@ -276,16 +310,15 @@ client.once('ready', async (c) => {
 
 		// Display statistics
 		StatsLogger.display(pluginStats)
-		PluginLogger.totalStats(c.guilds.cache.size, c.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0))
+		PluginLogger.totalStats(
+			c.guilds.cache.size,
+			c.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0)
+		)
 
 		// ========================================
 		// ✅ FINAL STARTUP SECTION
 		// ========================================
 		StatusLogger.success('All services initialized successfully')
-
-		// Restart presence updater
-		presenceService.initialize()
-
 	} catch (error) {
 		StatusLogger.error('Failed to initialize some services', error as Error)
 	}
@@ -316,7 +349,6 @@ EventLogger.complete()
 // Connect to Discord
 DiscordLogger.connect()
 client.login(env.BOT_TOKEN)
-
 
 /**
  * TODO: FEATURES LIST:

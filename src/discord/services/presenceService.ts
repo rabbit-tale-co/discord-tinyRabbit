@@ -129,7 +129,7 @@ class PresenceService {
 				StatusLogger.error('Error upserting bot stats', upsertError)
 			}
 
-			const description = `- configure me with \`/config\` (${stats.configured_plugins} done / ${stats.total_plugins} plugins)
+			const description = `- configure me with \`/config\` (5 done / ${stats.total_plugins} plugins)
 
 🐇 Tiny Rabbit Stats:
 🏰 Servers: ${stats.servers.toLocaleString()}
