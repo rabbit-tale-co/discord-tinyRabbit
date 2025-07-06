@@ -73,7 +73,7 @@ export async function fetchAllStats(
 			xpQuery,
 			createQuery('temp_voice_channels', 'channel_id'),
 			createQuery('leaderboard', 'user_id'),
-			createQuery('plugin_configs').eq('enabled', true),
+			createQuery('plugins'),
 		])
 
 		let totalServers = 0

@@ -181,13 +181,12 @@ export const linkedAccounts = pgTable(
 )
 
 export const plugins = pgTable(
-	'plugin_configs',
+	'plugins',
 	{
 		bot_id: text('bot_id').notNull(),
 		guild_id: text('guild_id').notNull(),
 		plugin_name: text('plugin_name').notNull(),
 		config: jsonb('config'),
-		enabled: boolean('enabled').default(true).notNull(),
 	},
 	(table) => ({
 		pk: primaryKey({
