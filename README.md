@@ -2,19 +2,20 @@
 
 <div align="center">
 
-[![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
-[![Bun](https://img.shields.io/badge/Bun-1.0+-black?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
+[![Discord.js](https://img.shields.io/badge/discord.js-v14-5865f2?logo=discord&logoColor=white&style=for-the-badge)](https://discord.js.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white&style=for-the-badge)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
+[![Bun](https://img.shields.io/badge/Bun-1.0+-F6DEFF?logo=bun&logoColor=white&style=for-the-badge)](https://bun.sh/)
+[![PM2](https://img.shields.io/badge/PM2-Process%20Manager-98D8E8?style=for-the-badge&logo=pm2&logoColor=white)](https://pm2.keymetrics.io/)
 
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Supabase](https://img.shields.io/badge/Database-Supabase-green?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
-[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-blueviolet?logo=discord&logoColor=white&style=for-the-badge)]()
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge)]()
+[![License](https://img.shields.io/badge/License-MIT-FFB6C1?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?logo=supabase&logoColor=white&style=for-the-badge)](https://supabase.com/)
+[![Components V2](https://img.shields.io/badge/Discord-Components%20V2-D4A5D8?logo=discord&logoColor=white&style=for-the-badge)]()
+[![Status](https://img.shields.io/badge/Status-Active-B5E4CA?style=for-the-badge)]()
 
-[![Support Server](https://img.shields.io/discord/1234567890?color=7289da&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
-[![GitHub Stars](https://img.shields.io/github/stars/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
-[![GitHub Forks](https://img.shields.io/github/forks/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
+[![Support Server](https://img.shields.io/discord/1004735926234271864?color=5865f2&label=Support%20Server&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/RfBydgJpmU)
+[![GitHub Stars](https://img.shields.io/github/stars/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github&color=181717)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
+[![GitHub Forks](https://img.shields.io/github/forks/rabbit-tale-co/discord-tinyRabbit?style=for-the-badge&logo=github&color=181717)](https://github.com/rabbit-tale-co/discord-tinyRabbit)
 
 </div>
 
@@ -123,6 +124,8 @@
 - **Database**: Supabase PostgreSQL with real-time subscriptions
 - **Validation**: Comprehensive input validation and sanitization
 - **Logging**: Advanced logging system with multiple output targets
+- **Process Manager**: PM2 for production deployment and monitoring
+- **Build System**: Custom TypeScript build pipeline with Bun
 
 ### Database Schema Overview
 
@@ -203,13 +206,61 @@ The `schema.sql` file contains:
 bun install
 
 # Deploy Discord slash commands
+bun run add-commands
+
+# Build for production
+bun run build
+
+# Start development server (development)
+bun run start
+
+# Production deployment with PM2 (recommended)
 bun run deploy
 
-# Start development server
-bun run dev
+# PM2 management commands
+bun run stop     # Stop the bot
+bun run restart  # Restart the bot with timing info
+pm2 logs discord # View bot logs
+pm2 status       # Check PM2 process status
+```
 
-# Start production server
-bun start
+### 🔄 PM2 Process Management
+
+This bot uses **PM2** for production process management with the following benefits:
+- **Auto-restart** on crashes or file changes
+- **Log management** with date formatting
+- **Memory monitoring** and leak detection
+- **Cluster mode** support for scaling
+- **Built-in monitoring** dashboard
+
+```bash
+# PM2 Configuration
+pm2 start dist/server.js \
+  --name discord \
+  --log-date-format 'DD-MM' \
+  --interpreter ~/.bun/bin/bun
+
+# Monitor processes
+pm2 monit
+
+# View detailed logs
+pm2 logs discord --lines 100
+```
+
+### 🛠️ Development Scripts
+
+Additional utility scripts available for development:
+
+```bash
+# Code analysis and statistics
+bun run cloc        # Count lines of code across the project
+
+# Build system
+bun run build       # Compile TypeScript and prepare for production
+
+# Development workflow
+bun run add-commands # Deploy slash commands to Discord
+bun run start       # Start from built files (production mode)
 ```
 
 ## 🔧 Plugin Configuration
@@ -268,9 +319,9 @@ Track comprehensive bot usage:
 
 ### 🔗 Links & Community
 
-[![Documentation](https://img.shields.io/badge/📚-Documentation-blue?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/wiki)
-[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-red?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
-[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-green?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
+[![Documentation](https://img.shields.io/badge/📚-Documentation-98D8E8?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/wiki)
+[![Issues](https://img.shields.io/badge/🐛-Report%20Bug-F7B2BD?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
+[![Feature Request](https://img.shields.io/badge/💡-Request%20Feature-B5E4CA?style=for-the-badge)](https://github.com/rabbit-tale-co/discord-tinyRabbit/issues)
 
 </div>
 
@@ -329,8 +380,6 @@ If this project helped you, please consider giving it a ⭐ on GitHub!
 
 <div align="center">
 
-**Made with ❤️ by the community**
-
-*Last updated: December 2024*
+**Made with ❤️ by the community & Rabbit Tale Studio**
 
 </div>
