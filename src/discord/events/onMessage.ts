@@ -22,7 +22,7 @@ async function messageHandler(message: Discord.Message): Promise<void> {
 		try {
 			await handleTicketThreadActivity(message)
 		} catch (error) {
-			bunnyLog.error('Error handling ticket thread activity:', error)
+			bunnyLog.log('Error', 'Error handling ticket thread activity:', error)
 		}
 		return
 	}
@@ -70,7 +70,7 @@ async function messageHandler(message: Discord.Message): Promise<void> {
 		}
 	} catch (error) {
 		// Log any errors that may occur during message handling
-		bunnyLog.error('Error handling message:', error)
+		bunnyLog.log('Error', 'Error handling message:', error)
 	}
 }
 
@@ -111,18 +111,20 @@ async function handleTicketThreadActivity(
 					)
 				}
 			} catch (dbError) {
-				bunnyLog.error(
+				bunnyLog.log(
+					'Error',
 					`Failed to reset reminder status in database for ticket ${ticketMeta.ticket_id}:`,
 					dbError
 				)
 			}
 
-			bunnyLog.info(
+			bunnyLog.log(
+				'Info',
 				`Reset reminder status for ticket ${ticketMeta.ticket_id} due to user activity`
 			)
 		}
 	} catch (error) {
-		bunnyLog.error('Error in handleTicketThreadActivity:', error)
+		bunnyLog.log('Error', 'Error in handleTicketThreadActivity:', error)
 	}
 }
 

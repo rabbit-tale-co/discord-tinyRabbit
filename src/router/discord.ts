@@ -28,13 +28,15 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 	'GET /discord/v1/stats': async (req: Request): Promise<Response> => {
 		const url = new URL(req.url)
 		const bot_id = url.searchParams.get('bot_id')
+		const guild_id = url.searchParams.get('guild_id') ?? undefined
+
 		if (!bot_id)
 			return new Response('Missing bot_id', {
 				status: 400,
 				headers: setCorsHeaders(),
 			})
 
-		const stats = await API.fetchAllStats(bot_id)
+		const stats = await API.fetchAllStats(bot_id, undefined, guild_id)
 		return new Response(JSON.stringify(stats), {
 			status: 200,
 			headers: setCorsHeaders({
