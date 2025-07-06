@@ -26,7 +26,6 @@
   "dependencies": {
     "@discordjs/rest": "^2.5.1",
     "@discordjs/voice": "^0.18.0",
-    "@napi-rs/canvas": "^0.1.73",
     "@supabase/supabase-js": "^2.50.3",
     "@types/get-pixels": "^3.3.4",
     "bunny-log": "^2.1.7",
