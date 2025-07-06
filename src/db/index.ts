@@ -6,5 +6,10 @@ if (!process.env.DATABASE_URL) {
 	throw new Error('DATABASE_URL is not set in .env file')
 }
 
-const client = postgres(process.env.DATABASE_URL)
+const url = new URL(process.env.DATABASE_URL)
+if (!url.searchParams.has('sslmode')) {
+	url.searchParams.set('sslmode', 'require')
+}
+
+const client = postgres(url.toString(), { max: 1 })
 export const db = drizzle(client)
