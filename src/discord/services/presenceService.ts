@@ -1,6 +1,7 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
+import supabase from '@/db/supabase.js'
 
 class PresenceService {
 	private readonly client: Discord.Client
@@ -118,6 +119,15 @@ class PresenceService {
 			if (!user) return
 
 			const stats = await api.fetchAllStats(user.id, this.client)
+
+			// Upsert stats to the bot_stats table for dashboard consumption
+			const { error: upsertError } = await supabase
+				.from('bot_stats')
+				.upsert({ bot_id: user.id, ...stats }, { onConflict: 'bot_id' })
+
+			if (upsertError) {
+				StatusLogger.error('Error upserting bot stats', upsertError)
+			}
 
 			const description = `- configure me with \`/config\` (${stats.configured_plugins} done / ${stats.total_plugins} plugins)
 
