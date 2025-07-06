@@ -39,7 +39,9 @@ export async function initializeDatabase(maxRetries = 3, retryDelay = 5_000) {
 				)
 				await new Promise((resolve) => setTimeout(resolve, retryDelay))
 			} else {
-				DatabaseLogger.error('Failed to initialize database after multiple attempts')
+				DatabaseLogger.error(
+					'Failed to initialize database after multiple attempts'
+				)
 				// We'll continue without throwing to allow other bot features to work
 			}
 		}

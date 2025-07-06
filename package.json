@@ -9,7 +9,12 @@
     "cloc": "bun run src/utils/cloc.ts",
     "add-commands": "bun run src/deploy-commands.ts",
     "stop": "pm2 stop discord",
-    "restart": "pm2 restart discord --time"
+    "restart": "pm2 restart discord --time",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "db:studio": "bunx drizzle-kit studio",
+    "db:push": "bunx drizzle-kit push",
+    "db:pull": "bunx drizzle-kit pull"
   },
   "type": "module",
   "author": "Hasiradoo",
@@ -25,6 +30,7 @@
     "chalk": "^5.4.1",
     "discord-components-v2": "^0.0.4",
     "discord.js": "^14.19.3",
+    "drizzle-orm": "^0.44.2",
     "extract-colors": "^4.2.0",
     "ffmpeg-static": "^5.2.0",
     "fs-extra": "^11.3.0",
@@ -46,6 +52,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/node-schedule": "^2.1.7",
     "@types/prismjs": "^1.26.5",
+    "drizzle-kit": "^0.31.4",
     "rimraf": "^6.0.1"
   },
   "main": "index.js",
