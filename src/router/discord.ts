@@ -112,53 +112,6 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 		});
 	},
 
-	"GET /discord/v1/guild/managed": async (req: Request): Promise<Response> => {
-		// Extract Supabase JWT token from Authorization header
-		const authHeader = req.headers.get("Authorization");
-		if (!authHeader || !authHeader.startsWith("Bearer ")) {
-			return new Response("Missing Authorization header", {
-				status: 401,
-				headers: setCorsHeaders(),
-			});
-		}
-
-		const supabaseToken = authHeader.substring(7);
-
-		// Decode the Supabase JWT to get Discord user ID
-		try {
-			// Basic JWT decode (just the payload part)
-			const parts = supabaseToken.split(".");
-			if (parts.length !== 3) {
-				throw new Error("Invalid JWT format");
-			}
-
-			const payload = JSON.parse(atob(parts[1]));
-			const discordUserId = payload.user_metadata?.provider_id;
-
-			if (!discordUserId) {
-				return new Response("No Discord user ID found in token", {
-					status: 400,
-					headers: setCorsHeaders(),
-				});
-			}
-
-			console.log("Extracted Discord user ID:", discordUserId);
-			const guilds = await API.getUserManagedGuilds(discordUserId);
-			return new Response(JSON.stringify(guilds), {
-				status: 200,
-				headers: setCorsHeaders({
-					"Content-Type": "application/json",
-				}),
-			});
-		} catch (error) {
-			console.error("Error processing request:", error);
-			return new Response("Error processing request", {
-				status: 500,
-				headers: setCorsHeaders(),
-			});
-		}
-	},
-
 	"GET /discord/v1/guild/details": async (req: Request): Promise<Response> => {
 		const url = new URL(req.url);
 		const guild_id = url.searchParams.get("guild_id");
