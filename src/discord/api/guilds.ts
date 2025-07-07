@@ -76,6 +76,7 @@ async function getBotGuilds() {
 					...guild,
 					icon,
 					invite_link,
+					botInGuild: true, // Always true since these are guilds the bot is in
 				};
 			}),
 		);
