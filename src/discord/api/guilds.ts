@@ -17,6 +17,20 @@ async function fetchDiscordAPI(endpoint: string) {
 	return response.json();
 }
 
+async function fetchUserGuilds(userToken: string) {
+	const response = await fetch("https://discord.com/api/users/@me/guilds", {
+		headers: {
+			Authorization: `Bearer ${userToken}`,
+		},
+	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to fetch user guilds, Status: ${response.status}`);
+	}
+
+	return response.json();
+}
+
 async function getCustomInvite(guildId: string) {
 	try {
 		// First check if we can access guild data to verify permissions
@@ -49,13 +63,33 @@ async function getCustomInvite(guildId: string) {
 	}
 }
 
-async function getBotGuilds() {
+async function getBotGuilds(userToken?: string, manageOnly: boolean = false) {
 	try {
-		const guilds = await fetchDiscordAPI("users/@me/guilds?with_counts=true");
+		let guilds;
+
+		if (userToken && manageOnly) {
+			// Fetch user guilds with permissions from Discord API
+			guilds = await fetchUserGuilds(userToken);
+			// Filter for guilds where user has MANAGE_GUILD permission (0x0020)
+			guilds = guilds.filter((guild: any) => {
+				const permissions = BigInt(guild.permissions || "0");
+				return (permissions & BigInt(0x0020)) === BigInt(0x0020);
+			});
+		} else {
+			// Fetch bot guilds as before
+			guilds = await fetchDiscordAPI("users/@me/guilds?with_counts=true");
+		}
 
 		const detailedGuilds = await Promise.all(
 			guilds.map(async (guild: Discord.Guild) => {
 				let invite_link = "";
+				let botInGuild = true;
+
+				// If filtering by user permissions, check if bot is in guild
+				if (userToken && manageOnly) {
+					botInGuild = await checkBotMembership(guild.id);
+				}
+
 				if (guild.features.includes(Discord.GuildFeature.Community)) {
 					const inviteCode = await getCustomInvite(guild.id);
 					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : "";
@@ -76,6 +110,7 @@ async function getBotGuilds() {
 					...guild,
 					icon,
 					invite_link,
+					botInGuild,
 				};
 			}),
 		);
@@ -133,7 +168,11 @@ async function getGuildDetails(guild_id: string) {
 
 async function checkBotMembership(guildId: Discord.Snowflake) {
 	try {
-		const response = await fetchDiscordAPI(`guilds/${guildId}`);
+		const response = await fetch(`https://discord.com/api/guilds/${guildId}`, {
+			headers: {
+				Authorization: `Bot ${process.env.BOT_TOKEN}`,
+			},
+		});
 
 		if (response.ok) return true;
 
