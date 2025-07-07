@@ -18,17 +18,27 @@ async function fetchDiscordAPI(endpoint: string) {
 }
 
 async function fetchUserGuilds(userToken: string) {
+	console.log("fetchUserGuilds: Making request to Discord API");
+
 	const response = await fetch("https://discord.com/api/users/@me/guilds", {
 		headers: {
 			Authorization: `Bearer ${userToken}`,
 		},
 	});
 
+	console.log("fetchUserGuilds: Discord API response status:", response.status);
+
 	if (!response.ok) {
-		throw new Error(`Failed to fetch user guilds, Status: ${response.status}`);
+		const errorText = await response.text();
+		console.error("fetchUserGuilds: Discord API error:", errorText);
+		throw new Error(
+			`Failed to fetch user guilds, Status: ${response.status}, Error: ${errorText}`,
+		);
 	}
 
-	return response.json();
+	const data = await response.json();
+	console.log("fetchUserGuilds: Successfully fetched", data.length, "guilds");
+	return data;
 }
 
 async function getCustomInvite(guildId: string) {
@@ -108,49 +118,82 @@ async function getBotGuilds() {
 // New dedicated function for user managed guilds
 async function getUserManagedGuilds(userToken: string) {
 	try {
+		console.log(
+			"getUserManagedGuilds: Starting with token:",
+			userToken ? "Present" : "Missing",
+		);
+
 		// Fetch user guilds with permissions from Discord API
 		const guilds = await fetchUserGuilds(userToken);
+		console.log("getUserManagedGuilds: Fetched guilds count:", guilds.length);
 
 		// Filter for guilds where user has MANAGE_GUILD permission (0x0020)
 		const managedGuilds = guilds.filter((guild: any) => {
 			const permissions = BigInt(guild.permissions || "0");
-			return (permissions & BigInt(0x0020)) === BigInt(0x0020);
+			const hasManagePermission =
+				(permissions & BigInt(0x0020)) === BigInt(0x0020);
+			console.log(
+				`Guild ${guild.name} (${guild.id}): permissions=${guild.permissions}, hasManage=${hasManagePermission}`,
+			);
+			return hasManagePermission;
 		});
+
+		console.log(
+			"getUserManagedGuilds: Filtered managed guilds count:",
+			managedGuilds.length,
+		);
 
 		const detailedGuilds = await Promise.all(
 			managedGuilds.map(async (guild: Discord.Guild) => {
-				let invite_link = "";
+				try {
+					let invite_link = "";
 
-				// Check if bot is in this guild
-				const botInGuild = await checkBotMembership(guild.id);
+					// Check if bot is in this guild
+					const botInGuild = await checkBotMembership(guild.id);
+					console.log(`Guild ${guild.name}: botInGuild=${botInGuild}`);
 
-				if (guild.features.includes(Discord.GuildFeature.Community)) {
-					const inviteCode = await getCustomInvite(guild.id);
-					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : "";
+					if (guild.features?.includes(Discord.GuildFeature.Community)) {
+						const inviteCode = await getCustomInvite(guild.id);
+						invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : "";
+					}
+
+					const getRandomAvatar = () => {
+						const randomNumber = Math.floor(Math.random() * 6); // 0-5
+						return `https://cdn.discordapp.com/embed/avatars/${randomNumber}.png?size=4096`;
+					};
+
+					const icon = guild.icon
+						? guild.icon.startsWith("a_")
+							? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.gif?size=4096`
+							: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
+						: getRandomAvatar();
+
+					return {
+						...guild,
+						icon,
+						invite_link,
+						botInGuild,
+					};
+				} catch (guildError) {
+					console.error(`Error processing guild ${guild.id}:`, guildError);
+					// Return basic guild info even if detailed processing fails
+					return {
+						...guild,
+						icon: `https://cdn.discordapp.com/embed/avatars/0.png?size=4096`,
+						invite_link: "",
+						botInGuild: false,
+					};
 				}
-
-				const getRandomAvatar = () => {
-					const randomNumber = Math.floor(Math.random() * 6); // 0-5
-					return `https://cdn.discordapp.com/embed/avatars/${randomNumber}.png?size=4096`;
-				};
-
-				const icon = guild.icon
-					? guild.icon.startsWith("a_")
-						? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.gif?size=4096`
-						: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
-					: getRandomAvatar();
-
-				return {
-					...guild,
-					icon,
-					invite_link,
-					botInGuild,
-				};
 			}),
 		);
 
+		console.log(
+			"getUserManagedGuilds: Final detailed guilds count:",
+			detailedGuilds.length,
+		);
 		return detailedGuilds;
 	} catch (error) {
+		console.error("getUserManagedGuilds: Full error details:", error);
 		APILogger.error(
 			`Error fetching user managed guilds: ${error instanceof Error ? error.message : String(error)}`,
 		);
