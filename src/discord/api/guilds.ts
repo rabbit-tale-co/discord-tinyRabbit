@@ -17,30 +17,6 @@ async function fetchDiscordAPI(endpoint: string) {
 	return response.json();
 }
 
-async function fetchUserGuilds(userToken: string) {
-	console.log("fetchUserGuilds: Making request to Discord API");
-
-	const response = await fetch("https://discord.com/api/users/@me/guilds", {
-		headers: {
-			Authorization: `Bearer ${userToken}`,
-		},
-	});
-
-	console.log("fetchUserGuilds: Discord API response status:", response.status);
-
-	if (!response.ok) {
-		const errorText = await response.text();
-		console.error("fetchUserGuilds: Discord API error:", errorText);
-		throw new Error(
-			`Failed to fetch user guilds, Status: ${response.status}, Error: ${errorText}`,
-		);
-	}
-
-	const data = await response.json();
-	console.log("fetchUserGuilds: Successfully fetched", data.length, "guilds");
-	return data;
-}
-
 async function getCustomInvite(guildId: string) {
 	try {
 		// First check if we can access guild data to verify permissions
@@ -115,42 +91,101 @@ async function getBotGuilds() {
 	}
 }
 
-// New dedicated function for user managed guilds
-async function getUserManagedGuilds(userToken: string) {
+// New dedicated function for user managed guilds using Discord user ID
+async function getUserManagedGuilds(discordUserId: string) {
 	try {
 		console.log(
-			"getUserManagedGuilds: Starting with token:",
-			userToken ? "Present" : "Missing",
+			"getUserManagedGuilds: Starting with Discord user ID:",
+			discordUserId,
 		);
 
-		// Fetch user guilds with permissions from Discord API
-		const guilds = await fetchUserGuilds(userToken);
-		console.log("getUserManagedGuilds: Fetched guilds count:", guilds.length);
+		// First get all bot guilds
+		const botGuilds = await fetchDiscordAPI(
+			"users/@me/guilds?with_counts=true",
+		);
+		console.log("getUserManagedGuilds: Bot is in", botGuilds.length, "guilds");
 
-		// Filter for guilds where user has MANAGE_GUILD permission (0x0020)
-		const managedGuilds = guilds.filter((guild: any) => {
-			const permissions = BigInt(guild.permissions || "0");
-			const hasManagePermission =
-				(permissions & BigInt(0x0020)) === BigInt(0x0020);
-			console.log(
-				`Guild ${guild.name} (${guild.id}): permissions=${guild.permissions}, hasManage=${hasManagePermission}`,
-			);
-			return hasManagePermission;
-		});
+		// Filter guilds where the user has MANAGE_GUILD permission
+		const managedGuilds = await Promise.all(
+			botGuilds.map(async (guild: any) => {
+				try {
+					// Check if user is a member of this guild
+					const member = await fetchDiscordAPI(
+						`guilds/${guild.id}/members/${discordUserId}`,
+					);
 
+					if (!member) {
+						console.log(
+							`User ${discordUserId} not found in guild ${guild.name}`,
+						);
+						return null;
+					}
+
+					// Calculate user permissions in this guild
+					let userPermissions = BigInt(0);
+
+					// Get @everyone role permissions (base permissions)
+					const everyoneRole = guild.roles?.find(
+						(role: any) => role.id === guild.id,
+					);
+					if (everyoneRole) {
+						userPermissions |= BigInt(everyoneRole.permissions || 0);
+					}
+
+					// Add permissions from user's roles
+					if (member.roles && member.roles.length > 0) {
+						// Fetch guild roles to get permissions
+						const guildRoles = await fetchDiscordAPI(
+							`guilds/${guild.id}/roles`,
+						);
+
+						for (const roleId of member.roles) {
+							const role = guildRoles.find((r: any) => r.id === roleId);
+							if (role) {
+								userPermissions |= BigInt(role.permissions || 0);
+							}
+						}
+					}
+
+					// Check if user has MANAGE_GUILD permission (0x0020)
+					const hasManageGuild =
+						(userPermissions & BigInt(0x0020)) === BigInt(0x0020);
+					// Also check for ADMINISTRATOR permission (0x0008) which grants all permissions
+					const hasAdmin =
+						(userPermissions & BigInt(0x0008)) === BigInt(0x0008);
+
+					console.log(
+						`Guild ${guild.name}: hasManageGuild=${hasManageGuild}, hasAdmin=${hasAdmin}`,
+					);
+
+					if (hasManageGuild || hasAdmin) {
+						return guild;
+					}
+
+					return null;
+				} catch (memberError) {
+					console.log(
+						`Error checking member ${discordUserId} in guild ${guild.id}:`,
+						memberError,
+					);
+					return null;
+				}
+			}),
+		);
+
+		// Filter out null results
+		const validManagedGuilds = managedGuilds.filter((guild) => guild !== null);
 		console.log(
-			"getUserManagedGuilds: Filtered managed guilds count:",
-			managedGuilds.length,
+			"getUserManagedGuilds: User has manage permissions in",
+			validManagedGuilds.length,
+			"guilds",
 		);
 
+		// Process guild details (icons, invites, etc.)
 		const detailedGuilds = await Promise.all(
-			managedGuilds.map(async (guild: Discord.Guild) => {
+			validManagedGuilds.map(async (guild: Discord.Guild) => {
 				try {
 					let invite_link = "";
-
-					// Check if bot is in this guild
-					const botInGuild = await checkBotMembership(guild.id);
-					console.log(`Guild ${guild.name}: botInGuild=${botInGuild}`);
 
 					if (guild.features?.includes(Discord.GuildFeature.Community)) {
 						const inviteCode = await getCustomInvite(guild.id);
@@ -172,7 +207,7 @@ async function getUserManagedGuilds(userToken: string) {
 						...guild,
 						icon,
 						invite_link,
-						botInGuild,
+						botInGuild: true, // Bot is always in its own guilds
 					};
 				} catch (guildError) {
 					console.error(`Error processing guild ${guild.id}:`, guildError);
@@ -181,7 +216,7 @@ async function getUserManagedGuilds(userToken: string) {
 						...guild,
 						icon: `https://cdn.discordapp.com/embed/avatars/0.png?size=4096`,
 						invite_link: "",
-						botInGuild: false,
+						botInGuild: true,
 					};
 				}
 			}),
