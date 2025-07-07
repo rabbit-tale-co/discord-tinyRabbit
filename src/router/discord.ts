@@ -102,18 +102,28 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 	},
 
 	// Guild endpoints
-	"GET /discord/v1/guild/all": async (req: Request): Promise<Response> => {
-		const url = new URL(req.url);
-		const manageOnly = url.searchParams.get("manageOnly") === "true";
+	"GET /discord/v1/guild/all": async (): Promise<Response> => {
+		const guilds = await API.getBotGuilds();
+		return new Response(JSON.stringify(guilds), {
+			status: 200,
+			headers: setCorsHeaders({
+				"Content-Type": "application/json",
+			}),
+		});
+	},
 
+	"GET /discord/v1/guild/managed": async (req: Request): Promise<Response> => {
 		// Extract user token from Authorization header
-		let userToken: string | undefined;
 		const authHeader = req.headers.get("Authorization");
-		if (authHeader && authHeader.startsWith("Bearer ")) {
-			userToken = authHeader.substring(7);
+		if (!authHeader || !authHeader.startsWith("Bearer ")) {
+			return new Response("Missing Authorization header", {
+				status: 401,
+				headers: setCorsHeaders(),
+			});
 		}
 
-		const guilds = await API.getBotGuilds(userToken, manageOnly);
+		const userToken = authHeader.substring(7);
+		const guilds = await API.getUserManagedGuilds(userToken);
 		return new Response(JSON.stringify(guilds), {
 			status: 200,
 			headers: setCorsHeaders({

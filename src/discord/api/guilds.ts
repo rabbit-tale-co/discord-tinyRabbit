@@ -63,32 +63,66 @@ async function getCustomInvite(guildId: string) {
 	}
 }
 
-async function getBotGuilds(userToken?: string, manageOnly: boolean = false) {
+async function getBotGuilds() {
 	try {
-		let guilds;
-
-		if (userToken && manageOnly) {
-			// Fetch user guilds with permissions from Discord API
-			guilds = await fetchUserGuilds(userToken);
-			// Filter for guilds where user has MANAGE_GUILD permission (0x0020)
-			guilds = guilds.filter((guild: any) => {
-				const permissions = BigInt(guild.permissions || "0");
-				return (permissions & BigInt(0x0020)) === BigInt(0x0020);
-			});
-		} else {
-			// Fetch bot guilds as before
-			guilds = await fetchDiscordAPI("users/@me/guilds?with_counts=true");
-		}
+		const guilds = await fetchDiscordAPI("users/@me/guilds?with_counts=true");
 
 		const detailedGuilds = await Promise.all(
 			guilds.map(async (guild: Discord.Guild) => {
 				let invite_link = "";
-				let botInGuild = true;
 
-				// If filtering by user permissions, check if bot is in guild
-				if (userToken && manageOnly) {
-					botInGuild = await checkBotMembership(guild.id);
+				if (guild.features.includes(Discord.GuildFeature.Community)) {
+					const inviteCode = await getCustomInvite(guild.id);
+					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : "";
 				}
+
+				const getRandomAvatar = () => {
+					const randomNumber = Math.floor(Math.random() * 6); // 0-5
+					return `https://cdn.discordapp.com/embed/avatars/${randomNumber}.png?size=4096`;
+				};
+
+				const icon = guild.icon
+					? guild.icon.startsWith("a_")
+						? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.gif?size=4096`
+						: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
+					: getRandomAvatar();
+
+				return {
+					...guild,
+					icon,
+					invite_link,
+					botInGuild: true, // Bot is always in its own guilds
+				};
+			}),
+		);
+
+		return detailedGuilds;
+	} catch (error) {
+		APILogger.error(
+			`Error fetching bot guilds: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
+	}
+}
+
+// New dedicated function for user managed guilds
+async function getUserManagedGuilds(userToken: string) {
+	try {
+		// Fetch user guilds with permissions from Discord API
+		const guilds = await fetchUserGuilds(userToken);
+
+		// Filter for guilds where user has MANAGE_GUILD permission (0x0020)
+		const managedGuilds = guilds.filter((guild: any) => {
+			const permissions = BigInt(guild.permissions || "0");
+			return (permissions & BigInt(0x0020)) === BigInt(0x0020);
+		});
+
+		const detailedGuilds = await Promise.all(
+			managedGuilds.map(async (guild: Discord.Guild) => {
+				let invite_link = "";
+
+				// Check if bot is in this guild
+				const botInGuild = await checkBotMembership(guild.id);
 
 				if (guild.features.includes(Discord.GuildFeature.Community)) {
 					const inviteCode = await getCustomInvite(guild.id);
@@ -118,7 +152,7 @@ async function getBotGuilds(userToken?: string, manageOnly: boolean = false) {
 		return detailedGuilds;
 	} catch (error) {
 		APILogger.error(
-			`Error fetching bot guilds: ${error instanceof Error ? error.message : String(error)}`,
+			`Error fetching user managed guilds: ${error instanceof Error ? error.message : String(error)}`,
 		);
 		throw error;
 	}
@@ -204,4 +238,10 @@ async function checkUserOnServer(
 	}
 }
 
-export { getGuildDetails, checkBotMembership, getBotGuilds, checkUserOnServer };
+export {
+	getGuildDetails,
+	checkBotMembership,
+	getBotGuilds,
+	getUserManagedGuilds,
+	checkUserOnServer,
+};
