@@ -1,7 +1,11 @@
-import type * as Discord from 'discord.js'
-import { DatabaseLogger, ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
-import type * as Types from '@/types/plugins.js'
+import type * as Discord from "discord.js";
+import {
+	DatabaseLogger,
+	ServiceLogger,
+	StatusLogger,
+} from "@/utils/bunnyLogger.js";
+import supabase from "@/db/supabase.js";
+import type * as Types from "@/types/plugins.js";
 
 /**
  * @param {Discord.ClientUser['id']} bot_id - ID bot
@@ -15,18 +19,20 @@ async function saveTempChannelToDB(
 	guild_id: string,
 	channel_id: string,
 	creator_id: string,
-	expire_at: Date
+	expire_at: Date,
 ) {
-	const { error } = await supabase.from('temp_voice_channels').insert({
+	const { error } = await supabase.from("temp_voice_channels").insert({
 		bot_id: bot_id,
 		guild_id: guild_id,
 		channel_id: channel_id,
 		creator_id: creator_id,
 		expire_at: expire_at.toISOString(),
-	})
+	});
 
 	if (error) {
-		DatabaseLogger.error(`Error saving temporary channel to database: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error saving temporary channel to database: ${error instanceof Error ? error.message : String(error)}`,
+		);
 	}
 }
 
@@ -37,19 +43,21 @@ async function saveTempChannelToDB(
  * @param {Discord.ClientUser['id']} bot_id - ID bot
  */
 async function deleteTemporaryChannel(
-	channel_id: Discord.Channel['id'],
-	guild_id: Discord.Guild['id'],
-	bot_id: Discord.ClientUser['id']
+	channel_id: Discord.Channel["id"],
+	guild_id: Discord.Guild["id"],
+	bot_id: Discord.ClientUser["id"],
 ) {
 	// Try to delete the temporary voice channel from the database
 	const { error } = await supabase
-		.from('temp_voice_channels')
+		.from("temp_voice_channels")
 		.delete()
-		.match({ channel_id: channel_id, guild_id: guild_id, bot_id: bot_id })
+		.match({ channel_id: channel_id, guild_id: guild_id, bot_id: bot_id });
 
 	// Check if there is an error deleting the temporary voice channel
 	if (error) {
-		DatabaseLogger.error(`Error deleting temporary channel from database: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error deleting temporary channel from database: ${error instanceof Error ? error.message : String(error)}`,
+		);
 	}
 }
 
@@ -59,54 +67,60 @@ async function deleteTemporaryChannel(
  */
 async function checkAndUpdateChannels(client: Discord.Client) {
 	// Get the current time
-	const now = new Date()
+	const now = new Date();
 
 	// Try to fetch the temporary voice channels from the database
-	const { data, error } = await supabase.from('temp_voice_channels').select('*')
+	const { data, error } = await supabase
+		.from("temp_voice_channels")
+		.select("*");
 
 	// Check if there is an error fetching the temporary voice channels
 	if (error) {
-		DatabaseLogger.error(`Error fetching temp channels: ${error instanceof Error ? error.message : String(error)}`)
-		return
+		DatabaseLogger.error(
+			`Error fetching temp channels: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return;
 	}
 
 	// Iterate over each temporary voice channel
 	for (const channel of data) {
 		// Fetch the guild
-		const guild = await client.guilds.fetch(channel.guild_id)
+		const guild = await client.guilds.fetch(channel.guild_id);
 
 		// Check if the guild exists
-		if (!guild) continue
+		if (!guild) continue;
 
 		// Fetch the voice channel
 		const voiceChannel = guild.channels.cache.get(
-			channel.channel_id
-		) as Discord.VoiceChannel
+			channel.channel_id,
+		) as Discord.VoiceChannel;
 
 		// Check if the voice channel exists
 		if (voiceChannel) {
 			// Get the expiration time
-			const expirationTime = new Date(channel.expiration_time)
+			const expirationTime = new Date(channel.expiration_time);
 
 			// Check if the expiration time is in the past or if the voice channel has no members
 			if (now > expirationTime || voiceChannel.members.size === 0) {
 				try {
 					// Delete the voice channel
-					await voiceChannel.delete()
+					await voiceChannel.delete();
 
 					// Delete the temporary voice channel from the database
 					await deleteTemporaryChannel(
 						channel.channel_id,
 						channel.guild_id,
-						channel.bot_id
-					)
+						channel.bot_id,
+					);
 
 					// Log the success
 					StatusLogger.success(
-						`Deleted temporary voice channel: ${voiceChannel.name}`
-					)
+						`Deleted temporary voice channel: ${voiceChannel.name}`,
+					);
 				} catch (error) {
-					DatabaseLogger.error(`Error deleting channel ${channel.channel_id}: ${error instanceof Error ? error.message : String(error)}`)
+					DatabaseLogger.error(
+						`Error deleting channel ${channel.channel_id}: ${error instanceof Error ? error.message : String(error)}`,
+					);
 				}
 			}
 		} else {
@@ -114,13 +128,13 @@ async function checkAndUpdateChannels(client: Discord.Client) {
 			await deleteTemporaryChannel(
 				channel.channel_id,
 				channel.guild_id,
-				channel.bot_id
-			)
+				channel.bot_id,
+			);
 		}
 	}
 }
 
-export { saveTempChannelToDB, deleteTemporaryChannel, checkAndUpdateChannels }
+export { saveTempChannelToDB, deleteTemporaryChannel, checkAndUpdateChannels };
 
 /**
  * Get temporary voice channels from the database.
@@ -128,12 +142,16 @@ export { saveTempChannelToDB, deleteTemporaryChannel, checkAndUpdateChannels }
  */
 export async function getTempChannels(): Promise<Types.TempVC[]> {
 	// Try to fetch the temporary voice channels from the database
-	const { data, error } = await supabase.from('temp_voice_channels').select('*')
+	const { data, error } = await supabase
+		.from("temp_voice_channels")
+		.select("*");
 
 	// Check if there is an error fetching the temporary voice channels
 	if (error) {
-		DatabaseLogger.error(`Error fetching temp channels: ${error instanceof Error ? error.message : String(error)}`)
-		return []
+		DatabaseLogger.error(
+			`Error fetching temp channels: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return [];
 	}
 
 	// StatusLogger.info(`Fetched ${data.length} temp channels from database`)
@@ -142,5 +160,5 @@ export async function getTempChannels(): Promise<Types.TempVC[]> {
 	return data.map((channel) => ({
 		...channel,
 		expire_at: new Date(channel.expire_at).getTime(),
-	}))
+	}));
 }

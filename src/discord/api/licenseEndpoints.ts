@@ -1,5 +1,5 @@
-import { LicenseManager } from './licenseManager.js'
-import { bunnyLog } from 'bunny-log'
+import { LicenseManager } from "./licenseManager.js";
+import { bunnyLog } from "bunny-log";
 
 /**
  * Endpoint for verifying a license.
@@ -7,11 +7,11 @@ import { bunnyLog } from 'bunny-log'
  * Returns an object with premium flag and trialActive flag.
  */
 export async function licenseVerifyEndpoint(body: {
-	licenseKey: string,
-	botId: string
+	licenseKey: string;
+	botId: string;
 }): Promise<{ valid: boolean; trialActive: boolean }> {
 	if (!body.licenseKey || !body.botId) {
-		throw new Error('Missing licenseKey or botId');
+		throw new Error("Missing licenseKey or botId");
 	}
 	try {
 		await LicenseManager.verifyLicense(body.licenseKey);
@@ -20,7 +20,10 @@ export async function licenseVerifyEndpoint(body: {
 			trialActive: LicenseManager.trialActive,
 		};
 	} catch (error) {
-		bunnyLog.error(`Error in licenseVerifyEndpoint: ${error instanceof Error ? error.message : String(error)}`);
+		bunnyLog.log(
+			"error",
+			`Error in licenseVerifyEndpoint: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		throw error;
 	}
 }
@@ -31,10 +34,10 @@ export async function licenseVerifyEndpoint(body: {
  * Returns an object with the trialActive flag.
  */
 export async function licenseTrialEndpoint(body: {
-	botId: string
+	botId: string;
 }): Promise<{ trialActive: boolean }> {
 	if (!body.botId) {
-		throw new Error('Missing botId');
+		throw new Error("Missing botId");
 	}
 	try {
 		await LicenseManager.checkTrialStatus();
@@ -42,7 +45,7 @@ export async function licenseTrialEndpoint(body: {
 			trialActive: LicenseManager.trialActive,
 		};
 	} catch (error) {
-		bunnyLog.error('Error in licenseTrialEndpoint:', error);
+		bunnyLog.log("error", "Error in licenseTrialEndpoint:", error);
 		throw error;
 	}
 }

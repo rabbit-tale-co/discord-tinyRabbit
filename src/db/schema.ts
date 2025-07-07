@@ -9,6 +9,7 @@ import {
 	primaryKey,
 	varchar,
 } from 'drizzle-orm/pg-core'
+import type { InferSelectModel } from 'drizzle-orm'
 
 export const botStats = pgTable('bot_stats', {
 	bot_id: text('bot_id').primaryKey(),
@@ -331,3 +332,24 @@ export const verificationTokens = pgTable('verification_tokens', {
 // Drizzle requires defining relations explicitly if you want to use them in queries.
 // I'm omitting the relations part for now to keep it simple and just create the tables,
 // but they can be added later if needed.
+
+// Export types for use in queries
+export type BotStats = InferSelectModel<typeof botStats>
+export type Bots = InferSelectModel<typeof bots>
+export type Guilds = InferSelectModel<typeof guilds>
+export type CurrencyTransactions = InferSelectModel<typeof currencyTransactions>
+export type DiscordRewardClaims = InferSelectModel<typeof discordRewardClaims>
+export type Leaderboard = InferSelectModel<typeof leaderboard>
+export type PluginLicenses = InferSelectModel<typeof pluginLicenses>
+export type LicenseHistory = InferSelectModel<typeof licenseHistory>
+export type LicenseServers = InferSelectModel<typeof licenseServers>
+export type LinkedAccounts = InferSelectModel<typeof linkedAccounts>
+export type Plugins = InferSelectModel<typeof plugins>
+export type Starboards = InferSelectModel<typeof starboards>
+export type TempVoiceChannels = InferSelectModel<typeof tempVoiceChannels>
+export type Tickets = InferSelectModel<typeof tickets>
+export type TrialServers = InferSelectModel<typeof trialServers>
+export type UserBalances = InferSelectModel<typeof userBalances>
+export type UserBdays = InferSelectModel<typeof userBdays>
+export type UserLevels = InferSelectModel<typeof userLevels>
+export type VerificationTokens = InferSelectModel<typeof verificationTokens>

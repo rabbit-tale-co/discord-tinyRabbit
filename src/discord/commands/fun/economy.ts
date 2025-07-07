@@ -7,7 +7,7 @@ import {
 } from "@/discord/api/economy.js";
 import { getPluginConfig } from "@/discord/api/plugins.js";
 import { handleResponse } from "@/utils/responses.js";
-import supabase from "@/db/supabase.js";
+import supabase from "@/lib/db/supabase.js";
 import { randomUUIDv7 } from "bun";
 
 export async function balance(

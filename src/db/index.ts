@@ -11,5 +11,12 @@ if (!url.searchParams.has('sslmode')) {
 	url.searchParams.set('sslmode', 'require')
 }
 
-const client = postgres(url.toString(), { max: 1 })
+const client = postgres(url.toString(), {
+	max: 1,
+	ssl: 'require',
+	connection: {
+		application_name: 'discord-bot',
+	},
+})
+
 export const db = drizzle(client)

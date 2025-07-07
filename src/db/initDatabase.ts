@@ -1,4 +1,4 @@
-import db from '@/db/supabase.js'
+import db from '@/lib/db/supabase.js'
 import { DatabaseLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**

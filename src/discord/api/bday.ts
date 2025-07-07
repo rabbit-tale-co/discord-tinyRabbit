@@ -1,4 +1,4 @@
-import { APILogger } from '@/utils/bunnyLogger.js';
+import { APILogger } from "@/utils/bunnyLogger.js";
 import supabase from "@/db/supabase.js";
 import type * as Discord from "discord.js";
 
@@ -64,7 +64,9 @@ async function getBirthdayUsers(
 		.eq("birthday->month", month);
 
 	if (error) {
-		APILogger.error(`Error fetching users with birthday: ${error instanceof Error ? error.message : String(error)}`);
+		APILogger.error(
+			`Error fetching users with birthday: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		throw new Error("Failed to fetch users.");
 	}
 

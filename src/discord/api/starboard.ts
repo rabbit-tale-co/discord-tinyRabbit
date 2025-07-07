@@ -1,6 +1,6 @@
-import type * as Discord from 'discord.js'
-import supabase from '@/db/supabase.js'
-import { DatabaseLogger } from '@/utils/bunnyLogger.js'
+import type * as Discord from "discord.js";
+import supabase from "@/db/supabase.js";
+import { DatabaseLogger } from "@/utils/bunnyLogger.js";
 
 /**
  * Fetches the starboard entry for a specific message in a guild.
@@ -10,31 +10,33 @@ import { DatabaseLogger } from '@/utils/bunnyLogger.js'
  * @returns {Promise<Object|null>} The starboard entry, or null if not found.
  */
 async function getStarboardEntry(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	message_id: Discord.Message['id']
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	message_id: Discord.Message["id"],
 ): Promise<object | null> {
 	const { data, error } = await supabase
-		.from('starboards')
-		.select('*')
-		.eq('bot_id', bot_id)
-		.eq('guild_id', guild_id)
-		.eq('author_message_id', message_id)
-		.single()
+		.from("starboards")
+		.select("*")
+		.eq("bot_id", bot_id)
+		.eq("guild_id", guild_id)
+		.eq("author_message_id", message_id)
+		.single();
 
 	// Check if there is an error fetching the starboard entry
 	if (error) {
 		// Check if the error is because the starboard entry doesn't exist
-		if (error.code === 'PGRST116') {
-			return null // No matching row found
+		if (error.code === "PGRST116") {
+			return null; // No matching row found
 		}
 
 		// Log the error
-		DatabaseLogger.error(`Error fetching starboard entry: ${error instanceof Error ? error.message : String(error)}`)
-		return null
+		DatabaseLogger.error(
+			`Error fetching starboard entry: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return null;
 	}
 
-	return data
+	return data;
 }
 
 /**
@@ -47,26 +49,28 @@ async function getStarboardEntry(
  * @returns {Promise<void>}
  */
 async function createStarboardEntry(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	author_message_id: Discord.Message['id'],
-	starboard_message_id: Discord.Message['id'],
-	star_count: number
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	author_message_id: Discord.Message["id"],
+	starboard_message_id: Discord.Message["id"],
+	star_count: number,
 ): Promise<void> {
 	// Try to insert the starboard entry into the database
-	const { error } = await supabase.from('starboards').insert({
+	const { error } = await supabase.from("starboards").insert({
 		bot_id,
 		guild_id,
 		author_message_id,
 		starboard_message_id,
 		star_count,
-	})
+	});
 
 	// Check if there is an error inserting the starboard entry
 	if (error) {
 		// Log the error
-		DatabaseLogger.error(`Error creating starboard entry: ${error instanceof Error ? error.message : String(error)}`)
-		throw error
+		DatabaseLogger.error(
+			`Error creating starboard entry: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -78,22 +82,24 @@ async function createStarboardEntry(
  * @returns {Promise<void>}
  */
 async function deleteStarboardEntry(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	author_message_id: Discord.Message['id']
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	author_message_id: Discord.Message["id"],
 ): Promise<void> {
 	const { error } = await supabase
-		.from('starboards')
+		.from("starboards")
 		.delete()
-		.eq('bot_id', bot_id)
-		.eq('guild_id', guild_id)
-		.eq('author_message_id', author_message_id)
+		.eq("bot_id", bot_id)
+		.eq("guild_id", guild_id)
+		.eq("author_message_id", author_message_id);
 
 	// Check if there is an error deleting the starboard entry
 	if (error) {
 		// Log the error
-		DatabaseLogger.error(`Error deleting starboard entry: ${error instanceof Error ? error.message : String(error)}`)
-		throw error
+		DatabaseLogger.error(
+			`Error deleting starboard entry: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -106,24 +112,26 @@ async function deleteStarboardEntry(
  * @returns {Promise<void>}
  */
 async function updateStarboardEntry(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	author_message_id: Discord.Message['id'],
-	star_count: number
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	author_message_id: Discord.Message["id"],
+	star_count: number,
 ): Promise<void> {
 	// Try to update the starboard entry in the database
 	const { error } = await supabase
-		.from('starboards')
+		.from("starboards")
 		.update({ star_count })
-		.eq('bot_id', bot_id)
-		.eq('guild_id', guild_id)
-		.eq('author_message_id', author_message_id)
+		.eq("bot_id", bot_id)
+		.eq("guild_id", guild_id)
+		.eq("author_message_id", author_message_id);
 
 	// Check if there is an error updating the starboard entry
 	if (error) {
 		// Log the error
-		DatabaseLogger.error(`Error updating starboard entry: ${error instanceof Error ? error.message : String(error)}`)
-		throw error
+		DatabaseLogger.error(
+			`Error updating starboard entry: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -132,4 +140,4 @@ export {
 	createStarboardEntry,
 	deleteStarboardEntry,
 	updateStarboardEntry,
-}
+};

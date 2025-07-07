@@ -1,7 +1,7 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
+import supabase from '@/lib/db/supabase.js'
 
 class PresenceService {
 	private readonly client: Discord.Client

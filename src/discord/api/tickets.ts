@@ -1,8 +1,8 @@
-import type * as Discord from 'discord.js'
-import type { DefaultConfigs } from '@/types/plugins.js'
-import { DatabaseLogger, StatusLogger } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
-import type { ThreadMetadata } from '@/types/tickets.js'
+import type * as Discord from "discord.js";
+import type { DefaultConfigs } from "@/types/plugins.js";
+import { DatabaseLogger, StatusLogger } from "@/utils/bunnyLogger.js";
+import supabase from "@/db/supabase.js";
+import type { ThreadMetadata } from "@/types/tickets.js";
 
 /**
  * Fetches the ticket counter for a guild.
@@ -12,18 +12,18 @@ import type { ThreadMetadata } from '@/types/tickets.js'
  */
 async function getTicketCounter(
 	bot_id: string,
-	guild_id: string
+	guild_id: string,
 ): Promise<number> {
 	const { data, error } = await supabase
-		.from('plugins')
-		.select('config')
-		.eq('bot_id', bot_id)
-		.eq('guild_id', guild_id)
-		.eq('plugin_name', 'tickets')
-		.single()
+		.from("plugins")
+		.select("config")
+		.eq("bot_id", bot_id)
+		.eq("guild_id", guild_id)
+		.eq("plugin_name", "tickets")
+		.single();
 
-	if (error) throw error
-	return (data?.config as DefaultConfigs['tickets'])?.counter || 0
+	if (error) throw error;
+	return (data?.config as DefaultConfigs["tickets"])?.counter || 0;
 }
 
 /**
@@ -33,17 +33,17 @@ async function getTicketCounter(
  * @returns {Promise<void>}
  */
 async function incrementTicketCounter(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id']
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
 ): Promise<void> {
 	// Try to increment the ticket counter
-	const { data, error } = await supabase.rpc('increment_ticket_counter', {
+	const { data, error } = await supabase.rpc("increment_ticket_counter", {
 		p_bot_id: bot_id,
 		p_guild_id: guild_id,
-	})
+	});
 
 	// Check if there is an error incrementing the ticket counter
-	if (error) throw error
+	if (error) throw error;
 }
 
 /**
@@ -56,25 +56,27 @@ async function incrementTicketCounter(
  * @returns {Promise<void>}
  */
 async function saveTranscriptToSupabase(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	thread_id: Discord.ThreadChannel['id'],
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	thread_id: Discord.ThreadChannel["id"],
 	transcript: object[], // Array of messages
-	metadata: object
+	metadata: object,
 ): Promise<void> {
 	try {
 		// Use upsert instead of insert to handle duplicate key violation
-		const { error } = await supabase.from('tickets').upsert({
+		const { error } = await supabase.from("tickets").upsert({
 			bot_id,
 			guild_id,
 			thread_id,
 			messages: transcript,
 			metadata,
-		})
-		if (error) throw error
+		});
+		if (error) throw error;
 	} catch (error) {
-		DatabaseLogger.error(`Error saving transcript to database: ${error instanceof Error ? error.message : String(error)}`)
-		throw error
+		DatabaseLogger.error(
+			`Error saving transcript to database: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -84,13 +86,13 @@ async function saveTranscriptToSupabase(
  * @returns {Promise<Discord.Message[]>} An array of messages.
  */
 async function fetchTicketMessages(
-	thread: Discord.ThreadChannel
+	thread: Discord.ThreadChannel,
 ): Promise<Discord.Message[]> {
 	// Try to fetch the messages from the thread
-	let messages: Discord.Message[] = []
+	let messages: Discord.Message[] = [];
 
 	// Try to fetch the last message ID
-	let last_message_id: string | null = null
+	let last_message_id: string | null = null;
 
 	// Fetch the messages from the thread
 	while (true) {
@@ -98,22 +100,22 @@ async function fetchTicketMessages(
 		const fetched_messages = await thread.messages.fetch({
 			limit: 100,
 			...(last_message_id && { before: last_message_id }),
-		})
+		});
 
 		// Check if there are no messages fetched
 		if (fetched_messages.size === 0) {
-			break
+			break;
 		}
 
 		// Add the fetched messages to the messages array
-		messages = messages.concat(Array.from(fetched_messages.values()))
+		messages = messages.concat(Array.from(fetched_messages.values()));
 
 		// Set the last message ID
-		last_message_id = fetched_messages.last()?.id || null
+		last_message_id = fetched_messages.last()?.id || null;
 	}
 
 	// Return the messages in chronological order
-	return messages.reverse()
+	return messages.reverse();
 }
 
 /**
@@ -135,9 +137,9 @@ function formatTranscript(messages: Discord.Message[]): Array<object> {
 								proxyURL: attachment.proxyURL,
 								name: attachment.name,
 								size: attachment.size,
-							})
+							}),
 						)
-					: null
+					: null;
 
 			// Prepare the stickers field
 			const stickers =
@@ -147,9 +149,9 @@ function formatTranscript(messages: Discord.Message[]): Array<object> {
 								id: sticker.id,
 								name: sticker.name,
 								format: sticker.format, // e.g., PNG, APNG, LOTTIE
-							})
+							}),
 						)
-					: null
+					: null;
 
 			// Prepare the embeds field
 			const embeds =
@@ -164,7 +166,7 @@ function formatTranscript(messages: Discord.Message[]): Array<object> {
 								inline: field.inline ?? false,
 							})),
 						}))
-					: null
+					: null;
 
 			// Return the structured object
 			return {
@@ -178,8 +180,8 @@ function formatTranscript(messages: Discord.Message[]): Array<object> {
 				content: message.content || null,
 				id: message.id,
 				timestamp: message.createdTimestamp,
-			}
-		})
+			};
+		});
 }
 
 /**
@@ -196,19 +198,19 @@ async function saveTicketMetadata(
 	guild_id: string,
 	thread_id: string,
 	ticketData: ThreadMetadata,
-	messages: object[]
+	messages: object[],
 ): Promise<void> {
 	try {
 		// Ensure the metadata has essential fields
 		if (!ticketData.open_time) {
-			ticketData.open_time = Math.floor(Date.now() / 1000)
+			ticketData.open_time = Math.floor(Date.now() / 1000);
 		}
 
 		// Add guild_id to ticket metadata for easier retrieval later
 		const metadataWithGuildId = {
 			...ticketData,
 			guild_id: guild_id,
-		}
+		};
 
 		// console.log("Saving ticket metadata:", {
 		// 	thread_id,
@@ -217,17 +219,19 @@ async function saveTicketMetadata(
 		// 	user_id: ticketData.opened_by?.id,
 		// });
 
-		const { data, error } = await supabase.from('tickets').insert({
+		const { data, error } = await supabase.from("tickets").insert({
 			bot_id,
 			guild_id,
 			thread_id,
 			metadata: metadataWithGuildId,
 			messages,
-		})
-		if (error) throw error
+		});
+		if (error) throw error;
 	} catch (error) {
-		DatabaseLogger.error(`Failed to save ticket metadata: ${error instanceof Error ? error.message : String(error)}`)
-		throw error
+		DatabaseLogger.error(
+			`Failed to save ticket metadata: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -239,27 +243,29 @@ async function saveTicketMetadata(
  */
 async function findTicketByThreadId(
 	bot_id: string,
-	thread_id: string
+	thread_id: string,
 ): Promise<{ guild_id: string; metadata: ThreadMetadata } | null> {
 	const { data, error } = await supabase
-		.from('tickets')
-		.select('guild_id, metadata')
-		.eq('bot_id', bot_id)
-		.eq('thread_id', thread_id)
-		.single()
+		.from("tickets")
+		.select("guild_id, metadata")
+		.eq("bot_id", bot_id)
+		.eq("thread_id", thread_id)
+		.single();
 
 	if (error || !data) {
 		// Don't log "no rows" as an error
-		if (error?.code !== 'PGRST116') {
-			DatabaseLogger.error(`Failed to find ticket by thread_id: ${error instanceof Error ? error.message : String(error)}`)
+		if (error?.code !== "PGRST116") {
+			DatabaseLogger.error(
+				`Failed to find ticket by thread_id: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
-		return null
+		return null;
 	}
 
 	return {
 		guild_id: data.guild_id,
 		metadata: data.metadata as ThreadMetadata,
-	}
+	};
 }
 
 /**
@@ -272,23 +278,25 @@ async function findTicketByThreadId(
 async function getTicketMetadata(
 	bot_id: string,
 	guild_id: string,
-	thread_id: string
+	thread_id: string,
 ): Promise<ThreadMetadata | null> {
 	const { data, error } = await supabase
-		.from('tickets')
-		.select('*')
-		.eq('bot_id', bot_id)
-		.eq('guild_id', guild_id)
-		.eq('thread_id', thread_id)
-		.single()
+		.from("tickets")
+		.select("*")
+		.eq("bot_id", bot_id)
+		.eq("guild_id", guild_id)
+		.eq("thread_id", thread_id)
+		.single();
 	if (error || !data) {
 		// Don't log "no rows" as an error
-		if (error?.code !== 'PGRST116') {
-			DatabaseLogger.error(`Failed to retrieve ticket metadata: ${error instanceof Error ? error.message : String(error)}`)
+		if (error?.code !== "PGRST116") {
+			DatabaseLogger.error(
+				`Failed to retrieve ticket metadata: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
-		return null
+		return null;
 	}
-	return data.metadata as ThreadMetadata
+	return data.metadata as ThreadMetadata;
 }
 
 /**
@@ -303,19 +311,21 @@ async function updateTicketMetadata(
 	bot_id: string,
 	guild_id: string,
 	thread_id: string,
-	metadata: ThreadMetadata
+	metadata: ThreadMetadata,
 ): Promise<void> {
 	try {
 		const { error } = await supabase
-			.from('tickets')
+			.from("tickets")
 			.update({ metadata }) // update the JSONB metadata field
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.eq('thread_id', thread_id)
-		if (error) throw error
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("thread_id", thread_id);
+		if (error) throw error;
 	} catch (error) {
-		DatabaseLogger.error(`Error updating ticket metadata: ${error instanceof Error ? error.message : String(error)}`)
-		throw error
+		DatabaseLogger.error(
+			`Error updating ticket metadata: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -331,21 +341,21 @@ async function updateTicketRating(
 	bot_id: string,
 	thread_id: string,
 	rating: number,
-	review_message_id?: string
+	review_message_id?: string,
 ): Promise<void> {
 	try {
 		// First get the existing ticket
 		const { data, error } = await supabase
-			.from('tickets')
-			.select('metadata, guild_id')
-			.eq('bot_id', bot_id)
-			.eq('thread_id', thread_id)
-			.single()
+			.from("tickets")
+			.select("metadata, guild_id")
+			.eq("bot_id", bot_id)
+			.eq("thread_id", thread_id)
+			.single();
 
-		if (error) throw error
-		if (!data) throw new Error('Ticket not found')
+		if (error) throw error;
+		if (!data) throw new Error("Ticket not found");
 
-		const { metadata, guild_id } = data
+		const { metadata, guild_id } = data;
 
 		// Add rating to metadata
 		const updatedMetadata = {
@@ -355,41 +365,45 @@ async function updateTicketRating(
 				submitted_at: new Date().toISOString(),
 				review_message_id: review_message_id,
 			},
-		}
+		};
 
 		// Update the ticket with the rating
 		const { error: updateError } = await supabase
-			.from('tickets')
+			.from("tickets")
 			.update({
 				metadata: updatedMetadata,
 			})
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.eq('thread_id', thread_id)
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("thread_id", thread_id);
 
-		if (updateError) throw updateError
+		if (updateError) throw updateError;
 
 		// Verify the update was successful
 		const { data: verifyData, error: verifyError } = await supabase
-			.from('tickets')
-			.select('metadata')
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.eq('thread_id', thread_id)
-			.single()
+			.from("tickets")
+			.select("metadata")
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("thread_id", thread_id)
+			.single();
 
-		if (verifyError) throw verifyError
+		if (verifyError) throw verifyError;
 
 		if (verifyData?.metadata?.rating?.value !== rating) {
-			StatusLogger.warn(`Rating update verification failed for ticket ${thread_id}`)
+			StatusLogger.warn(
+				`Rating update verification failed for ticket ${thread_id}`,
+			);
 		} else {
 			// bunnyLog.info(
 			// 	`Ticket ${thread_id} rated ${rating}/5 stars - metadata updated successfully`
 			// )
 		}
 	} catch (error) {
-		DatabaseLogger.error(`Error updating ticket rating: ${error instanceof Error ? error.message : String(error)}`)
-		throw error
+		DatabaseLogger.error(
+			`Error updating ticket rating: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -403,38 +417,42 @@ async function updateTicketRating(
 async function getUserTickets(
 	bot_id: string,
 	guild_id: string,
-	user_id: string
+	user_id: string,
 ): Promise<Array<{ thread_id: string; open_time: number }>> {
 	try {
 		// Get all tickets for this guild and bot
 		const { data, error } = await supabase
-			.from('tickets')
-			.select('thread_id, metadata')
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
+			.from("tickets")
+			.select("thread_id, metadata")
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id);
 
 		if (error) {
-			DatabaseLogger.error(`Error fetching tickets: ${error instanceof Error ? error.message : String(error)}`)
-			return []
+			DatabaseLogger.error(
+				`Error fetching tickets: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [];
 		}
 
 		// Filter tickets by user ID in the opened_by field
 		const userTickets =
 			data?.filter((ticket) => {
 				// Type casting to access the nested properties
-				const metadata = ticket.metadata as ThreadMetadata
+				const metadata = ticket.metadata as ThreadMetadata;
 				// Check if metadata and opened_by exist and have valid properties
-				return metadata?.opened_by?.id === user_id && metadata?.open_time > 0
-			}) || []
+				return metadata?.opened_by?.id === user_id && metadata?.open_time > 0;
+			}) || [];
 
 		// Transform data to extract thread_id and open_time
 		return userTickets.map((ticket) => ({
 			thread_id: ticket.thread_id,
 			open_time: (ticket.metadata as ThreadMetadata).open_time || 0,
-		}))
+		}));
 	} catch (error) {
-		DatabaseLogger.error(`Failed to get user tickets: ${error instanceof Error ? error.message : String(error)}`)
-		return []
+		DatabaseLogger.error(
+			`Failed to get user tickets: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return [];
 	}
 }
 
@@ -446,53 +464,57 @@ async function getUserTickets(
  */
 async function getAllActiveTickets(
 	bot_id: string,
-	guild_id?: string
+	guild_id?: string,
 ): Promise<
 	Array<{ thread_id: string; metadata: ThreadMetadata; guild_id: string }>
 > {
 	try {
 		// Base query
 		let query = supabase
-			.from('tickets')
-			.select('thread_id, metadata, guild_id')
-			.eq('bot_id', bot_id)
+			.from("tickets")
+			.select("thread_id, metadata, guild_id")
+			.eq("bot_id", bot_id);
 
 		// Add guild filter if specified
 		if (guild_id) {
-			query = query.eq('guild_id', guild_id)
+			query = query.eq("guild_id", guild_id);
 		}
 
 		// Get the data
-		const { data, error } = await query
+		const { data, error } = await query;
 
 		if (error) {
-			DatabaseLogger.error(`Error fetching active tickets: ${error instanceof Error ? error.message : String(error)}`)
-			return []
+			DatabaseLogger.error(
+				`Error fetching active tickets: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return [];
 		}
 
 		if (!data || data.length === 0) {
-			return []
+			return [];
 		}
 
 		// Filter to only include active tickets (not marked as closed)
 		const activeTickets = data.filter((ticket) => {
-			if (!ticket.metadata) return false
-			const metadata = ticket.metadata as ThreadMetadata
+			if (!ticket.metadata) return false;
+			const metadata = ticket.metadata as ThreadMetadata;
 			// Check the optional status field to exclude closed tickets
-			return metadata.status !== 'closed'
-		})
-		return activeTickets
+			return metadata.status !== "closed";
+		});
+		return activeTickets;
 	} catch (error) {
-		DatabaseLogger.error(`Failed to get active tickets: ${error instanceof Error ? error.message : String(error)}`)
-		return []
+		DatabaseLogger.error(
+			`Failed to get active tickets: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return [];
 	}
 }
 
 export async function fetchTotalTickets(): Promise<number> {
-	const { data, error } = await supabase.from('tickets').select('*')
+	const { data, error } = await supabase.from("tickets").select("*");
 
-	if (error) throw error
-	return data?.length || 0
+	if (error) throw error;
+	return data?.length || 0;
 }
 
 export {
@@ -508,4 +530,4 @@ export {
 	updateTicketRating,
 	getUserTickets,
 	getAllActiveTickets,
-}
+};

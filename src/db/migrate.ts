@@ -12,12 +12,26 @@ if (!url.searchParams.has('sslmode')) {
 	url.searchParams.set('sslmode', 'require')
 }
 
-const db = drizzle(postgres(url.toString(), { max: 1 }))
+// Force SSL configuration
+const client = postgres(url.toString(), {
+	max: 1,
+	ssl: 'require',
+	connection: {
+		application_name: 'discord-bot-migration',
+	},
+})
+
+const db = drizzle(client)
 
 console.log('Running migrations...')
 
-await migrate(db, { migrationsFolder: 'drizzle' })
-
-console.log('Migrations completed!')
-
-process.exit(0)
+try {
+	await migrate(db, { migrationsFolder: 'drizzle' })
+	console.log('Migrations completed!')
+} catch (error) {
+	console.error('Migration failed:', error)
+	process.exit(1)
+} finally {
+	await client.end()
+	process.exit(0)
+}

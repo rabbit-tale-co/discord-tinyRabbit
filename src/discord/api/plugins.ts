@@ -1,21 +1,21 @@
-import * as Discord from 'discord.js'
+import * as Discord from "discord.js";
 import {
 	DatabaseLogger,
 	PluginLogger,
 	StatusLogger,
-} from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
-import type { API, TicketTemplates, ComponentsV2 } from '@/types/plugins.js'
+} from "@/utils/bunnyLogger.js";
+import supabase from "@/db/supabase.js";
+import type { API, TicketTemplates, ComponentsV2 } from "@/types/plugins.js";
 import type {
 	PluginResponse,
 	DefaultConfigs,
 	Plugins,
-} from '@/types/plugins.js'
+} from "@/types/plugins.js";
 import type {
 	SectionComponent,
 	TextDisplayComponent,
 	SeparatorComponent,
-} from 'discord.js'
+} from "discord.js";
 
 // Define the ticket components structure using our type definitions
 const createTicketComponents = (): TicketTemplates => {
@@ -24,19 +24,19 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 🎫 Support Tickets',
+					text: "## 🎫 Support Tickets",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Click on the button below to open a support ticket.',
+					text: "Click on the button below to open a support ticket.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.ActionRow,
 					components: [
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: 'open_ticket_general',
-							label: 'General Support',
+							custom_id: "open_ticket_general",
+							label: "General Support",
 							style: Discord.ButtonStyle.Primary,
 						} as API.Button,
 					],
@@ -47,7 +47,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 🎫 Ticket #{ticket_id} - {topic}',
+					text: "## 🎫 Ticket #{ticket_id} - {topic}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -56,7 +56,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '**👋 Welcome {display_name}!**',
+					text: "**👋 Welcome {display_name}!**",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -65,7 +65,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Thank you for reaching out! A support representative will be with you shortly.\nPlease provide as much detail as possible to help us assist you better.',
+					text: "Thank you for reaching out! A support representative will be with you shortly.\nPlease provide as much detail as possible to help us assist you better.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -74,21 +74,21 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '-# You can close this ticket using the button below when your issue is resolved.',
+					text: "-# You can close this ticket using the button below when your issue is resolved.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.ActionRow,
 					components: [
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: 'close_ticket:{thread_id}',
-							label: 'Close',
+							custom_id: "close_ticket:{thread_id}",
+							label: "Close",
 							style: Discord.ButtonStyle.Danger,
 						} as API.Button,
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: 'close_ticket_reason:{thread_id}',
-							label: 'Close With Reason',
+							custom_id: "close_ticket_reason:{thread_id}",
+							label: "Close With Reason",
 							style: Discord.ButtonStyle.Danger,
 						} as API.Button,
 					],
@@ -99,7 +99,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 🎫 Ticket Created Successfully!',
+					text: "## 🎫 Ticket Created Successfully!",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -108,7 +108,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Your ticket #{ticket_id} has been created.',
+					text: "Your ticket #{ticket_id} has been created.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -117,7 +117,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Please click here to view: {channel_id}',
+					text: "Please click here to view: {channel_id}",
 				} as unknown as API.TextDisplay,
 			],
 		},
@@ -125,7 +125,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## ✅ Ticket Closed',
+					text: "## ✅ Ticket Closed",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -134,7 +134,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'This ticket has been closed by {closed_by}.',
+					text: "This ticket has been closed by {closed_by}.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -143,11 +143,11 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 📝 Resolution',
+					text: "## 📝 Resolution",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '> **Reason:** {reason}\n> **Closed at:** {close_time}',
+					text: "> **Reason:** {reason}\n> **Closed at:** {close_time}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -156,7 +156,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Thank you for using our support system!',
+					text: "Thank you for using our support system!",
 				} as unknown as API.TextDisplay,
 			],
 		},
@@ -164,7 +164,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## ❓ Close Confirmation',
+					text: "## ❓ Close Confirmation",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -173,7 +173,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '⚠️ **Are you sure you want to close this ticket?**',
+					text: "⚠️ **Are you sure you want to close this ticket?**",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -182,15 +182,15 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '-# This action cannot be undone. The ticket will be archived and locked.',
+					text: "-# This action cannot be undone. The ticket will be archived and locked.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.ActionRow,
 					components: [
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: 'confirm_close:{thread_id}',
-							label: 'Yes',
+							custom_id: "confirm_close:{thread_id}",
+							label: "Yes",
 							style: Discord.ButtonStyle.Success,
 						} as API.Button,
 					],
@@ -201,24 +201,11 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 📬 New Ticket - #{ticket_id}',
+					text: "## 📬 New Ticket - #{ticket_id}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '{mod_ping}',
-				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.Separator,
-					divider: false,
-					spacing: Discord.SeparatorSpacingSize.Large,
-				} as unknown as API.Separator,
-				{
-					type: Discord.ComponentType.TextDisplay,
-					text: '**Ticket Information**',
-				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.TextDisplay,
-					text: '>>> **Opened by:** {opened_by}\n**Topic:** {topic}\n**Claimed by:** {claimed_by}',
+					text: "{mod_ping}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -227,22 +214,35 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '-# Click the buttons below to manage this ticket',
+					text: "**Ticket Information**",
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: ">>> **Opened by:** {opened_by}\n**Topic:** {topic}\n**Claimed by:** {claimed_by}",
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Large,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: "-# Click the buttons below to manage this ticket",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.ActionRow,
 					components: [
 						{
 							type: Discord.ComponentType.Button,
-							label: 'Claim Ticket',
+							label: "Claim Ticket",
 							style: Discord.ButtonStyle.Primary,
-							custom_id: 'claim_ticket:{thread_id}',
+							custom_id: "claim_ticket:{thread_id}",
 						} as API.Button,
 						{
 							type: Discord.ComponentType.Button,
-							label: 'Join Ticket',
+							label: "Join Ticket",
 							style: Discord.ButtonStyle.Secondary,
-							custom_id: 'join_ticket:{thread_id}',
+							custom_id: "join_ticket:{thread_id}",
 						} as API.Button,
 					],
 				} as API.ActionRow,
@@ -252,7 +252,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 🎟️ Ticket #{ticket_id} - {category}',
+					text: "## 🎟️ Ticket #{ticket_id} - {category}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -261,24 +261,11 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '📌 **Ticket Information**',
+					text: "📌 **Ticket Information**",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '>>>🔹 **Opened by:** {opened_by}\n🕒 **Opened at:** {open_time}',
-				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.Separator,
-					divider: false,
-					spacing: Discord.SeparatorSpacingSize.Small,
-				} as unknown as API.Separator,
-				{
-					type: Discord.ComponentType.TextDisplay,
-					text: '📥 **Handling:**',
-				} as unknown as API.TextDisplay,
-				{
-					type: Discord.ComponentType.TextDisplay,
-					text: '>>> 🔖 **Claimed by:** {claimed_by}\n🔒 **Closed by:** {closed_by}\n📅 **Closed at:** {close_time}',
+					text: ">>>🔹 **Opened by:** {opened_by}\n🕒 **Opened at:** {open_time}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -287,11 +274,11 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '✅ **Resolution Details:**',
+					text: "📥 **Handling:**",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '>>> ✏️ **Reason:** {reason}\n⭐ **Rating:** {rating}',
+					text: ">>> 🔖 **Claimed by:** {claimed_by}\n🔒 **Closed by:** {closed_by}\n📅 **Closed at:** {close_time}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -300,17 +287,30 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '-# Click the button below to view the full ticket conversation:',
+					text: "✅ **Resolution Details:**",
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: ">>> ✏️ **Reason:** {reason}\n⭐ **Rating:** {rating}",
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: "-# Click the button below to view the full ticket conversation:",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.ActionRow,
 					components: [
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: 'open_thread',
-							label: 'Open Thread',
+							custom_id: "open_thread",
+							label: "Open Thread",
 							style: Discord.ButtonStyle.Link,
-							url: 'https://discord.com/channels/{guild_id}/{thread_id}',
+							url: "https://discord.com/channels/{guild_id}/{thread_id}",
 						} as API.Button,
 					],
 				} as API.ActionRow,
@@ -320,7 +320,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## ⏰ Ticket Auto-Closed',
+					text: "## ⏰ Ticket Auto-Closed",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -329,7 +329,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'This ticket has been automatically closed due to inactivity.',
+					text: "This ticket has been automatically closed due to inactivity.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -338,7 +338,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '*{reason}*',
+					text: "*{reason}*",
 				} as unknown as API.TextDisplay,
 			],
 		},
@@ -346,7 +346,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 📊 Support Ticket Feedback',
+					text: "## 📊 Support Ticket Feedback",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -355,7 +355,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Thanks for using our support system! Your ticket #{ticket_id} has been closed.',
+					text: "Thanks for using our support system! Your ticket #{ticket_id} has been closed.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -364,7 +364,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '**Please rate your experience:**',
+					text: "**Please rate your experience:**",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -373,39 +373,39 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '-# Your feedback helps us improve our support services.',
+					text: "-# Your feedback helps us improve our support services.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.ActionRow,
 					components: [
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: '{rate_1_custom_id}',
-							label: '⭐ 1',
+							custom_id: "{rate_1_custom_id}",
+							label: "⭐ 1",
 							style: Discord.ButtonStyle.Danger,
 						} as API.Button,
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: '{rate_2_custom_id}',
-							label: '⭐ 2',
+							custom_id: "{rate_2_custom_id}",
+							label: "⭐ 2",
 							style: Discord.ButtonStyle.Danger,
 						} as API.Button,
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: '{rate_3_custom_id}',
-							label: '⭐ 3',
+							custom_id: "{rate_3_custom_id}",
+							label: "⭐ 3",
 							style: Discord.ButtonStyle.Secondary,
 						} as API.Button,
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: '{rate_4_custom_id}',
-							label: '⭐ 4',
+							custom_id: "{rate_4_custom_id}",
+							label: "⭐ 4",
 							style: Discord.ButtonStyle.Success,
 						} as API.Button,
 						{
 							type: Discord.ComponentType.Button,
-							custom_id: '{rate_5_custom_id}',
-							label: '⭐ 5',
+							custom_id: "{rate_5_custom_id}",
+							label: "⭐ 5",
 							style: Discord.ButtonStyle.Success,
 						} as API.Button,
 					],
@@ -416,7 +416,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 🛡️ Ticket Claimed',
+					text: "## 🛡️ Ticket Claimed",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -425,7 +425,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '{claimed_by} has claimed this ticket and will be assisting you.',
+					text: "{claimed_by} has claimed this ticket and will be assisting you.",
 				} as unknown as API.TextDisplay,
 			],
 		},
@@ -433,7 +433,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## ✅ Ticket Closed',
+					text: "## ✅ Ticket Closed",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -442,7 +442,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'This ticket has been closed by {closed_by}.',
+					text: "This ticket has been closed by {closed_by}.",
 				} as unknown as API.TextDisplay,
 			],
 		},
@@ -450,7 +450,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## 📝 Close Reason',
+					text: "## 📝 Close Reason",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -459,7 +459,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Please provide a reason for closing this ticket:',
+					text: "Please provide a reason for closing this ticket:",
 				} as unknown as API.TextDisplay,
 			],
 		},
@@ -467,7 +467,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## ⛔ Access Denied',
+					text: "## ⛔ Access Denied",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -484,7 +484,7 @@ const createTicketComponents = (): TicketTemplates => {
 			components: [
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '## ⚠️ Inactivity Warning',
+					text: "## ⚠️ Inactivity Warning",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -493,7 +493,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '{user}, this ticket has been inactive for some time. It will be automatically closed {threshold} due to inactivity.',
+					text: "{user}, this ticket has been inactive for some time. It will be automatically closed {threshold} due to inactivity.",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -502,7 +502,7 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: '**Auto-close time:** {close_time}',
+					text: "**Auto-close time:** {close_time}",
 				} as unknown as API.TextDisplay,
 				{
 					type: Discord.ComponentType.Separator,
@@ -511,12 +511,12 @@ const createTicketComponents = (): TicketTemplates => {
 				} as unknown as API.Separator,
 				{
 					type: Discord.ComponentType.TextDisplay,
-					text: 'Please respond if you still need assistance.',
+					text: "Please respond if you still need assistance.",
 				} as unknown as API.TextDisplay,
 			],
 		},
-	}
-}
+	};
+};
 
 const createWelcomeGoodbyeComponents = () => {
 	return {
@@ -527,7 +527,7 @@ const createWelcomeGoodbyeComponents = () => {
 					components: [
 						{
 							type: Discord.ComponentType.TextDisplay,
-							text: '# 👋 Welcome to the server!\n\nWe are glad to have you here. Enjoy your stay!',
+							text: "# 👋 Welcome to the server!\n\nWe are glad to have you here. Enjoy your stay!",
 						} as unknown as API.TextDisplay,
 					],
 				} as API.ActionRow,
@@ -540,14 +540,14 @@ const createWelcomeGoodbyeComponents = () => {
 					components: [
 						{
 							type: Discord.ComponentType.TextDisplay,
-							text: '# 👋 Goodbye!\n\nWe hope to see you again soon!',
+							text: "# 👋 Goodbye!\n\nWe hope to see you again soon!",
 						} as unknown as API.TextDisplay,
 					],
 				} as API.ActionRow,
 			],
 		},
-	}
-}
+	};
+};
 
 const createBirthdayComponents = () => {
 	return {
@@ -558,7 +558,7 @@ const createBirthdayComponents = () => {
 					components: [
 						{
 							type: Discord.ComponentType.TextDisplay,
-							content: '## 🎂 Happy Birthday {user}!',
+							content: "## 🎂 Happy Birthday {user}!",
 						} as unknown as TextDisplayComponent,
 						{
 							type: Discord.ComponentType.TextDisplay,
@@ -569,7 +569,7 @@ const createBirthdayComponents = () => {
 					accessory: {
 						type: Discord.ComponentType.Thumbnail,
 						media: {
-							url: '{user_avatar}',
+							url: "{user_avatar}",
 						},
 					},
 				} as unknown as SectionComponent,
@@ -581,12 +581,12 @@ const createBirthdayComponents = () => {
 				{
 					type: Discord.ComponentType.TextDisplay,
 					content:
-						'🎁 **Next Birthday**: <t:{next_birthday}:D> (<t:{next_birthday}:R>)',
+						"🎁 **Next Birthday**: <t:{next_birthday}:D> (<t:{next_birthday}:R>)",
 				} as unknown as TextDisplayComponent,
 			] as ComponentsV2[],
 		},
-	}
-}
+	};
+};
 
 const createLevelsComponents = () => {
 	return {
@@ -595,12 +595,12 @@ const createLevelsComponents = () => {
 				{
 					type: Discord.ComponentType.TextDisplay,
 					content:
-						'🎉 Congratulations {user}, you have leveled up to level {level}! 🚀',
+						"🎉 Congratulations {user}, you have leveled up to level {level}! 🚀",
 				} as unknown as TextDisplayComponent,
 			] as ComponentsV2[],
 		},
-	}
-}
+	};
+};
 
 const default_configs: DefaultConfigs = {
 	levels: {
@@ -624,7 +624,7 @@ const default_configs: DefaultConfigs = {
 				enabled: false,
 				threshold: 72 * 60 * 60 * 1000, //72 hours
 				reason:
-					'Tickets are automatically closed after {threshold} of inactivity to help us manage support requests efficiently.',
+					"Tickets are automatically closed after {threshold} of inactivity to help us manage support requests efficiently.",
 			},
 		],
 		components: createTicketComponents(),
@@ -644,7 +644,7 @@ const default_configs: DefaultConfigs = {
 	},
 	starboard: {
 		enabled: false,
-		emoji: '⭐',
+		emoji: "⭐",
 		watch_channels: null,
 		channel_id: null,
 		threshold: 15,
@@ -702,9 +702,9 @@ const default_configs: DefaultConfigs = {
 	},
 	economy: {
 		enabled: false,
-		currency_name: 'Coins',
-		currency_symbol: '💰',
-		currency_emoji: '💰',
+		currency_name: "Coins",
+		currency_symbol: "💰",
+		currency_emoji: "💰",
 		is_custom_emoji: false,
 		starting_balance: 100,
 		multipliers: {
@@ -719,16 +719,16 @@ const default_configs: DefaultConfigs = {
 			top_count: 10,
 		},
 	},
-}
+};
 
 /**
  * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  * @returns {DefaultConfigs[keyof DefaultConfigs]} - The plugin configuration.
  */
 function getDefaultConfig<T extends keyof DefaultConfigs>(
-	plugin_name: T
+	plugin_name: T,
 ): DefaultConfigs[T] {
-	return default_configs[plugin_name]
+	return default_configs[plugin_name];
 }
 
 /**
@@ -738,62 +738,62 @@ function getDefaultConfig<T extends keyof DefaultConfigs>(
  */
 async function saveGuildPlugins(
 	client: Discord.Client,
-	guild_id: Discord.Guild['id'],
+	guild_id: Discord.Guild["id"],
 	plugins: Array<{
-		name: keyof DefaultConfigs
-		config: DefaultConfigs[keyof DefaultConfigs]
-	}>
+		name: keyof DefaultConfigs;
+		config: DefaultConfigs[keyof DefaultConfigs];
+	}>,
 ) {
 	try {
 		// Fetch the guild from Discord
-		const guild = await client.guilds.fetch(guild_id)
+		const guild = await client.guilds.fetch(guild_id);
 
 		// Check if the guild exists
 		if (!guild) {
-			throw new Error(`Guild not found for ID: ${guild_id}`)
+			throw new Error(`Guild not found for ID: ${guild_id}`);
 		}
 
 		// Get the guild name and bot ID
-		const guild_name = guild.name
-		const bot_id = client.user?.id
+		const guild_name = guild.name;
+		const bot_id = client.user?.id;
 
 		// Check if the bot ID is undefined
 		if (!bot_id) {
-			throw new Error('Bot ID is undefined')
+			throw new Error("Bot ID is undefined");
 		}
 
 		// Check if the guild exists in the database
 		const { data: guildExists, error: guildError } = await supabase
-			.from('guilds')
-			.select('bot_id')
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.single()
+			.from("guilds")
+			.select("bot_id")
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.single();
 
 		// Check if there is an error fetching the guild
-		if (guildError && guildError.code !== 'PGRST116') {
-			throw guildError
+		if (guildError && guildError.code !== "PGRST116") {
+			throw guildError;
 		}
 
 		// If guild doesn't exist, add it
 		if (!guildExists) {
 			// Insert the guild into the database
 			const { error: insertGuildError } = await supabase
-				.from('guilds')
-				.insert({ bot_id: bot_id, guild_id: guild_id, guild_name: guild_name })
+				.from("guilds")
+				.insert({ bot_id: bot_id, guild_id: guild_id, guild_name: guild_name });
 
 			// Check if there is an error inserting the guild
-			if (insertGuildError) throw insertGuildError
+			if (insertGuildError) throw insertGuildError;
 		} else {
 			// If guild exists, update the name in case it has changed
 			const { error: updateGuildError } = await supabase
-				.from('guilds')
+				.from("guilds")
 				.update({ guild_name: guild_name })
-				.eq('bot_id', bot_id)
-				.eq('guild_id', guild_id)
+				.eq("bot_id", bot_id)
+				.eq("guild_id", guild_id);
 
 			// Check if there is an error updating the guild
-			if (updateGuildError) throw updateGuildError
+			if (updateGuildError) throw updateGuildError;
 		}
 
 		// Save plugins
@@ -802,20 +802,20 @@ async function saveGuildPlugins(
 			guild_id: guild_id,
 			plugin_name: plugin.name,
 			config: plugin.config,
-		}))
+		}));
 
 		// Insert the plugins into the database
 		const { error: pluginError } = await supabase
-			.from('plugins')
-			.upsert(pluginData)
+			.from("plugins")
+			.upsert(pluginData);
 
 		// Check if there is an error inserting the plugins
-		if (pluginError) throw pluginError
+		if (pluginError) throw pluginError;
 	} catch (error) {
 		DatabaseLogger.error(
-			`Error saving guild plugins: ${error instanceof Error ? error.message : String(error)}`
-		)
-		throw error
+			`Error saving guild plugins: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		throw error;
 	}
 }
 
@@ -824,18 +824,18 @@ async function saveGuildPlugins(
  */
 async function updateMissingPlugins(client: Discord.Client): Promise<void> {
 	// Get the guilds
-	const guilds = client.guilds.cache
+	const guilds = client.guilds.cache;
 
 	// Process each guild concurrently and return 1 if plugins were initialized, 0 otherwise.
 	const updateResults = await Promise.all(
 		[...guilds.values()].map(async (guild) => {
-			const current_plugins = await getGuildPlugins(client.user.id, guild.id)
+			const current_plugins = await getGuildPlugins(client.user.id, guild.id);
 			const missing_plugins = Object.keys(default_configs).filter(
 				(plugin_name) =>
 					!current_plugins.some(
-						(plugin) => plugin.id === (plugin_name as keyof DefaultConfigs)
-					)
-			)
+						(plugin) => plugin.id === (plugin_name as keyof DefaultConfigs),
+					),
+			);
 
 			if (missing_plugins.length > 0) {
 				await saveGuildPlugins(
@@ -844,20 +844,20 @@ async function updateMissingPlugins(client: Discord.Client): Promise<void> {
 					missing_plugins.map((plugin_name) => ({
 						name: plugin_name as keyof DefaultConfigs,
 						config: default_configs[plugin_name as keyof DefaultConfigs],
-					}))
-				)
-				return 1
+					})),
+				);
+				return 1;
 			}
-			return 0
-		})
-	)
+			return 0;
+		}),
+	);
 
 	// Aggregate the results and log a single summary line.
-	const updatedCount = updateResults.reduce((sum, curr) => sum + curr, 0)
+	const updatedCount = updateResults.reduce((sum, curr) => sum + curr, 0);
 
 	// Only log if there were actual updates, otherwise it's just noise
 	if (updatedCount > 0) {
-		DatabaseLogger.connect()
+		DatabaseLogger.connect();
 	}
 }
 
@@ -867,26 +867,26 @@ async function updateMissingPlugins(client: Discord.Client): Promise<void> {
  * @returns {Promise<PluginResponse<DefaultConfigs[keyof DefaultConfigs]>[]>} - The plugins.
  */
 export async function getGuildPlugins(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id']
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
 ): Promise<PluginResponse<DefaultConfigs[keyof DefaultConfigs]>[]> {
 	// Get the plugins from the database
 	const { data, error } = await supabase
-		.from('plugins')
-		.select('*')
-		.eq('bot_id', bot_id)
-		.eq('guild_id', guild_id)
+		.from("plugins")
+		.select("*")
+		.eq("bot_id", bot_id)
+		.eq("guild_id", guild_id);
 
 	// Check if there is an error fetching the plugins
 	if (error) {
-		throw error
+		throw error;
 	}
 
 	// Return the plugins
 	return data.map((plugin) => ({
 		id: plugin.plugin_name,
 		...plugin.config,
-	}))
+	}));
 }
 
 /**
@@ -896,46 +896,46 @@ export async function getGuildPlugins(
  * @param {boolean} enabled - Whether the plugin is enabled.
  */
 async function togglePlugin(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
 	plugin_name: keyof DefaultConfigs,
-	enabled: boolean
+	enabled: boolean,
 ): Promise<void> {
 	try {
 		// First get the current plugin config
 		const { data, error: fetchError } = await supabase
-			.from('plugins')
-			.select('config')
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.eq('plugin_name', plugin_name)
-			.single()
+			.from("plugins")
+			.select("config")
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("plugin_name", plugin_name)
+			.single();
 
 		if (fetchError) {
-			throw fetchError
+			throw fetchError;
 		}
 
 		// Update the enabled property in the config
-		const updatedConfig = { ...data.config, enabled }
+		const updatedConfig = { ...data.config, enabled };
 
 		// Update the entire config object
 		const { error } = await supabase
-			.from('plugins')
+			.from("plugins")
 			.update({ config: updatedConfig })
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.eq('plugin_name', plugin_name)
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("plugin_name", plugin_name);
 
 		// Check if there is an error updating the plugin
 		if (error) {
-			throw error
+			throw error;
 		}
 	} catch (error) {
 		PluginLogger.error(
 			String(plugin_name),
-			error instanceof Error ? error : new Error(String(error))
-		)
-		throw error
+			error instanceof Error ? error : new Error(String(error)),
+		);
+		throw error;
 	}
 }
 
@@ -946,22 +946,22 @@ async function togglePlugin(
  * @param {object} config - The configuration object.
  */
 async function setPluginConfig<T extends keyof DefaultConfigs>(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
 	plugin_name: T,
-	config: DefaultConfigs[T]
+	config: DefaultConfigs[T],
 ): Promise<void> {
 	// Update the plugin in the database
 	const { error } = await supabase
-		.from('plugins')
+		.from("plugins")
 		.update({ config })
-		.eq('bot_id', bot_id)
-		.eq('guild_id', guild_id)
-		.eq('plugin_name', plugin_name)
+		.eq("bot_id", bot_id)
+		.eq("guild_id", guild_id)
+		.eq("plugin_name", plugin_name);
 
 	// Check if there is an error updating the plugin
 	if (error) {
-		throw error
+		throw error;
 	}
 }
 
@@ -972,55 +972,55 @@ async function setPluginConfig<T extends keyof DefaultConfigs>(
  * @returns {Promise<PluginResponse<DefaultConfigs[T]>>} - The plugin configuration.
  */
 async function getPluginConfig<T extends keyof DefaultConfigs>(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	plugin_name: T
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	plugin_name: T,
 ): Promise<PluginResponse<DefaultConfigs[T]>> {
 	try {
 		// Get the plugin configuration from the database
 		const { data, error } = await supabase
-			.from('plugins')
-			.select('config')
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.eq('plugin_name', plugin_name)
-			.single()
+			.from("plugins")
+			.select("config")
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("plugin_name", plugin_name)
+			.single();
 
 		// Check if there is an error fetching the plugin
 		if (error) {
 			// If the error is because the plugin doesn't exist, return the default config
 			// without saving it to the database (initialization should only happen at bot start)
-			if (error.code === 'PGRST116') {
+			if (error.code === "PGRST116") {
 				const default_config = getDefaultConfig(
-					plugin_name
-				) as DefaultConfigs[T]
+					plugin_name,
+				) as DefaultConfigs[T];
 				StatusLogger.warn(
-					`Plugin ${plugin_name} not found for guild ${guild_id}, using default config`
-				)
+					`Plugin ${plugin_name} not found for guild ${guild_id}, using default config`,
+				);
 				return {
 					id: plugin_name as Plugins,
 					...default_config,
-				} as PluginResponse<DefaultConfigs[T]>
+				} as PluginResponse<DefaultConfigs[T]>;
 			}
-			throw error
+			throw error;
 		}
 
 		// Return the plugin configuration
 		return {
 			id: plugin_name as Plugins,
 			...data.config,
-		} as PluginResponse<DefaultConfigs[T]>
+		} as PluginResponse<DefaultConfigs[T]>;
 	} catch (error) {
 		PluginLogger.error(
 			String(plugin_name),
-			error instanceof Error ? error : new Error(String(error))
-		)
+			error instanceof Error ? error : new Error(String(error)),
+		);
 		// Return default config as fallback
-		const default_config = getDefaultConfig(plugin_name) as DefaultConfigs[T]
+		const default_config = getDefaultConfig(plugin_name) as DefaultConfigs[T];
 		return {
 			id: plugin_name as Plugins,
 			...default_config,
-		} as PluginResponse<DefaultConfigs[T]>
+		} as PluginResponse<DefaultConfigs[T]>;
 	}
 }
 
@@ -1030,19 +1030,19 @@ async function getPluginConfig<T extends keyof DefaultConfigs>(
  * @param {keyof DefaultConfigs} plugin_name - The name of the plugin.
  */
 async function enablePlugin(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	plugin_name: keyof DefaultConfigs
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	plugin_name: keyof DefaultConfigs,
 ): Promise<void> {
-	await togglePlugin(bot_id, guild_id, plugin_name, true)
+	await togglePlugin(bot_id, guild_id, plugin_name, true);
 }
 
 async function disablePlugin(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
-	plugin_name: keyof DefaultConfigs
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
+	plugin_name: keyof DefaultConfigs,
 ): Promise<void> {
-	await togglePlugin(bot_id, guild_id, plugin_name, false)
+	await togglePlugin(bot_id, guild_id, plugin_name, false);
 }
 
 /**
@@ -1052,38 +1052,38 @@ async function disablePlugin(
  * @param {object} config - The configuration object.
  */
 async function updatePluginConfig<T extends keyof DefaultConfigs>(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id'],
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
 	plugin_name: T,
-	config: DefaultConfigs[T]
+	config: DefaultConfigs[T],
 ): Promise<void> {
 	try {
 		// Use upsert to either update existing record or create new one
 		const { error } = await supabase
-			.from('plugins')
+			.from("plugins")
 			.upsert({
 				bot_id,
 				guild_id,
 				plugin_name,
 				config,
 			})
-			.eq('bot_id', bot_id)
-			.eq('guild_id', guild_id)
-			.eq('plugin_name', plugin_name)
+			.eq("bot_id", bot_id)
+			.eq("guild_id", guild_id)
+			.eq("plugin_name", plugin_name);
 
 		// Check if there is an error updating the plugin
 		if (error) {
-			throw error
+			throw error;
 		}
 
 		// Log the success
-		StatusLogger.success('Plugin configuration updated successfully')
+		StatusLogger.success("Plugin configuration updated successfully");
 	} catch (error) {
 		PluginLogger.error(
 			String(plugin_name),
-			error instanceof Error ? error : new Error(String(error))
-		)
-		throw error
+			error instanceof Error ? error : new Error(String(error)),
+		);
+		throw error;
 	}
 }
 
@@ -1094,60 +1094,60 @@ async function updatePluginConfig<T extends keyof DefaultConfigs>(
  * @returns A promise that resolves when the migration is complete
  */
 async function migrateTicketEmbeds(
-	bot_id: Discord.ClientUser['id'],
-	guild_id: Discord.Guild['id']
+	bot_id: Discord.ClientUser["id"],
+	guild_id: Discord.Guild["id"],
 ): Promise<boolean> {
 	try {
 		// Get the current ticket plugin configuration
-		const ticketConfig = await getPluginConfig(bot_id, guild_id, 'tickets')
+		const ticketConfig = await getPluginConfig(bot_id, guild_id, "tickets");
 
 		// If there's no embeds property or it's empty, there's nothing to migrate
 		if (!ticketConfig.embeds) {
-			StatusLogger.info('No legacy embeds found to migrate')
-			return false
+			StatusLogger.info("No legacy embeds found to migrate");
+			return false;
 		}
 
 		// Initialize the components property if it doesn't exist
 		if (!ticketConfig.components) {
-			ticketConfig.components = {} as TicketTemplates
+			ticketConfig.components = {} as TicketTemplates;
 		}
 
 		// Migration flag to track if any changes were made
-		let migrated = false
+		let migrated = false;
 
 		// Since Discord no longer uses legacy embeds, we'll remove the embeds property
 		// and ensure components are properly initialized
 		if (ticketConfig.embeds) {
 			// Remove the legacy embeds property using destructuring
-			const { embeds, ...cleanConfig } = ticketConfig
+			const { embeds, ...cleanConfig } = ticketConfig;
 
 			// Update the ticketConfig to the clean version
-			Object.assign(ticketConfig, cleanConfig)
+			Object.assign(ticketConfig, cleanConfig);
 
-			migrated = true
+			migrated = true;
 			StatusLogger.info(
-				'Removed legacy embeds property from ticket configuration'
-			)
+				"Removed legacy embeds property from ticket configuration",
+			);
 		}
 
 		// If migrations were performed, update the config
 		if (migrated) {
 			// Update the config in the database
-			await updatePluginConfig(bot_id, guild_id, 'tickets', ticketConfig)
+			await updatePluginConfig(bot_id, guild_id, "tickets", ticketConfig);
 
 			StatusLogger.success(
-				'Successfully migrated ticket configuration to remove legacy embeds'
-			)
-			return true
+				"Successfully migrated ticket configuration to remove legacy embeds",
+			);
+			return true;
 		}
 
-		StatusLogger.info('No ticket embeds needed migration')
-		return false
+		StatusLogger.info("No ticket embeds needed migration");
+		return false;
 	} catch (error) {
 		StatusLogger.error(
-			`Error migrating ticket embeds: ${error instanceof Error ? error.message : String(error)}`
-		)
-		return false
+			`Error migrating ticket embeds: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return false;
 	}
 }
 
@@ -1169,7 +1169,7 @@ function getAllPluginsCount(): number {
 		moderation: true,
 		music: true,
 		economy: true,
-	} satisfies Record<keyof DefaultConfigs, boolean>).length
+	} satisfies Record<keyof DefaultConfigs, boolean>).length;
 }
 
 export {
@@ -1183,4 +1183,4 @@ export {
 	saveGuildPlugins,
 	migrateTicketEmbeds,
 	getAllPluginsCount,
-}
+};
