@@ -124,8 +124,11 @@ async function getUserManagedGuilds(discordUserId: string) {
 					// Calculate user permissions in this guild
 					let userPermissions = BigInt(0);
 
+					// Fetch guild roles to get permissions
+					const guildRoles = await fetchDiscordAPI(`guilds/${guild.id}/roles`);
+
 					// Get @everyone role permissions (base permissions)
-					const everyoneRole = guild.roles?.find(
+					const everyoneRole = guildRoles.find(
 						(role: any) => role.id === guild.id,
 					);
 					if (everyoneRole) {
@@ -134,11 +137,6 @@ async function getUserManagedGuilds(discordUserId: string) {
 
 					// Add permissions from user's roles
 					if (member.roles && member.roles.length > 0) {
-						// Fetch guild roles to get permissions
-						const guildRoles = await fetchDiscordAPI(
-							`guilds/${guild.id}/roles`,
-						);
-
 						for (const roleId of member.roles) {
 							const role = guildRoles.find((r: any) => r.id === roleId);
 							if (role) {
