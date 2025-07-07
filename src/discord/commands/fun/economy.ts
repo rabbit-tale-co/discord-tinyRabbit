@@ -1,5 +1,5 @@
 import type * as Discord from "discord.js";
-import { StatusLogger, CommandLogger } from '@/utils/bunnyLogger.js';
+import { StatusLogger, CommandLogger } from "@/utils/bunnyLogger.js";
 import {
 	getUserBalance,
 	updateUserBalance,
@@ -7,7 +7,7 @@ import {
 } from "@/discord/api/economy.js";
 import { getPluginConfig } from "@/discord/api/plugins.js";
 import { handleResponse } from "@/utils/responses.js";
-import supabase from "@/lib/db/supabase.js";
+import supabase from "@/db/supabase.js";
 import { randomUUIDv7 } from "bun";
 
 export async function balance(
@@ -76,7 +76,9 @@ export async function balance(
 			`${user.username}'s Balance: ${currencySymbol} ${currentBalance}`,
 		);
 	} catch (error) {
-		StatusLogger.error(`Error in balance command: ${error instanceof Error ? error.message : String(error)}`);
+		StatusLogger.error(
+			`Error in balance command: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		return handleResponse(interaction, "error", "Failed to get balance", {
 			code: "E004",
 		});
@@ -320,20 +322,26 @@ export async function pay(
 						// Try to send DM first
 						await recipientMember.send(followUpMessage);
 					} catch (error) {
-						StatusLogger.error(`Failed to send DM to recipient: ${error instanceof Error ? error.message : String(error)}`);
+						StatusLogger.error(
+							`Failed to send DM to recipient: ${error instanceof Error ? error.message : String(error)}`,
+						);
 					}
 				}
 			}
 
 			return;
 		} catch (error) {
-			StatusLogger.error(`Error in transaction: ${error instanceof Error ? error.message : String(error)}`);
+			StatusLogger.error(
+				`Error in transaction: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			return handleResponse(interaction, "error", "Failed to process payment", {
 				code: "E011",
 			});
 		}
 	} catch (error) {
-		StatusLogger.error(`Error in pay command: ${error instanceof Error ? error.message : String(error)}`);
+		StatusLogger.error(
+			`Error in pay command: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		return handleResponse(interaction, "error", "Failed to process payment", {
 			code: "E011",
 		});
@@ -407,7 +415,9 @@ export async function leaderboard(
 
 		return handleResponse(interaction, "success", description);
 	} catch (error) {
-		StatusLogger.error(`Error in leaderboard command: ${error instanceof Error ? error.message : String(error)}`);
+		StatusLogger.error(
+			`Error in leaderboard command: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		return handleResponse(interaction, "error", "Failed to get leaderboard", {
 			code: "E014",
 		});
