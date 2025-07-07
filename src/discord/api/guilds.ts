@@ -61,11 +61,16 @@ async function getBotGuilds() {
 					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : "";
 				}
 
+				const getRandomAvatar = () => {
+					const randomNumber = Math.floor(Math.random() * 6); // 0-5
+					return `https://cdn.discordapp.com/embed/avatars/${randomNumber}.png?size=4096`;
+				};
+
 				const icon = guild.icon
 					? guild.icon.startsWith("a_")
 						? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.gif?size=4096`
 						: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
-					: null;
+					: getRandomAvatar();
 
 				return {
 					...guild,
