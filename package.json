@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun --watch src/server.ts",
     "start": "bun src/server.ts",
-    "deploy": "bun run build && pm2 start dist/server.js --name discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
+    "deploy": "bun run build && bun run delete && pm2 start dist/server.js --name discord --log-date-format 'DD-MM' --interpreter ~/.bun/bin/bun",
     "build": "bun run src/utils/build.ts",
     "cloc": "bun run src/utils/cloc.ts",
     "add-commands": "bun run src/deploy-commands.ts",
