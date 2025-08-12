@@ -1,8 +1,8 @@
+import { BunnyLogger, bunnyLog } from 'bunny-log'
 import type * as Discord from 'discord.js'
+import { MessageFlags } from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import * as components from '@/discord/components/index.js'
-import { bunnyLog, BunnyLogger } from 'bunny-log'
-import { MessageFlags } from 'discord.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**

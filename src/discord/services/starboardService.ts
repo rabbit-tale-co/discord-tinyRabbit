@@ -1,8 +1,8 @@
 import * as Discord from 'discord.js'
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import type { StarboardEntry } from '@/types/starboard.js'
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js'
-import { StatusLogger, PluginLogger } from '@/utils/bunnyLogger.js'
+import { PluginLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Watches for starboard reactions and updates the starboard accordingly.

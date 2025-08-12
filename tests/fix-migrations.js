@@ -1,6 +1,6 @@
-import postgres from 'postgres'
 import fs from 'fs'
 import path from 'path'
+import postgres from 'postgres'
 import 'dotenv/config'
 
 console.log('Fixing migration state...')
@@ -35,8 +35,10 @@ try {
 	`
 
 	console.log('Migrations table columns:')
-	tableStructure.forEach(col => {
-		console.log(`- ${col.column_name}: ${col.data_type} (nullable: ${col.is_nullable})`)
+	tableStructure.forEach((col) => {
+		console.log(
+			`- ${col.column_name}: ${col.data_type} (nullable: ${col.is_nullable})`
+		)
 	})
 
 	// Check current migrations in database
@@ -46,7 +48,7 @@ try {
 	`
 
 	console.log(`Found ${existingMigrations.length} existing migrations:`)
-	existingMigrations.forEach(migration => {
+	existingMigrations.forEach((migration) => {
 		console.log(`- ${migration.hash} (${migration.created_at})`)
 	})
 
@@ -58,7 +60,7 @@ try {
 
 	const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'))
 	console.log(`\nOur migrations from journal:`)
-	journal.entries.forEach(entry => {
+	journal.entries.forEach((entry) => {
 		console.log(`- ${entry.tag} (when: ${new Date(entry.when)})`)
 	})
 
@@ -84,13 +86,12 @@ try {
 	`
 
 	console.log(`Total migrations now in database: ${finalMigrations.length}`)
-	finalMigrations.forEach(migration => {
+	finalMigrations.forEach((migration) => {
 		console.log(`- ${migration.hash} (${migration.created_at})`)
 	})
 
 	console.log('\n🎉 Migration state fixed!')
 	console.log('Now try running: bun run db:migrate')
-
 } catch (error) {
 	console.error('Error fixing migrations:', error.message)
 	if (error.query) {

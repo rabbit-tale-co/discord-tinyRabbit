@@ -1,6 +1,6 @@
 import type * as Discord from 'discord.js'
-import { ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import { MusicService } from '@/discord/services/music.js'
+import { ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Start playing music in a voice channel.
@@ -21,7 +21,10 @@ export async function playMusic(
 		await service.play(query)
 		StatusLogger.success(`Started music streaming in guild ${guild_id}`)
 	} catch (error) {
-		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'music',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	}
 }
 
@@ -40,7 +43,10 @@ export async function pauseMusic(
 		await service.pause()
 		StatusLogger.success(`Paused music in guild ${guild_id}`)
 	} catch (error) {
-		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'music',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	}
 }
 
@@ -59,7 +65,10 @@ export async function resumeMusic(
 		await service.resume()
 		StatusLogger.success(`Resumed music in guild ${guild_id}`)
 	} catch (error) {
-		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'music',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	}
 }
 
@@ -78,7 +87,10 @@ export async function skipTrack(
 		await service.skip()
 		StatusLogger.success(`Skipped track in guild ${guild_id}`)
 	} catch (error) {
-		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'music',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	}
 }
 
@@ -97,6 +109,9 @@ export async function stopMusic(
 		await service.stop()
 		StatusLogger.success(`Stopped music in guild ${guild_id}`)
 	} catch (error) {
-		ServiceLogger.error('music', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'music',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	}
 }

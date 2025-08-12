@@ -1,9 +1,9 @@
 import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
-import type { DefaultConfigs, ComponentsV2 } from '@/types/plugins.js'
-import { StatusLogger } from '@/utils/bunnyLogger.js'
 import * as V2 from 'discord-components-v2'
 import { getPluginConfig, updatePluginConfig } from '@/discord/api/index.js'
+import type { ComponentsV2, DefaultConfigs } from '@/types/plugins.js'
+import { StatusLogger } from '@/utils/bunnyLogger.js'
+import * as utils from '@/utils/index.js'
 
 /* -------------------------------------------------------------------------- */
 /*                            SECTION HELPERS                                   */

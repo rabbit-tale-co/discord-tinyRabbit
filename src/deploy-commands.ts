@@ -1,7 +1,7 @@
+import { env } from 'node:process'
 import { REST } from '@discordjs/rest'
 import { BunnyLogger } from 'bunny-log'
 import { Routes } from 'discord-api-types/v10'
-import { env } from 'node:process'
 
 const { BOT_TOKEN, BOT_CLIENT_ID } = env
 const bunLog = new BunnyLogger(false).hex('discord', '#5865f2')

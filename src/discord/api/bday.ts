@@ -1,6 +1,6 @@
-import { APILogger } from "@/utils/bunnyLogger.js";
-import supabase from "@/db/supabase.js";
-import type * as Discord from "discord.js";
+import type * as Discord from 'discord.js'
+import supabase from '@/db/supabase.js'
+import { APILogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Save user birthday in specified server (guild) for a given bot.
@@ -14,13 +14,13 @@ import type * as Discord from "discord.js";
  * @returns {Promise<void>} - Promise that resolves when the birthday is saved.
  */
 async function saveBirthday(
-	bot_id: Discord.ClientUser["id"],
-	guild_id: Discord.Guild["id"],
-	user_id: Discord.User["id"],
-	birthday: { day: number; month: number; year: number },
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id'],
+	birthday: { day: number; month: number; year: number }
 ): Promise<void> {
 	const { data, error } = await supabase
-		.from("user_bdays")
+		.from('user_bdays')
 		.upsert(
 			{
 				bot_id,
@@ -29,13 +29,13 @@ async function saveBirthday(
 				birthday,
 			},
 			{
-				onConflict: "bot_id,guild_id,user_id",
-			},
+				onConflict: 'bot_id,guild_id,user_id',
+			}
 		)
-		.select();
+		.select()
 
 	if (error) {
-		throw new Error("Failed to save birthday.");
+		throw new Error('Failed to save birthday.')
 	}
 }
 
@@ -48,32 +48,32 @@ async function saveBirthday(
  * @returns {Promise<{ id: string; birthday: { day: number; month: number; year: number } }[]>} - List of users with specified birthdays.
  */
 async function getBirthdayUsers(
-	bot_id: Discord.ClientUser["id"],
-	guild_id: Discord.Guild["id"],
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
 	day: number,
-	month: number,
+	month: number
 ): Promise<
 	{ id: string; birthday: { day: number; month: number; year: number } }[]
 > {
 	const { data: users_data, error } = await supabase
-		.from("user_bdays")
-		.select("user_id, birthday")
-		.eq("bot_id", bot_id)
-		.eq("guild_id", guild_id)
-		.eq("birthday->day", day)
-		.eq("birthday->month", month);
+		.from('user_bdays')
+		.select('user_id, birthday')
+		.eq('bot_id', bot_id)
+		.eq('guild_id', guild_id)
+		.eq('birthday->day', day)
+		.eq('birthday->month', month)
 
 	if (error) {
 		APILogger.error(
-			`Error fetching users with birthday: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		throw new Error("Failed to fetch users.");
+			`Error fetching users with birthday: ${error instanceof Error ? error.message : String(error)}`
+		)
+		throw new Error('Failed to fetch users.')
 	}
 
 	return users_data.map((user) => ({
 		id: user.user_id,
 		birthday: user.birthday,
-	}));
+	}))
 }
 
 /**
@@ -83,18 +83,18 @@ async function getBirthdayUsers(
  * @param {Discord.User['id']} user_id - User ID
  */
 async function deleteBirthday(
-	bot_id: Discord.ClientUser["id"],
-	guild_id: Discord.Guild["id"],
-	user_id: Discord.User["id"],
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
 ): Promise<void> {
 	const { error } = await supabase
-		.from("user_bdays")
+		.from('user_bdays')
 		.delete()
-		.eq("bot_id", bot_id)
-		.eq("guild_id", guild_id)
-		.eq("user_id", user_id);
+		.eq('bot_id', bot_id)
+		.eq('guild_id', guild_id)
+		.eq('user_id', user_id)
 
-	if (error) throw new Error("Failed to delete birthday");
+	if (error) throw new Error('Failed to delete birthday')
 }
 
 /**
@@ -104,20 +104,20 @@ async function deleteBirthday(
  * @param {Discord.User['id']} user_id - User ID
  */
 async function getBirthday(
-	bot_id: Discord.ClientUser["id"],
-	guild_id: Discord.Guild["id"],
-	user_id: Discord.User["id"],
+	bot_id: Discord.ClientUser['id'],
+	guild_id: Discord.Guild['id'],
+	user_id: Discord.User['id']
 ): Promise<{ day: number; month: number; year: number } | null> {
 	const { data, error } = await supabase
-		.from("user_bdays")
-		.select("birthday")
-		.eq("bot_id", bot_id)
-		.eq("guild_id", guild_id)
-		.eq("user_id", user_id)
-		.single();
+		.from('user_bdays')
+		.select('birthday')
+		.eq('bot_id', bot_id)
+		.eq('guild_id', guild_id)
+		.eq('user_id', user_id)
+		.single()
 
-	if (error) return null;
-	return data?.birthday || null;
+	if (error) return null
+	return data?.birthday || null
 }
 
-export { saveBirthday, getBirthdayUsers, deleteBirthday, getBirthday };
+export { saveBirthday, getBirthdayUsers, deleteBirthday, getBirthday }

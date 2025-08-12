@@ -42,14 +42,22 @@ try {
 	`
 
 	console.log('\nExisting tables in public schema:')
-	tables.forEach(table => {
+	tables.forEach((table) => {
 		console.log(`- ${table.table_name}`)
 	})
 
 	// Check if any of our expected tables exist
 	const expectedTables = [
-		'bot_stats', 'bots', 'guilds', 'leaderboard', 'plugins',
-		'user_balances', 'user_levels', 'tickets', 'temp_voice_channels', 'starboards'
+		'bot_stats',
+		'bots',
+		'guilds',
+		'leaderboard',
+		'plugins',
+		'user_balances',
+		'user_levels',
+		'tickets',
+		'temp_voice_channels',
+		'starboards',
 	]
 
 	console.log('\nExpected tables status:')
@@ -61,9 +69,10 @@ try {
 				AND table_name = ${tableName}
 			) as exists
 		`
-		console.log(`- ${tableName}: ${exists[0].exists ? '✅ exists' : '❌ missing'}`)
+		console.log(
+			`- ${tableName}: ${exists[0].exists ? '✅ exists' : '❌ missing'}`
+		)
 	}
-
 } catch (error) {
 	console.error('Error checking tables:', error.message)
 } finally {

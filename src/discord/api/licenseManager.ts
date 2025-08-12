@@ -1,5 +1,5 @@
-import supabase from "@/db/supabase.js";
-import { StatusLogger, APILogger } from "@/utils/bunnyLogger.js";
+import supabase from '@/db/supabase.js'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 const LicenseManager = {
 	// Internal state for license status.
@@ -8,10 +8,10 @@ const LicenseManager = {
 
 	// Getters to expose license flags.
 	get premium(): boolean {
-		return this._isPremium;
+		return this._isPremium
 	},
 	get trialActive(): boolean {
-		return this._isTrialActive;
+		return this._isTrialActive
 	},
 
 	/**
@@ -23,45 +23,45 @@ const LicenseManager = {
 	async verifyLicense(licenseKey: string): Promise<void> {
 		try {
 			const { data, error } = await supabase
-				.from("plugin_licenses")
-				.select("*")
-				.eq("license_key", licenseKey)
-				.single();
+				.from('plugin_licenses')
+				.select('*')
+				.eq('license_key', licenseKey)
+				.single()
 
 			if (error) {
-				throw error;
+				throw error
 			}
 
 			if (data) {
-				const now = new Date();
-				const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
+				const now = new Date()
+				const expiresAt = data.expires_at ? new Date(data.expires_at) : null
 				// Premium if license_type is 'premium' or 'enterprise', active, and not expired.
 				this._isPremium =
-					(data.license_type === "premium" ||
-						data.license_type === "enterprise") &&
+					(data.license_type === 'premium' ||
+						data.license_type === 'enterprise') &&
 					data.is_active &&
-					(!expiresAt || expiresAt > now);
+					(!expiresAt || expiresAt > now)
 
 				// Trial active if license_type is 'standard', active, and not expired.
 				this._isTrialActive =
-					data.license_type === "standard" &&
+					data.license_type === 'standard' &&
 					data.is_active &&
-					(!expiresAt || expiresAt > now);
+					(!expiresAt || expiresAt > now)
 
 				StatusLogger.success(
-					`License verified. Premium: ${this._isPremium}, Trial: ${this._isTrialActive}`,
-				);
+					`License verified. Premium: ${this._isPremium}, Trial: ${this._isTrialActive}`
+				)
 			} else {
-				StatusLogger.warn(`No license found for key ${licenseKey}`);
-				this._isPremium = false;
-				this._isTrialActive = false;
+				StatusLogger.warn(`No license found for key ${licenseKey}`)
+				this._isPremium = false
+				this._isTrialActive = false
 			}
 		} catch (err: any) {
 			StatusLogger.error(
-				`Error verifying license: ${err instanceof Error ? err.message : String(err)}`,
-			);
-			this._isPremium = false;
-			this._isTrialActive = false;
+				`Error verifying license: ${err instanceof Error ? err.message : String(err)}`
+			)
+			this._isPremium = false
+			this._isTrialActive = false
 		}
 	},
 
@@ -71,28 +71,28 @@ const LicenseManager = {
 	 */
 	async checkTrialStatus(): Promise<void> {
 		try {
-			const now = new Date().toISOString();
+			const now = new Date().toISOString()
 			const { data, error } = await supabase
-				.from("trial_servers")
-				.select("*")
-				.gt("expires_at", now) // select trials that have not expired
-				.eq("is_converted", false)
+				.from('trial_servers')
+				.select('*')
+				.gt('expires_at', now) // select trials that have not expired
+				.eq('is_converted', false)
 				.limit(1)
-				.single();
+				.single()
 
-			this._isTrialActive = !!(!error && data);
+			this._isTrialActive = !!(!error && data)
 
 			StatusLogger.success(
-				`Trial status checked. Trial active: ${this._isTrialActive}`,
-			);
+				`Trial status checked. Trial active: ${this._isTrialActive}`
+			)
 		} catch (err: any) {
 			StatusLogger.error(
-				`Error checking trial status: ${err instanceof Error ? err.message : String(err)}`,
-			);
-			this._isTrialActive = false;
+				`Error checking trial status: ${err instanceof Error ? err.message : String(err)}`
+			)
+			this._isTrialActive = false
 		}
 	},
-};
+}
 
 /**
  * Retrieves license key information from the database.
@@ -102,20 +102,20 @@ const LicenseManager = {
 async function getLicenseInfo(licenseKey: string): Promise<any> {
 	try {
 		const { data, error } = await supabase
-			.from("plugin_licenses")
-			.select("*")
-			.eq("license_key", licenseKey)
-			.single();
+			.from('plugin_licenses')
+			.select('*')
+			.eq('license_key', licenseKey)
+			.single()
 		if (error) {
-			throw error;
+			throw error
 		}
-		return data;
+		return data
 	} catch (err) {
 		APILogger.error(
-			`Error fetching license info: ${err instanceof Error ? err.message : String(err)}`,
-		);
-		throw err;
+			`Error fetching license info: ${err instanceof Error ? err.message : String(err)}`
+		)
+		throw err
 	}
 }
 
-export { LicenseManager, getLicenseInfo };
+export { LicenseManager, getLicenseInfo }

@@ -2,18 +2,18 @@ import type {
 	APIThumbnailComponent,
 	APIUnfurledMediaItem,
 	Snowflake,
-} from "discord.js";
-import { ComponentType } from "discord.js";
+} from 'discord.js'
+import { ComponentType } from 'discord.js'
 
 /**
  * A class for creating a thumbnail component compatible with ThumbnailBuilder
  */
 export class V2Thumbnail {
-	private id?: number;
-	private media: APIUnfurledMediaItem;
-	private description?: Snowflake;
-	private spoiler?: boolean;
-	private readonly type = ComponentType.Thumbnail;
+	private id?: number
+	private media: APIUnfurledMediaItem
+	private description?: Snowflake
+	private spoiler?: boolean
+	private readonly type = ComponentType.Thumbnail
 
 	/**
 	 * The API data associated with this component.
@@ -25,7 +25,7 @@ export class V2Thumbnail {
 			...(this.id !== undefined && { id: this.id }),
 			...(this.description !== undefined && { description: this.description }),
 			...(this.spoiler !== undefined && { spoiler: this.spoiler }),
-		};
+		}
 	}
 
 	/**
@@ -33,7 +33,7 @@ export class V2Thumbnail {
 	 * @param media - The media item to display
 	 */
 	constructor(media: APIUnfurledMediaItem) {
-		this.media = media;
+		this.media = media
 	}
 
 	/**
@@ -42,8 +42,8 @@ export class V2Thumbnail {
 	 * @returns The thumbnail instance
 	 */
 	setId(id: number) {
-		this.id = id;
-		return this;
+		this.id = id
+		return this
 	}
 
 	/**
@@ -51,8 +51,8 @@ export class V2Thumbnail {
 	 * @returns The thumbnail instance
 	 */
 	clearId() {
-		this.id = undefined;
-		return this;
+		this.id = undefined
+		return this
 	}
 
 	/**
@@ -61,8 +61,8 @@ export class V2Thumbnail {
 	 * @returns The thumbnail instance
 	 */
 	setDescription(description: string) {
-		this.description = description;
-		return this;
+		this.description = description
+		return this
 	}
 
 	/**
@@ -70,8 +70,8 @@ export class V2Thumbnail {
 	 * @returns The thumbnail instance
 	 */
 	clearDescription() {
-		this.description = undefined;
-		return this;
+		this.description = undefined
+		return this
 	}
 
 	/**
@@ -80,8 +80,8 @@ export class V2Thumbnail {
 	 * @returns The thumbnail instance
 	 */
 	setSpoiler(spoiler: boolean) {
-		this.spoiler = spoiler;
-		return this;
+		this.spoiler = spoiler
+		return this
 	}
 
 	/**
@@ -93,8 +93,8 @@ export class V2Thumbnail {
 		this.media = {
 			...this.media,
 			url,
-		};
-		return this;
+		}
+		return this
 	}
 
 	/**
@@ -103,8 +103,8 @@ export class V2Thumbnail {
 	 * @returns The thumbnail instance
 	 */
 	setThumbnail(media: APIUnfurledMediaItem) {
-		this.media = media;
-		return this;
+		this.media = media
+		return this
 	}
 
 	/**
@@ -118,7 +118,7 @@ export class V2Thumbnail {
 			...(this.id !== undefined && { id: this.id }),
 			...(this.description !== undefined && { description: this.description }),
 			...(this.spoiler !== undefined && { spoiler: this.spoiler }),
-		};
+		}
 	}
 }
 
@@ -150,24 +150,24 @@ export class V2Thumbnail {
 export function makeThumbnail(
 	url: Snowflake,
 	options?: {
-		description?: Snowflake;
-		spoiler?: boolean;
-		id?: number;
-		width?: number;
-		height?: number;
-	},
+		description?: Snowflake
+		spoiler?: boolean
+		id?: number
+		width?: number
+		height?: number
+	}
 ): V2Thumbnail {
 	const media = {
 		url,
 		width: options?.width ?? 0,
 		height: options?.height ?? 0,
-	};
+	}
 
-	const thumbnail = new V2Thumbnail(media);
+	const thumbnail = new V2Thumbnail(media)
 
-	if (options?.description) thumbnail.setDescription(options.description);
-	if (options?.spoiler) thumbnail.setSpoiler(options.spoiler);
-	if (options?.id) thumbnail.setId(options.id);
+	if (options?.description) thumbnail.setDescription(options.description)
+	if (options?.spoiler) thumbnail.setSpoiler(options.spoiler)
+	if (options?.id) thumbnail.setId(options.id)
 
-	return thumbnail;
+	return thumbnail
 }

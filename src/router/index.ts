@@ -1,6 +1,6 @@
-import { discordRouter } from './discord.js'
-import { clickerRouter } from './clicker.js'
 import { setCorsHeaders } from '../utils/cors.js'
+import { clickerRouter } from './clicker.js'
+import { discordRouter } from './discord.js'
 
 export const mainRouter = async (req: Request): Promise<Response> => {
 	const url = new URL(req.url)

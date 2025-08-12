@@ -1,5 +1,5 @@
-import type * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
+import type * as Discord from 'discord.js'
 import * as services from '@/discord/services/index.js'
 
 /**

@@ -1,10 +1,10 @@
 import type { ButtonInteraction } from 'discord.js'
 import * as Discord from 'discord.js'
-import * as commands from '@/discord/commands/index.js'
+import { updateTicketRating } from '@/discord/api/tickets.js'
 import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import { PLUGINS } from '@/discord/commands/constants.js'
-import { updateTicketRating } from '@/discord/api/tickets.js'
-import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
+import * as commands from '@/discord/commands/index.js'
+import { EventLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 type ButtonHandler = (inter: ButtonInteraction) => Promise<void>
 

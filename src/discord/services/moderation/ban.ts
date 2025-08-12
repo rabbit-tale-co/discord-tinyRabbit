@@ -1,7 +1,7 @@
-import * as api from '@/discord/api/index.js'
 import * as Discord from 'discord.js'
+import * as api from '@/discord/api/index.js'
 import type { DefaultConfigs } from '@/types/plugins.js'
-import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
+import { ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Performs a safe ban on a user.
@@ -113,7 +113,9 @@ async function performSafeBan(
 			}
 		} catch (banError) {
 			// Log detailed error information
-			StatusLogger.error(`Failed to ban ${user.tag} (${user.id}) in ${guild.name}`)
+			StatusLogger.error(
+				`Failed to ban ${user.tag} (${user.id}) in ${guild.name}`
+			)
 
 			// Try to get detailed error info
 			if (banError instanceof Discord.DiscordAPIError) {

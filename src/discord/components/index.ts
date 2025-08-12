@@ -1,18 +1,17 @@
 import type * as Discord from 'discord.js'
-import type { GuildMember } from 'discord.js'
-import type { ButtonStyle } from 'discord.js'
-import { replacePlaceholders } from '@/utils/replacePlaceholders.js'
-import * as V2 from 'discord-components-v2'
+import type { ButtonStyle, GuildMember } from 'discord.js'
 import {
-	TextDisplayBuilder,
-	ThumbnailBuilder,
-	ButtonBuilder,
 	ActionRowBuilder,
+	ButtonBuilder,
 	StringSelectMenuBuilder,
 	StringSelectMenuOptionBuilder,
+	TextDisplayBuilder,
+	ThumbnailBuilder,
 } from 'discord.js'
-import type { ComponentsV2, ComponentContainer } from '@/types/plugins.js'
+import * as V2 from 'discord-components-v2'
+import type { ComponentContainer, ComponentsV2 } from '@/types/plugins.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
+import { replacePlaceholders } from '@/utils/replacePlaceholders.js'
 
 // Type definitions for component configuration
 type TextComponent = {

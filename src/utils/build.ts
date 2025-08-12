@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
-import { $ } from 'bun'
 import { existsSync } from 'node:fs'
-import { mkdir, copyFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { $ } from 'bun'
 
 console.log('🤖 Building Discord Bot...')
 

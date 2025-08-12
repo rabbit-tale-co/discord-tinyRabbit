@@ -85,10 +85,9 @@ try {
 	`
 
 	console.log('\nVerified tables:')
-	tables.forEach(table => {
+	tables.forEach((table) => {
 		console.log(`✅ ${table.table_name}`)
 	})
-
 } catch (error) {
 	console.error('❌ Error creating tables:', error.message)
 	process.exit(1)

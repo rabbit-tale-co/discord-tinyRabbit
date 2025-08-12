@@ -1,6 +1,6 @@
-import postgres from 'postgres'
 import fs from 'fs'
 import path from 'path'
+import postgres from 'postgres'
 import 'dotenv/config'
 
 console.log('Marking migrations as completed...')
@@ -37,7 +37,7 @@ try {
 	const existingMigrations = await client`
 		SELECT hash FROM drizzle.__drizzle_migrations
 	`
-	const existingHashes = new Set(existingMigrations.map(m => m.hash))
+	const existingHashes = new Set(existingMigrations.map((m) => m.hash))
 
 	// Insert missing migrations
 	for (const entry of journal.entries) {
@@ -64,13 +64,14 @@ try {
 	`
 
 	console.log(`Total migrations in database: ${allMigrations.length}`)
-	allMigrations.forEach(migration => {
+	allMigrations.forEach((migration) => {
 		console.log(`- ${migration.hash} (${migration.created_at})`)
 	})
 
 	console.log('\n🎉 All migrations are now marked as completed!')
-	console.log('You can now run "bun run db:migrate" safely for future migrations.')
-
+	console.log(
+		'You can now run "bun run db:migrate" safely for future migrations.'
+	)
 } catch (error) {
 	console.error('Error marking migrations:', error.message)
 	process.exit(1)

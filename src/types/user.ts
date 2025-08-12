@@ -30,7 +30,6 @@ interface UserData {
 
 export type { UserData }
 
-
 // import type { LevelUpResult } from '../utils/xpUtils'
 
 // interface UserData {

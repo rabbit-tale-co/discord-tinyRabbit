@@ -1,4 +1,4 @@
-import { createCanvas, type Canvas } from '@napi-rs/canvas'
+import { type Canvas, createCanvas } from '@napi-rs/canvas'
 
 /**
  * Converts an emoji to a 512x512 square canvas image

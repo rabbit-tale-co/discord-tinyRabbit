@@ -1,5 +1,5 @@
-import type { ChatInputCommandInteraction } from 'discord.js'
 import { bunnyLog } from 'bunny-log'
+import type { ChatInputCommandInteraction } from 'discord.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**

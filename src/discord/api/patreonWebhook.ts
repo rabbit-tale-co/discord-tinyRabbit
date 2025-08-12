@@ -1,7 +1,7 @@
 import type * as Discord from 'discord.js'
-import { APILogger } from '@/utils/bunnyLogger.js'
 import { handlePatreonEvent } from '@/discord/events/supportProviders.js'
 import { client } from '@/server.js'
+import { APILogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Handle Patreon webhook events

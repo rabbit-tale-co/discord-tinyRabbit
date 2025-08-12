@@ -1,9 +1,9 @@
 import * as Discord from 'discord.js'
-import * as commands from '@/discord/commands/index.js'
-import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import * as api from '@/discord/api/index.js'
-import * as utils from '@/utils/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
+import * as commands from '@/discord/commands/index.js'
 import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
+import * as utils from '@/utils/index.js'
 
 type RoleSelectHandler = (
 	inter: Discord.RoleSelectMenuInteraction

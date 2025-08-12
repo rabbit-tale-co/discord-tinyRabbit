@@ -1,8 +1,8 @@
+import { bunnyLog } from 'bunny-log'
 import type * as Discord from 'discord.js'
+import { MessageFlags, ThumbnailBuilder } from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import * as components from '@/discord/components/index.js'
-import { bunnyLog } from 'bunny-log'
-import { MessageFlags, ThumbnailBuilder } from 'discord.js'
 
 /**
  * Handles the guild member join event.

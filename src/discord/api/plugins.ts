@@ -1,21 +1,23 @@
+import type {
+	SectionComponent,
+	SeparatorComponent,
+	TextDisplayComponent,
+} from 'discord.js'
 import * as Discord from 'discord.js'
+import supabase from '@/db/supabase.js'
+import type {
+	API,
+	ComponentsV2,
+	DefaultConfigs,
+	PluginResponse,
+	Plugins,
+	TicketTemplates,
+} from '@/types/plugins.js'
 import {
 	DatabaseLogger,
 	PluginLogger,
 	StatusLogger,
 } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
-import type { API, TicketTemplates, ComponentsV2 } from '@/types/plugins.js'
-import type {
-	PluginResponse,
-	DefaultConfigs,
-	Plugins,
-} from '@/types/plugins.js'
-import type {
-	SectionComponent,
-	TextDisplayComponent,
-	SeparatorComponent,
-} from 'discord.js'
 
 // Define the ticket components structure using our type definitions
 const createTicketComponents = (): TicketTemplates => {

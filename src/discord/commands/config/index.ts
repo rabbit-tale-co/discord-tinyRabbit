@@ -1,12 +1,12 @@
 import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
-import { config as ticketConfig } from './ticket.js'
-import { config as starboardConfig } from './starboard.js'
-import { config as levelsConfig } from './levels.js'
-import { config as welcomeGoodbyeConfig } from './welcomeGoodbye.js'
+import * as utils from '@/utils/index.js'
 import { config as birthdayConfig } from './birthday.js'
+import { config as levelsConfig } from './levels.js'
+import { config as starboardConfig } from './starboard.js'
 import { config as supportProvidersConfig } from './supportProviders.js'
+import { config as ticketConfig } from './ticket.js'
+import { config as welcomeGoodbyeConfig } from './welcomeGoodbye.js'
 
 type ConfigHandler = (
 	inter:

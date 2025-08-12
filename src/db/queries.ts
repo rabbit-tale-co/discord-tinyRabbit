@@ -1,20 +1,20 @@
 import 'server-only'
-import { eq, and, desc, asc, count, sum } from 'drizzle-orm'
+import { and, asc, count, desc, eq, sum } from 'drizzle-orm'
 import { db } from './index.js'
 import {
+	type BotStats,
 	botStats,
 	bots,
+	type Guilds,
 	guilds,
+	type Leaderboard,
 	leaderboard,
 	plugins,
+	starboards,
+	tempVoiceChannels,
+	tickets,
 	userBalances,
 	userLevels,
-	tickets,
-	tempVoiceChannels,
-	starboards,
-	type BotStats,
-	type Guilds,
-	type Leaderboard,
 } from './schema.js'
 
 // Bot Statistics Functions
@@ -129,7 +129,9 @@ export async function getLeaderboard(
 		return await db
 			.select()
 			.from(leaderboard)
-			.where(and(eq(leaderboard.bot_id, botId), eq(leaderboard.guild_id, guildId)))
+			.where(
+				and(eq(leaderboard.bot_id, botId), eq(leaderboard.guild_id, guildId))
+			)
 			.orderBy(desc(leaderboard.xp))
 			.limit(limit)
 	} catch (error) {
@@ -263,7 +265,10 @@ export async function getGuildStatistics(
 			.where(starboardCondition)
 
 		const tempChannelCondition = guildId
-			? and(eq(tempVoiceChannels.bot_id, botId), eq(tempVoiceChannels.guild_id, guildId))
+			? and(
+					eq(tempVoiceChannels.bot_id, botId),
+					eq(tempVoiceChannels.guild_id, guildId)
+				)
 			: eq(tempVoiceChannels.bot_id, botId)
 
 		const [tempChannelStats] = await db
@@ -341,7 +346,11 @@ export async function updateUserBalance(
 				updated_at: new Date(),
 			})
 			.onConflictDoUpdate({
-				target: [userBalances.bot_id, userBalances.guild_id, userBalances.user_id],
+				target: [
+					userBalances.bot_id,
+					userBalances.guild_id,
+					userBalances.user_id,
+				],
 				set: {
 					amount,
 					updated_at: new Date(),

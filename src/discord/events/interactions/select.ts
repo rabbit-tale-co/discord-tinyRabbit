@@ -1,12 +1,12 @@
 import type * as Discord from 'discord.js'
-import * as commands from '@/discord/commands/index.js'
 import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import { PLUGINS, TICKET_ACTIONS } from '@/discord/commands/constants.js'
+import * as commands from '@/discord/commands/index.js'
 import {
-	openTicketFromSelect,
 	handleTicketActionSelect,
+	openTicketFromSelect,
 } from '@/discord/commands/moderation/tickets/open.js'
-import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
+import { EventLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 type SelectMenuHandler = (
 	inter: Discord.StringSelectMenuInteraction

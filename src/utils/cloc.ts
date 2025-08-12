@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
+import { cc, ptr } from 'bun:ffi'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Glob } from 'bun'
 import { bunnyLog } from 'bunny-log'
-import { cc, ptr } from 'bun:ffi'
 
 const LANGUAGES_JSON_PATH = './src/utils/languages.json'
 const languages: Record<string, LangDef> = JSON.parse(

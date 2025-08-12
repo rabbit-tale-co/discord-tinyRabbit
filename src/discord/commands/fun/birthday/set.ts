@@ -87,7 +87,9 @@ export async function setBirthday(
 				Discord.MessageFlags.Ephemeral | Discord.MessageFlags.IsComponentsV2,
 		})
 	} catch (error) {
-		StatusLogger.error(`Failed to set birthday: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to set birthday: ${error instanceof Error ? error.message : String(error)}`
+		)
 		handleResponse(interaction, 'error', 'Failed to set birthday', {
 			code: 'BD002',
 		})

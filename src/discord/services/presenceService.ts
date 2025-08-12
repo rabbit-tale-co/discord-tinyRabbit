@@ -1,10 +1,12 @@
 import * as Discord from 'discord.js'
+import supabase from '@/db/supabase.js'
 import * as api from '@/discord/api/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
 
 class PresenceService {
 	private readonly client: Discord.Client
+	private isUpdating = false
+	// kept for potential future metrics; remove if not needed
 	private static readonly HOLIDAY_PRESENCES = [
 		{
 			dates: { start: '04-01', end: '04-02' }, // April Fools
@@ -42,7 +44,6 @@ class PresenceService {
 	]
 
 	private static readonly STATS_UPDATE_INTERVAL = 15 * 60 * 1000 // 15 minutes
-	private static readonly PRESENCE_UPDATE_INTERVAL = 24 * 60 * 60 * 1000 // 24 hours
 
 	constructor(client: Discord.Client) {
 		this.client = client
@@ -53,20 +54,45 @@ class PresenceService {
 			throw new Error('Client user not available')
 		}
 
-		// Initial load
-		this.updatePresence()
-		this.updateApplicationDescription()
+		// Initial load (do both on start)
+		void this.updateAll()
 
-		// Set up intervals
+		// Second run after a moment (cache may not be fully ready on READY)
+		setTimeout(() => void this.updateAll(), 5_000)
+
+		// Set up unified interval co 15 min
 		setInterval(
-			() => this.updateApplicationDescription(),
+			() => void this.updateAll(),
 			PresenceService.STATS_UPDATE_INTERVAL
 		)
-		setInterval(
-			// FIXME: sometimes custom status is empty
-			() => this.updatePresence(),
-			PresenceService.PRESENCE_UPDATE_INTERVAL
+
+		// Update stats when guilds are created or deleted
+		this.client.on(
+			'guildCreate',
+			() => void this.updateApplicationDescription()
 		)
+		this.client.on(
+			'guildDelete',
+			() => void this.updateApplicationDescription()
+		)
+	}
+
+	private async updateAll(): Promise<void> {
+		if (this.isUpdating) return
+		this.isUpdating = true
+		try {
+			await Promise.allSettled([
+				this.updatePresence(),
+				this.updateApplicationDescription(),
+			])
+		} catch (error) {
+			StatusLogger.error(
+				'Error during presenceService.updateAll',
+				error as Error
+			)
+		} finally {
+			this.isUpdating = false
+		}
 	}
 
 	public async updatePresence(): Promise<void> {

@@ -13,7 +13,10 @@ console.log('Original URL:', url.toString().replace(/:[^:@]*@/, ':***@'))
 
 // Create direct connection URL (port 5432 instead of 6543)
 const directUrl = new URL(process.env.DATABASE_URL)
-directUrl.hostname = directUrl.hostname.replace('pooler.supabase.com', 'supabase.co')
+directUrl.hostname = directUrl.hostname.replace(
+	'pooler.supabase.com',
+	'supabase.co'
+)
 directUrl.port = '5432'
 
 console.log('Direct URL:', directUrl.toString().replace(/:[^:@]*@/, ':***@'))
@@ -26,7 +29,7 @@ const configurations = [
 			const testUrl = new URL(directUrl.toString())
 			testUrl.searchParams.set('sslmode', 'require')
 			return postgres(testUrl.toString(), { max: 1, ssl: 'require' })
-		}
+		},
 	},
 	{
 		name: 'Direct connection with SSL prefer',
@@ -34,7 +37,7 @@ const configurations = [
 			const testUrl = new URL(directUrl.toString())
 			testUrl.searchParams.set('sslmode', 'prefer')
 			return postgres(testUrl.toString(), { max: 1, ssl: 'prefer' })
-		}
+		},
 	},
 	{
 		name: 'Direct connection without SSL',
@@ -42,7 +45,7 @@ const configurations = [
 			const testUrl = new URL(directUrl.toString())
 			testUrl.searchParams.delete('sslmode')
 			return postgres(testUrl.toString(), { max: 1, ssl: false })
-		}
+		},
 	},
 	{
 		name: 'Pooler with pgbouncer mode',
@@ -55,11 +58,11 @@ const configurations = [
 				ssl: 'require',
 				prepare: false,
 				types: {
-					bigint: postgres.BigInt
-				}
+					bigint: postgres.BigInt,
+				},
 			})
-		}
-	}
+		},
+	},
 ]
 
 for (const config of configurations) {

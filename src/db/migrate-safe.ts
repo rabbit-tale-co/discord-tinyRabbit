@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 import fs from 'fs'
+import postgres from 'postgres'
 import 'dotenv/config'
 
 if (!process.env.DATABASE_URL) {
@@ -32,16 +32,17 @@ try {
 		WHERE table_schema = 'public'
 	`
 
-	const tableNames = new Set(existingTables.map(t => t.table_name))
+	const tableNames = new Set(existingTables.map((t) => t.table_name))
 
 	if (tableNames.has('bot_stats')) {
 		console.log('✅ Tables already exist - no migration needed')
 		console.log('Database is ready to use!')
 	} else {
-		console.log('❌ Tables do not exist - please run migrations manually or use db:push')
+		console.log(
+			'❌ Tables do not exist - please run migrations manually or use db:push'
+		)
 		console.log('Try: bun run db:push')
 	}
-
 } catch (error) {
 	console.error('Migration check failed:', error)
 	process.exit(1)

@@ -1,15 +1,15 @@
+import type { InferSelectModel } from 'drizzle-orm'
 import {
-	pgTable,
-	text,
 	bigint,
-	timestamp,
 	boolean,
-	jsonb,
 	integer,
+	jsonb,
+	pgTable,
 	primaryKey,
+	text,
+	timestamp,
 	varchar,
 } from 'drizzle-orm/pg-core'
-import type { InferSelectModel } from 'drizzle-orm'
 
 export const botStats = pgTable('bot_stats', {
 	bot_id: text('bot_id').primaryKey(),

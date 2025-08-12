@@ -1,6 +1,6 @@
 import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
 import * as api from '@/discord/api/index.js'
+import * as utils from '@/utils/index.js'
 
 export async function showLevel(
 	interaction: Discord.ChatInputCommandInteraction

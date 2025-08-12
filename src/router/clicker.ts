@@ -1,6 +1,3 @@
-import { setCorsHeaders } from '@/utils/cors.js'
-import { errorHandler } from '@/utils/errorHandler.js'
-
 // import {
 // 	getCountryStats,
 // 	addClick,
@@ -8,6 +5,8 @@ import { errorHandler } from '@/utils/errorHandler.js'
 // 	getShopItems,
 // } from '@/clicker/api/index.js'
 import { bunnyLog } from 'bunny-log'
+import { setCorsHeaders } from '@/utils/cors.js'
+import { errorHandler } from '@/utils/errorHandler.js'
 
 /**
  * Routes mapping for the clicker API

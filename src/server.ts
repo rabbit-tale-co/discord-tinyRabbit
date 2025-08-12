@@ -1,27 +1,27 @@
-import { env, serve, type Server } from 'bun'
+import { env, type Server, serve } from 'bun'
+import * as Discord from 'discord.js'
 import * as API from '@/discord/api/index.js'
 import * as Events from '@/discord/events/index.js'
+import * as Services from '@/discord/services/index.js'
+import PresenceService from '@/discord/services/presenceService.js'
 import * as Router from '@/router/index.js'
-import * as Discord from 'discord.js'
 import {
-	ServerLogger,
-	DiscordLogger,
-	DatabaseLogger,
 	APILogger,
-	ServiceLogger,
+	BirthdayLogger,
+	DatabaseLogger,
+	DiscordLogger,
+	EventLogger,
 	GuildLogger,
 	PluginLogger,
-	StatusLogger,
-	EventLogger,
-	BirthdayLogger,
+	ServerLogger,
+	ServiceLogger,
 	StatsLogger,
+	StatusLogger,
 } from '@/utils/bunnyLogger.js'
-import * as Birthday from './discord/commands/fun/birthday/index.js'
 import * as Database from './db/initDatabase.js'
-import PresenceService from '@/discord/services/presenceService.js'
-import * as Services from '@/discord/services/index.js'
-import * as Tickets from './discord/commands/moderation/tickets/index.js'
 import supabase from './db/supabase.js'
+import * as Birthday from './discord/commands/fun/birthday/index.js'
+import * as Tickets from './discord/commands/moderation/tickets/index.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5000', 10)
 
@@ -175,7 +175,7 @@ async function collectAllPluginStats(client: Discord.Client) {
 							}
 
 							return isActive ? 1 : 0
-						} catch (error) {
+						} catch {
 							// Silent continue for individual guild errors
 							return 0
 						}

@@ -1,8 +1,8 @@
-import type * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
-import * as services from '@/discord/services/index.js'
-import * as api from '@/discord/api/index.js'
 import { bunnyLog } from 'bunny-log'
+import type * as Discord from 'discord.js'
+import * as api from '@/discord/api/index.js'
+import * as services from '@/discord/services/index.js'
+import * as utils from '@/utils/index.js'
 
 /**
  * Event handler for message creation.

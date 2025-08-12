@@ -104,7 +104,9 @@ export async function showBirthday(
 				Discord.MessageFlags.Ephemeral | Discord.MessageFlags.IsComponentsV2,
 		})
 	} catch (error) {
-		StatusLogger.error(`Failed to fetch birthday: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to fetch birthday: ${error instanceof Error ? error.message : String(error)}`
+		)
 		handleResponse(interaction, 'error', 'Failed to retrieve birthday', {
 			code: 'BD004',
 		})

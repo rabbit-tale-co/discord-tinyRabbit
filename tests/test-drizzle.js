@@ -18,12 +18,16 @@ try {
 	console.log('✅ updateBotStats works:', updatedStats)
 
 	console.log('\n🎉 Drizzle ORM is working correctly!')
-	console.log('You can now use the functions from src/db/queries.js in your Discord bot.')
-
+	console.log(
+		'You can now use the functions from src/db/queries.js in your Discord bot.'
+	)
 } catch (error) {
 	console.error('❌ Drizzle test failed:', error.message)
 
-	if (error.message.includes('relation') && error.message.includes('does not exist')) {
+	if (
+		error.message.includes('relation') &&
+		error.message.includes('does not exist')
+	) {
 		console.log('\n💡 It looks like some tables are missing.')
 		console.log('Try running: bun run db:push')
 	}

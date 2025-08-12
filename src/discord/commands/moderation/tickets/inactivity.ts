@@ -1,9 +1,9 @@
 import * as Discord from 'discord.js'
-import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
-import { threadMetadataStore } from './state.js'
 import * as api from '@/discord/api/index.js'
-import { loadCfg } from './limits.js'
 import type { ThreadMetadata } from '@/types/tickets.js'
+import { ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
+import { loadCfg } from './limits.js'
+import { threadMetadataStore } from './state.js'
 
 export async function checkTicketInactivity(
 	client: Discord.Client,
@@ -15,7 +15,9 @@ export async function checkTicketInactivity(
 		// Get the guild
 		const guild = await client.guilds.fetch(guildId)
 		if (!guild) {
-			StatusLogger.warn(`Guild ${guildId} not found for ticket inactivity check`)
+			StatusLogger.warn(
+				`Guild ${guildId} not found for ticket inactivity check`
+			)
 			return
 		}
 
@@ -82,7 +84,10 @@ export async function checkTicketInactivity(
 			StatusLogger.success(`Closed ticket ${threadId} due to inactivity`)
 		}
 	} catch (error) {
-		ServiceLogger.error('Ticket Inactivity Check', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Ticket Inactivity Check',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	}
 }
 
@@ -114,11 +119,17 @@ export async function checkAllTicketsInactivity(client: Discord.Client) {
 					}
 				}
 			} catch (error) {
-				ServiceLogger.error(`Ticket Check Guild ${guildId}`, error instanceof Error ? error : new Error(String(error)))
+				ServiceLogger.error(
+					`Ticket Check Guild ${guildId}`,
+					error instanceof Error ? error : new Error(String(error))
+				)
 			}
 		}
 	} catch (error) {
-		ServiceLogger.error('Ticket Inactivity Check All', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Ticket Inactivity Check All',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	}
 }
 
@@ -128,7 +139,10 @@ export function startInactivityChecker(client: Discord.Client) {
 	setInterval(
 		() => {
 			checkAllTicketsInactivity(client).catch((error) => {
-				ServiceLogger.error('Ticket Inactivity Checker Interval', error instanceof Error ? error : new Error(String(error)))
+				ServiceLogger.error(
+					'Ticket Inactivity Checker Interval',
+					error instanceof Error ? error : new Error(String(error))
+				)
 			})
 		},
 		60 * 60 * 1000
@@ -136,6 +150,9 @@ export function startInactivityChecker(client: Discord.Client) {
 
 	// Also check once at startup
 	checkAllTicketsInactivity(client).catch((error) => {
-		ServiceLogger.error('Ticket Initial Inactivity Check', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Ticket Initial Inactivity Check',
+			error instanceof Error ? error : new Error(String(error))
+		)
 	})
 }
