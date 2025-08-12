@@ -89,6 +89,7 @@ async function collectAllPluginStats(client: Discord.Client) {
 		'moderation',
 		'music',
 		'economy',
+		'supportProviders',
 	] as const
 
 	const pluginStats = await Promise.all(
@@ -159,6 +160,17 @@ async function collectAllPluginStats(client: Discord.Client) {
 											!!(config as Record<string, unknown>).currency_name &&
 											!!(config as Record<string, unknown>).starting_balance
 										break
+									case 'supportProviders': {
+										const supportConfig = config as Record<string, unknown>
+										const discordBoost = supportConfig.discord_boost as
+											| Record<string, unknown>
+											| undefined
+										const patreon = supportConfig.patreon as
+											| Record<string, unknown>
+											| undefined
+										isActive = !!discordBoost?.enabled || !!patreon?.enabled
+										break
+									}
 								}
 							}
 
@@ -185,6 +197,7 @@ async function collectAllPluginStats(client: Discord.Client) {
 					moderation: { name: 'Auto-Moderation' },
 					music: { name: 'Music Player' },
 					economy: { name: 'Economy System' },
+					supportProviders: { name: 'Support Providers' },
 				}
 
 				const info = pluginDisplayInfo[pluginType]
@@ -344,6 +357,12 @@ client.on(Discord.Events.InteractionCreate, Events.interactionHandler)
 client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate)
 client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin)
 client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave)
+client.on(Discord.Events.GuildMemberUpdate, (oldMember, newMember) => {
+	Events.handleBoostEvent(
+		oldMember as Discord.GuildMember,
+		newMember as Discord.GuildMember
+	)
+})
 EventLogger.complete()
 
 // Connect to Discord

@@ -1,4 +1,4 @@
-CREATE TABLE "bot_stats" (
+CREATE TABLE IF NOT EXISTS "bot_stats" (
 	"bot_id" text PRIMARY KEY NOT NULL,
 	"users" bigint DEFAULT 0 NOT NULL,
 	"servers" bigint DEFAULT 0 NOT NULL,
@@ -14,14 +14,14 @@ CREATE TABLE "bot_stats" (
 	"configured_plugins" bigint DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "bots" (
+CREATE TABLE IF NOT EXISTS "bots" (
 	"bot_id" text PRIMARY KEY NOT NULL,
 	"bot_name" text NOT NULL,
 	"bot_token" text NOT NULL,
 	"bot_owner" jsonb NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "currency_transactions" (
+CREATE TABLE IF NOT EXISTS "currency_transactions" (
 	"id" text NOT NULL,
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
@@ -33,12 +33,12 @@ CREATE TABLE "currency_transactions" (
 	CONSTRAINT "currency_transactions_id_bot_id_guild_id_pk" PRIMARY KEY("id","bot_id","guild_id")
 );
 --> statement-breakpoint
-CREATE TABLE "discord_reward_claims" (
+CREATE TABLE IF NOT EXISTS "discord_reward_claims" (
 	"minecraft_uuid" varchar PRIMARY KEY NOT NULL,
 	"claimed_at" timestamp with time zone DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "guilds" (
+CREATE TABLE IF NOT EXISTS "guilds" (
 	"premium" boolean DEFAULT false NOT NULL,
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE "guilds" (
 	CONSTRAINT "guilds_bot_id_guild_id_pk" PRIMARY KEY("bot_id","guild_id")
 );
 --> statement-breakpoint
-CREATE TABLE "leaderboard" (
+CREATE TABLE IF NOT EXISTS "leaderboard" (
 	"bot_id" text NOT NULL,
 	"user_id" text NOT NULL,
 	"xp" integer DEFAULT 0 NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE "leaderboard" (
 	CONSTRAINT "leaderboard_bot_id_user_id_guild_id_pk" PRIMARY KEY("bot_id","user_id","guild_id")
 );
 --> statement-breakpoint
-CREATE TABLE "license_history" (
+CREATE TABLE IF NOT EXISTS "license_history" (
 	"id" integer PRIMARY KEY NOT NULL,
 	"license_key" text NOT NULL,
 	"action_type" text NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE "license_history" (
 	"created_at" timestamp with time zone DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "license_servers" (
+CREATE TABLE IF NOT EXISTS "license_servers" (
 	"license_key" text NOT NULL,
 	"server_ip" text NOT NULL,
 	"connected_at" timestamp with time zone DEFAULT now(),
@@ -73,7 +73,7 @@ CREATE TABLE "license_servers" (
 	CONSTRAINT "license_servers_license_key_server_ip_pk" PRIMARY KEY("license_key","server_ip")
 );
 --> statement-breakpoint
-CREATE TABLE "linked_accounts" (
+CREATE TABLE IF NOT EXISTS "linked_accounts" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"user_id" text NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE "linked_accounts" (
 	CONSTRAINT "linked_accounts_bot_id_guild_id_user_id_pk" PRIMARY KEY("bot_id","guild_id","user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "plugin_licenses" (
+CREATE TABLE IF NOT EXISTS "plugin_licenses" (
 	"license_key" text PRIMARY KEY NOT NULL,
 	"plugin_name" text NOT NULL,
 	"user_id" text NOT NULL,
@@ -106,16 +106,15 @@ CREATE TABLE "plugin_licenses" (
 	"last_check" timestamp with time zone DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "plugin_configs" (
+CREATE TABLE IF NOT EXISTS "plugins" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"plugin_name" text NOT NULL,
 	"config" jsonb,
-	"enabled" boolean DEFAULT true NOT NULL,
-	CONSTRAINT "plugin_configs_bot_id_guild_id_plugin_name_pk" PRIMARY KEY("bot_id","guild_id","plugin_name")
+	CONSTRAINT "plugins_bot_id_guild_id_plugin_name_pk" PRIMARY KEY("bot_id","guild_id","plugin_name")
 );
 --> statement-breakpoint
-CREATE TABLE "starboards" (
+CREATE TABLE IF NOT EXISTS "starboards" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"author_message_id" text NOT NULL,
@@ -126,7 +125,7 @@ CREATE TABLE "starboards" (
 	CONSTRAINT "starboards_bot_id_guild_id_author_message_id_starboard_message_id_pk" PRIMARY KEY("bot_id","guild_id","author_message_id","starboard_message_id")
 );
 --> statement-breakpoint
-CREATE TABLE "temp_voice_channels" (
+CREATE TABLE IF NOT EXISTS "temp_voice_channels" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"channel_id" text NOT NULL,
@@ -136,7 +135,7 @@ CREATE TABLE "temp_voice_channels" (
 	CONSTRAINT "temp_voice_channels_bot_id_guild_id_channel_id_creator_id_pk" PRIMARY KEY("bot_id","guild_id","channel_id","creator_id")
 );
 --> statement-breakpoint
-CREATE TABLE "tickets" (
+CREATE TABLE IF NOT EXISTS "tickets" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"thread_id" text NOT NULL,
@@ -146,7 +145,7 @@ CREATE TABLE "tickets" (
 	CONSTRAINT "tickets_bot_id_guild_id_thread_id_pk" PRIMARY KEY("bot_id","guild_id","thread_id")
 );
 --> statement-breakpoint
-CREATE TABLE "trial_servers" (
+CREATE TABLE IF NOT EXISTS "trial_servers" (
 	"server_ip" text NOT NULL,
 	"plugin_name" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
@@ -156,7 +155,7 @@ CREATE TABLE "trial_servers" (
 	CONSTRAINT "trial_servers_server_ip_plugin_name_pk" PRIMARY KEY("server_ip","plugin_name")
 );
 --> statement-breakpoint
-CREATE TABLE "user_balances" (
+CREATE TABLE IF NOT EXISTS "user_balances" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"user_id" text NOT NULL,
@@ -166,7 +165,7 @@ CREATE TABLE "user_balances" (
 	CONSTRAINT "user_balances_bot_id_guild_id_user_id_pk" PRIMARY KEY("bot_id","guild_id","user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "user_bdays" (
+CREATE TABLE IF NOT EXISTS "user_bdays" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"user_id" text NOT NULL,
@@ -174,7 +173,7 @@ CREATE TABLE "user_bdays" (
 	CONSTRAINT "user_bdays_bot_id_guild_id_user_id_pk" PRIMARY KEY("bot_id","guild_id","user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "user_levels" (
+CREATE TABLE IF NOT EXISTS "user_levels" (
 	"bot_id" text NOT NULL,
 	"guild_id" text NOT NULL,
 	"user_id" text NOT NULL,
@@ -183,7 +182,7 @@ CREATE TABLE "user_levels" (
 	CONSTRAINT "user_levels_bot_id_guild_id_user_id_pk" PRIMARY KEY("bot_id","guild_id","user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "verification_tokens" (
+CREATE TABLE IF NOT EXISTS "verification_tokens" (
 	"token" text,
 	"state" text PRIMARY KEY NOT NULL,
 	"bot_id" text NOT NULL,
@@ -194,8 +193,52 @@ CREATE TABLE "verification_tokens" (
 	"created_at" timestamp with time zone DEFAULT now()
 );
 --> statement-breakpoint
-ALTER TABLE "guilds" ADD CONSTRAINT "guilds_bot_id_bots_bot_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("bot_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "leaderboard" ADD CONSTRAINT "leaderboard_bot_id_bots_bot_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("bot_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "license_history" ADD CONSTRAINT "license_history_license_key_plugin_licenses_license_key_fk" FOREIGN KEY ("license_key") REFERENCES "public"."plugin_licenses"("license_key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "license_servers" ADD CONSTRAINT "license_servers_license_key_plugin_licenses_license_key_fk" FOREIGN KEY ("license_key") REFERENCES "public"."plugin_licenses"("license_key") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "trial_servers" ADD CONSTRAINT "trial_servers_conversion_license_key_plugin_licenses_license_key_fk" FOREIGN KEY ("conversion_license_key") REFERENCES "public"."plugin_licenses"("license_key") ON DELETE no action ON UPDATE no action;
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.table_constraints
+		WHERE constraint_name = 'guilds_bot_id_bots_bot_id_fk'
+	) THEN
+		ALTER TABLE "guilds" ADD CONSTRAINT "guilds_bot_id_bots_bot_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("bot_id") ON DELETE no action ON UPDATE no action;
+	END IF;
+END $$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.table_constraints
+		WHERE constraint_name = 'leaderboard_bot_id_bots_bot_id_fk'
+	) THEN
+		ALTER TABLE "leaderboard" ADD CONSTRAINT "leaderboard_bot_id_bots_bot_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("bot_id") ON DELETE no action ON UPDATE no action;
+	END IF;
+END $$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.table_constraints
+		WHERE constraint_name = 'license_history_license_key_plugin_licenses_license_key_fk'
+	) THEN
+		ALTER TABLE "license_history" ADD CONSTRAINT "license_history_license_key_plugin_licenses_license_key_fk" FOREIGN KEY ("license_key") REFERENCES "public"."plugin_licenses"("license_key") ON DELETE no action ON UPDATE no action;
+	END IF;
+END $$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.table_constraints
+		WHERE constraint_name = 'license_servers_license_key_plugin_licenses_license_key_fk'
+	) THEN
+		ALTER TABLE "license_servers" ADD CONSTRAINT "license_servers_license_key_plugin_licenses_license_key_fk" FOREIGN KEY ("license_key") REFERENCES "public"."plugin_licenses"("license_key") ON DELETE no action ON UPDATE no action;
+	END IF;
+END $$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.table_constraints
+		WHERE constraint_name = 'trial_servers_conversion_license_key_plugin_licenses_license_key_fk'
+	) THEN
+		ALTER TABLE "trial_servers" ADD CONSTRAINT "trial_servers_conversion_license_key_plugin_licenses_license_key_fk" FOREIGN KEY ("conversion_license_key") REFERENCES "public"."plugin_licenses"("license_key") ON DELETE no action ON UPDATE no action;
+	END IF;
+END $$;

@@ -6,6 +6,7 @@ import { config as starboardConfig } from './starboard.js'
 import { config as levelsConfig } from './levels.js'
 import { config as welcomeGoodbyeConfig } from './welcomeGoodbye.js'
 import { config as birthdayConfig } from './birthday.js'
+import { config as supportProvidersConfig } from './supportProviders.js'
 
 type ConfigHandler = (
 	inter:
@@ -24,6 +25,7 @@ const configHandlers: Record<string, ConfigHandler> = {
 	levels: levelsConfig,
 	welcome_goodbye: welcomeGoodbyeConfig,
 	birthday: birthdayConfig,
+	supportProviders: supportProvidersConfig,
 	// Add more handlers as needed
 	// tempvc: tempvcConfig,
 	// economy: economyConfig,

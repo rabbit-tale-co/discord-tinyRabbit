@@ -1,5 +1,5 @@
 {
-  "id": "287daf0e-8b13-4be8-b738-25c1aff09c8a",
+  "id": "b09278d5-aae1-422a-9c3a-9fac5bb30074",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -704,8 +704,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.plugin_configs": {
-      "name": "plugin_configs",
+    "public.plugins": {
+      "name": "plugins",
       "schema": "",
       "columns": {
         "bot_id": {
@@ -731,20 +731,13 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "plugin_configs_bot_id_guild_id_plugin_name_pk": {
-          "name": "plugin_configs_bot_id_guild_id_plugin_name_pk",
+        "plugins_bot_id_guild_id_plugin_name_pk": {
+          "name": "plugins_bot_id_guild_id_plugin_name_pk",
           "columns": [
             "bot_id",
             "guild_id",

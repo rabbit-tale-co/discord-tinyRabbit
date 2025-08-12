@@ -1,6 +1,7 @@
 import * as Discord from 'discord.js'
 import * as utils from '@/utils/index.js'
 import * as api from '@/discord/api/index.js'
+import { generateRankCard } from './rankCard.js'
 
 export async function showLevel(
 	interaction: Discord.ChatInputCommandInteraction
@@ -27,7 +28,7 @@ export async function showLevel(
 		// Get target user
 		const targetUser = interaction.options.getUser('user') || interaction.user
 
-		// Get user data
+		// Get user data from API
 		const data = await api.getUser(
 			interaction.client.user.id,
 			guildId,
@@ -38,8 +39,17 @@ export async function showLevel(
 			throw new Error('User not found in database.')
 		}
 
-		const userExperience = data.xp
-		const userLevel = data.level
+		// Debug: Log the data we're getting
+		console.log('User data from API:', {
+			user_id: targetUser.id,
+			guild_id: guildId,
+			data: data,
+			userExperience: data.xp,
+			userLevel: data.level,
+		})
+
+		const userExperience = data.xp ?? 0
+		const userLevel = data.level ?? 0
 
 		// Get rankings
 		const [globalRank, serverRank] = await Promise.all([
@@ -47,18 +57,132 @@ export async function showLevel(
 			api.getServerRank(interaction.client.user.id, guildId, targetUser.id),
 		])
 
-		// Get avatar url
-		const avatarUrl = targetUser
-			.displayAvatarURL({ size: 4096 })
-			.replace('webp', 'png')
+		// Debug: Log ranking data
+		console.log('Ranking data:', {
+			globalRank: globalRank,
+			serverRank: serverRank,
+		})
 
-		const colorHex = await new utils.ColorThief().getDominantColor(avatarUrl)
-		const accentColor = Number.parseInt(colorHex.replace('#', ''), 16)
+		// Get avatar url with better fallback handling
+		let avatarUrl = targetUser.displayAvatarURL({
+			size: 1024,
+			extension: 'png',
+			forceStatic: true,
+		})
+
+		// Debug: Check if avatar URL is valid
+		console.log('Initial avatar URL:', avatarUrl)
+
+		// If the avatar URL is a default Discord avatar, try to get the user's actual avatar
+		if (avatarUrl.includes('embed/avatars/') || !avatarUrl) {
+			console.log('Detected default avatar, trying alternative methods...')
+
+			// Try different methods to get the actual avatar
+			try {
+				// Method 1: Try without forceStatic
+				avatarUrl = targetUser.displayAvatarURL({
+					size: 1024,
+					extension: 'png',
+				})
+				console.log('Method 1 avatar URL:', avatarUrl)
+
+				// Method 2: Try with different size
+				if (avatarUrl.includes('embed/avatars/')) {
+					avatarUrl = targetUser.displayAvatarURL({
+						size: 512,
+						extension: 'png',
+					})
+					console.log('Method 2 avatar URL:', avatarUrl)
+				}
+
+				// Method 3: Try with webp extension
+				if (avatarUrl.includes('embed/avatars/')) {
+					avatarUrl = targetUser.displayAvatarURL({
+						size: 1024,
+						extension: 'webp',
+					})
+					console.log('Method 3 avatar URL:', avatarUrl)
+				}
+			} catch (error) {
+				console.warn('Failed to get avatar URL:', error)
+				// Use a default avatar URL as last resort
+				avatarUrl = `https://cdn.discordapp.com/embed/avatars/${parseInt(targetUser.discriminator) % 5}.png`
+			}
+		}
+
+		// Debug: Log avatar URL
+		console.log('Avatar URL:', avatarUrl)
+		console.log('User ID:', targetUser.id)
+		console.log('Username:', targetUser.username)
+		console.log('Display Name:', targetUser.displayName)
 
 		// Calculate XP for next level
-		const xpForNextLevel = utils.calculateXpForNextLevel(userLevel ?? 0)
-		const xpNeededForNextLevel = xpForNextLevel - (userExperience ?? 0)
+		const xpForNextLevel = utils.calculateXpForNextLevel(userLevel)
+		const currentXP = userExperience
+		const requiredXP = xpForNextLevel
 
+		// Debug: Log XP calculations
+		console.log('XP calculations:', {
+			currentXP: currentXP,
+			requiredXP: requiredXP,
+			userLevel: userLevel,
+			xpForNextLevel: xpForNextLevel,
+		})
+
+		// Get additional user data (optional)
+		let additionalData = {}
+
+		// You can add more API calls here to get additional data
+		// For example: user balance, linked accounts, etc.
+
+		// Example: Get user balance if economy plugin is enabled
+		// const balanceData = await api.getUserBalance(interaction.client.user.id, guildId, targetUser.id)
+		// if (balanceData) {
+		//   additionalData.balance = balanceData.amount
+		// }
+
+		// Example: Get linked accounts
+		// const linkedAccounts = await api.getLinkedAccounts(interaction.client.user.id, guildId, targetUser.id)
+		// if (linkedAccounts) {
+		//   additionalData.linkedAccounts = linkedAccounts
+		// }
+
+		// Debug: Log the data being passed to rank card
+		const rankCardData = {
+			avatarURL: avatarUrl,
+			displayName: targetUser.displayName,
+			level: userLevel,
+			globalRank: globalRank,
+			serverRank: serverRank,
+			currentXP: currentXP,
+			requiredXP: requiredXP,
+			background: {
+				type: 'gradient',
+				colors: ['#0f172a', '#1e293b'],
+			},
+			additionalData: additionalData,
+			// Use custom Geist fonts (will auto-register all weights)
+			// fontPath: './src/assets/fonts/Geist-Bold.otf', // Optional: specific font file
+			// fontFamily: 'Geist-Bold', // Will be set automatically
+		}
+
+		console.log('Rank card data:', rankCardData)
+
+		// Generate rank card using canvas with enhanced data
+		const rankCardBuffer = await generateRankCard(rankCardData)
+
+		// Create attachment
+		const attachment = new Discord.AttachmentBuilder(rankCardBuffer, {
+			name: 'rank_card.png',
+		})
+
+		// Send the rank card as an image
+		await interaction.editReply({
+			files: [attachment],
+		})
+
+		// COMMENTED OUT: Original Component V2 implementation
+		/*
 		// Create components array
 		const components = [
 			{
@@ -117,6 +241,7 @@ export async function showLevel(
 		}
 
 		await interaction.editReply(messageOptions)
+		*/
 	} catch (error) {
 		// For errors, we want to followUp with ephemeral message since we already deferred
 		await utils.handleResponse(interaction, 'error', error.message, {

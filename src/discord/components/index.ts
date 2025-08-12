@@ -301,7 +301,9 @@ export function buildUniversalComponents(
 								return false
 							}
 							if (!btn.label || typeof btn.label !== 'string') {
-								StatusLogger.warn(`Button missing valid label: ${btn.custom_id}`)
+								StatusLogger.warn(
+									`Button missing valid label: ${btn.custom_id}`
+								)
 								return false
 							}
 							return true
@@ -717,7 +719,7 @@ function applyAllPlaceholders(
 	additionalPlaceholders: Record<string, string> = {}
 ): string {
 	// First apply the standard placeholders
-	let result = replacePlaceholders(text, member, guild)
+	let result = replacePlaceholders(text, member, guild, additionalPlaceholders)
 
 	// Then apply additional placeholders (like ticket-specific ones)
 	for (const [key, value] of Object.entries(additionalPlaceholders)) {

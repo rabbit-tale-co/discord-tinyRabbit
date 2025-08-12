@@ -31,6 +31,7 @@
     "@types/get-pixels": "^3.3.4",
     "bunny-log": "^2.1.7",
     "busboy": "^1.6.0",
+    "canvas": "^3.1.2",
     "chalk": "^5.4.1",
     "discord-components-v2": "^0.0.4",
     "discord.js": "^14.21.0",

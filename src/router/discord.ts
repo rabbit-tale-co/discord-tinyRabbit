@@ -101,6 +101,13 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 		});
 	},
 
+	// Patreon webhook endpoint
+	"POST /discord/v1/webhooks/patreon": async (
+		req: Request,
+	): Promise<Response> => {
+		return await API.handlePatreonWebhook(req);
+	},
+
 	// Guild endpoints
 	"GET /discord/v1/guild/all": async (): Promise<Response> => {
 		const guilds = await API.getBotGuilds();

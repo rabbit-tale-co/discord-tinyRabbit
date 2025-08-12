@@ -277,6 +277,28 @@ type Economy = {
 	}
 }
 
+type SupportProviders = {
+	enabled: boolean
+	discord_boost: {
+		enabled: boolean
+		channel_id: string | null
+		message?: string | null
+	}
+	patreon: {
+		enabled: boolean
+		channel_id: string | null
+		message?: string | null
+		webhook_url?: string | null
+	}
+	components?: {
+		[key: string]: ComponentContainer
+	}
+	// Future support methods can be added here
+	// ko_fi: { ... }
+	// buymeacoffee: { ... }
+	// etc.
+}
+
 type PluginTypes = {
 	levels: Level
 	tickets: Ticket
@@ -289,6 +311,7 @@ type PluginTypes = {
 	moderation: Moderation
 	music: Music
 	economy: Economy
+	supportProviders: SupportProviders
 }
 
 type Plugins = keyof PluginTypes

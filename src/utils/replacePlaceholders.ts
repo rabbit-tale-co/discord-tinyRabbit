@@ -11,6 +11,7 @@ interface AdditionalPlaceholders {
 	thread_id?: string
 	channel_id?: string
 	claimed_by?: string
+	opened_by?: string
 	open_time?: string | number
 	mod_ping?: string
 	// Birthday placeholders
@@ -71,8 +72,11 @@ export function replacePlaceholders(
 				? user.user.displayAvatarURL({ extension: 'png', size: 1024 })
 				: ''
 		)
-		// Replace opened_by with user mention
-		.replace('{opened_by}', `<@${user.id}>`)
+		// Replace opened_by with provided additional value if present; otherwise fallback to current user
+		.replace(
+			'{opened_by}',
+			(additional.opened_by as string | undefined) ?? `<@${user.id}>`
+		)
 		// Replace server name
 		.replace('{server_name}', guild.name)
 		// Replace server image
