@@ -1,7 +1,7 @@
 import * as Discord from 'discord.js'
-import supabase from '@/db/supabase.js'
 import * as api from '@/discord/api/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
+import supabase from '@/db/supabase.js'
 
 class PresenceService {
 	private readonly client: Discord.Client
@@ -10,34 +10,42 @@ class PresenceService {
 	private static readonly HOLIDAY_PRESENCES = [
 		{
 			dates: { start: '04-01', end: '04-02' }, // April Fools
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '🤡 Jokes around!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '🤡 Jokes around!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		{
 			dates: { start: '02-14', end: '02-14' }, // Valentine's Day
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '❤️ Spread love!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '❤️ Spread love!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		{
 			dates: { start: '06-01', end: '06-30' }, // pride month
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '🌈 Happy Pride Month!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '🌈 Happy Pride Month!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		{
 			dates: { start: '12-20', end: '12-26' }, // Christmas
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '🎄 Merry Xmas!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '🎄 Merry Xmas!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		// Add more holidays as needed
@@ -103,7 +111,7 @@ class PresenceService {
 			const holidayPresence = this.getHolidayPresence()
 			if (holidayPresence) {
 				user.setPresence({
-					activities: [holidayPresence.activity],
+					activities: holidayPresence.activities,
 					status: holidayPresence.status,
 				})
 			} else {
