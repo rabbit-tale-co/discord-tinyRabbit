@@ -1,7 +1,6 @@
 import * as Discord from 'discord.js'
 import * as utils from '@/utils/index.js'
 import * as api from '@/discord/api/index.js'
-import { generateRankCard } from './rankCard.js'
 
 export async function showLevel(
 	interaction: Discord.ChatInputCommandInteraction
@@ -129,61 +128,9 @@ export async function showLevel(
 			xpForNextLevel: xpForNextLevel,
 		})
 
-		// Get additional user data (optional)
-		let additionalData = {}
+		// Additional data section removed (no longer used with canvas removal)
 
-		// You can add more API calls here to get additional data
-		// For example: user balance, linked accounts, etc.
-
-		// Example: Get user balance if economy plugin is enabled
-		// const balanceData = await api.getUserBalance(interaction.client.user.id, guildId, targetUser.id)
-		// if (balanceData) {
-		//   additionalData.balance = balanceData.amount
-		// }
-
-		// Example: Get linked accounts
-		// const linkedAccounts = await api.getLinkedAccounts(interaction.client.user.id, guildId, targetUser.id)
-		// if (linkedAccounts) {
-		//   additionalData.linkedAccounts = linkedAccounts
-		// }
-
-		// Debug: Log the data being passed to rank card
-		const rankCardData = {
-			avatarURL: avatarUrl,
-			displayName: targetUser.displayName,
-			level: userLevel,
-			globalRank: globalRank,
-			serverRank: serverRank,
-			currentXP: currentXP,
-			requiredXP: requiredXP,
-			background: {
-				type: 'gradient',
-				colors: ['#0f172a', '#1e293b'],
-			},
-			additionalData: additionalData,
-			// Use custom Geist fonts (will auto-register all weights)
-			// fontPath: './src/assets/fonts/Geist-Bold.otf', // Optional: specific font file
-			// fontFamily: 'Geist-Bold', // Will be set automatically
-		}
-
-		console.log('Rank card data:', rankCardData)
-
-		// Generate rank card using canvas with enhanced data
-		const rankCardBuffer = await generateRankCard(rankCardData)
-
-		// Create attachment
-		const attachment = new Discord.AttachmentBuilder(rankCardBuffer, {
-			name: 'rank_card.png',
-		})
-
-		// Send the rank card as an image
-		await interaction.editReply({
-			files: [attachment],
-		})
-
-		// COMMENTED OUT: Original Component V2 implementation
-		/*
-		// Create components array
+		// Build Components V2 summary instead of canvas image
 		const components = [
 			{
 				type: Discord.ComponentType.Section,
@@ -194,9 +141,7 @@ export async function showLevel(
 					},
 					{
 						type: Discord.ComponentType.TextDisplay,
-						content: `⭐️ **Level**: ${utils.formatter.format(userLevel ?? 0)}\n✨ **XP**: ${utils.formatter.format(userExperience ?? 0)}\n🎯 **Next Level in**: ${utils.formatter.format(
-							xpNeededForNextLevel ?? 0
-						)}`,
+						content: `⭐️ **Level**: ${utils.formatter.format(userLevel ?? 0)}\n✨ **XP**: ${utils.formatter.format(currentXP ?? 0)} / ${utils.formatter.format(requiredXP ?? 0)}`,
 					},
 				],
 				accessory: {
@@ -205,17 +150,6 @@ export async function showLevel(
 						url: avatarUrl,
 					},
 				},
-			},
-			{
-				type: Discord.ComponentType.MediaGallery,
-				items: [
-					{
-						media: {
-							url: 'https://cdn.discordapp.com/splashes/1004735926234271864/60d186cd18b27e1fe9efba5481e42a19.jpg?size=2048',
-							description: 'Rabbit Hole',
-						},
-					},
-				],
 			},
 			{
 				type: Discord.ComponentType.Separator,
@@ -232,16 +166,14 @@ export async function showLevel(
 			},
 		]
 
-		// Prepare message options
 		const messageOptions: Discord.InteractionEditReplyOptions = {
-			components: components,
+			components,
 			flags:
 				Discord.MessageFlags.SuppressEmbeds |
 				Discord.MessageFlags.IsComponentsV2,
 		}
 
 		await interaction.editReply(messageOptions)
-		*/
 	} catch (error) {
 		// For errors, we want to followUp with ephemeral message since we already deferred
 		await utils.handleResponse(interaction, 'error', error.message, {
