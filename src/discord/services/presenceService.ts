@@ -152,7 +152,15 @@ class PresenceService {
 			const user = this.client.user
 			if (!user) return
 
+			// Pobierz statystyki z API, ale nadpisz serwery/uzytkownikow danymi live z klienta
 			const stats = await api.fetchAllStats(user.id, this.client)
+			const liveServers = this.client.guilds.cache.size
+			const liveUsers = this.client.guilds.cache.reduce(
+				(sum, g) => sum + (g.memberCount || 0),
+				0
+			)
+			stats.servers = liveServers
+			stats.users = liveUsers
 
 			// Upsert stats to the bot_stats table for dashboard consumption
 			const { error: upsertError } = await supabase

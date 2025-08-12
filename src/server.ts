@@ -277,7 +277,14 @@ client.once('ready', async (c) => {
 		async () => {
 			try {
 				StatusLogger.info('Periodically updating global bot stats...')
-				const globalStats = await API.fetchAllStats(c.user.id, c)
+				const base = await API.fetchAllStats(c.user.id, c)
+				const liveServers = c.guilds.cache.size
+				const liveUsers = c.guilds.cache.reduce(
+					(sum, g) => sum + (g.memberCount || 0),
+					0
+				)
+				const globalStats = { ...base, servers: liveServers, users: liveUsers }
+
 				const { error: upsertError } = await supabase
 					.from('bot_stats')
 					.upsert(
