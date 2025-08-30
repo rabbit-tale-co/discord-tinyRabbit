@@ -5,18 +5,13 @@ import { errorHandler } from '@/utils/errorHandler.js'
 
 // Social API Route Handlers – consistent with discord.ts style
 const routes: Record<string, (req: Request) => Promise<Response>> = {
-  'GET /social/health': async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) }),
   'GET /social/v1/health': async () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) }),
 
   // Profile media
-  'POST /social/profile/avatar': profileAvatar,
-  'POST /social/profile/cover': profileCover,
   'POST /social/v1/profile/avatar': profileAvatar,
   'POST /social/v1/profile/cover': profileCover,
 
   // Post media
-  'POST /social/post/upload': postUpload,
-  'POST /social/post/delete': postDelete,
   'POST /social/v1/post/upload': postUpload,
   'POST /social/v1/post/delete': postDelete,
 }
