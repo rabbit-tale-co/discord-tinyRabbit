@@ -4,16 +4,21 @@ import path from 'path'
 import { spawn } from 'node:child_process'
 import { S3Client, write, env } from 'bun'
 
-const S3_BUCKET = env.SOCIAL_S3_BUCKET as string
-const S3_ENDPOINT = env.SOCIAL_S3_ENDPOINT as string
-const S3_ACCESS_KEY = env.SOCIAL_S3_ACCESS_KEY as string
-const S3_SECRET_KEY = env.SOCIAL_S3_SECRET_KEY as string
+const getEnv = (k: string): string => {
+  const v = (env as Record<string, string | undefined>)[k] ?? (process.env as Record<string, string | undefined>)[k]
+  return (v ?? '').trim()
+}
+
+const S3_BUCKET = getEnv('SOCIAL_S3_BUCKET') || getEnv('S3_BUCKET')
+const S3_ENDPOINT = (getEnv('SOCIAL_S3_ENDPOINT') || getEnv('S3_ENDPOINT')).replace(/\/$/, '')
+const S3_ACCESS_KEY = getEnv('SOCIAL_S3_ACCESS_KEY') || getEnv('S3_ACCESS_KEY')
+const S3_SECRET_KEY = getEnv('SOCIAL_S3_SECRET_KEY') || getEnv('S3_SECRET_KEY')
 
 export const s3 = new S3Client({
   accessKeyId: S3_ACCESS_KEY,
   secretAccessKey: S3_SECRET_KEY,
   bucket: S3_BUCKET,
-  region: 'eu-central',
+  region: getEnv('SOCIAL_S3_REGION') || getEnv('S3_REGION') || 'auto',
   endpoint: S3_ENDPOINT,
   virtualHostedStyle: true,
   acl: 'public-read-write',
