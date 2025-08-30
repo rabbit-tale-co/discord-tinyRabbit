@@ -1,22 +1,20 @@
-import { promises as fs } from 'fs'
-import os from 'os'
+import { promises as fs } from 'node:fs'
+import os from 'node:os'
 import path from 'path'
-import { spawn } from 'child_process'
-import { S3Client, write } from 'bun'
+import { spawn } from 'node:child_process'
+import { S3Client, write, env } from 'bun'
 
-const S3_BUCKET = process.env.SOCIAL_S3_BUCKET as string
-const S3_ENDPOINT = (process.env.SOCIAL_S3_ENDPOINT as string)?.replace(/\/$/, '')
-const S3_REGION = process.env.SOCIAL_S3_REGION || 'auto'
-const S3_ACCESS_KEY = process.env.SOCIAL_S3_ACCESS_KEY as string
-const S3_SECRET_KEY = process.env.SOCIAL_S3_SECRET_KEY as string
+const S3_BUCKET = env.SOCIAL_S3_BUCKET as string
+const S3_ENDPOINT = env.SOCIAL_S3_ENDPOINT as string
+const S3_ACCESS_KEY = env.SOCIAL_S3_ACCESS_KEY as string
+const S3_SECRET_KEY = env.SOCIAL_S3_SECRET_KEY as string
 
 export const s3 = new S3Client({
   accessKeyId: S3_ACCESS_KEY,
   secretAccessKey: S3_SECRET_KEY,
   bucket: S3_BUCKET,
-  region: S3_REGION,
   endpoint: S3_ENDPOINT,
-  acl: 'public-read' as any,
+  acl: 'public-read-write',
 })
 
 export function s3PublicUrl(key: string): string {

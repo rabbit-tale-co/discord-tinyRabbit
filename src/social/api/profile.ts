@@ -1,24 +1,8 @@
 import { setCorsHeaders } from '@/utils/cors.js'
 import { randomUUIDv7 } from 'bun'
-import { S3Client, write } from 'bun'
-import { convertGifToWebM, convertImageToWebP, s3PublicUrl } from '@/social/lib/media.js'
+import { write } from 'bun'
+import { convertGifToWebM, convertImageToWebP, s3PublicUrl, s3 } from '@/social/lib/media.js'
 import { APILogger, bunnyLog } from '@/utils/bunnyLogger.js'
-
-const S3_BUCKET = process.env.SOCIAL_S3_BUCKET as string
-const S3_ENDPOINT = (process.env.SOCIAL_S3_ENDPOINT as string)?.replace(/\/$/, '')
-const S3_REGION = process.env.SOCIAL_S3_REGION || 'auto'
-const S3_ACCESS_KEY = process.env.SOCIAL_S3_ACCESS_KEY as string
-const S3_SECRET_KEY = process.env.SOCIAL_S3_SECRET_KEY as string
-
-const s3 = new S3Client({
-  accessKeyId: S3_ACCESS_KEY,
-  secretAccessKey: S3_SECRET_KEY,
-  bucket: S3_BUCKET,
-  region: S3_REGION,
-  endpoint: S3_ENDPOINT,
-  acl: 'public-read' as any,
-})
-
 
 async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Response> {
   const endpoint = `/social/v1/profile/${kind}`

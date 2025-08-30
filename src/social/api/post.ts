@@ -1,24 +1,8 @@
 import { setCorsHeaders } from '@/utils/cors.js'
 import { APILogger, bunnyLog } from '@/utils/bunnyLogger.js'
 import { randomUUIDv7 } from 'bun'
-import { S3Client, write } from 'bun'
-import { transcodeToWebM, convertImageToWebP, s3PublicUrl } from '@/social/lib/media.js'
-
-const S3_BUCKET = process.env.SOCIAL_S3_BUCKET as string
-const S3_ENDPOINT = (process.env.SOCIAL_S3_ENDPOINT as string)?.replace(/\/$/, '')
-const S3_ACCESS_KEY = process.env.SOCIAL_S3_ACCESS_KEY as string
-const S3_SECRET_KEY = process.env.SOCIAL_S3_SECRET_KEY as string
-const S3_SESSION_TOKEN = process.env.SOCIAL_S3_SESSION_TOKEN as string
-
-const s3 = new S3Client({
-  accessKeyId: S3_ACCESS_KEY,
-  secretAccessKey: S3_SECRET_KEY,
-  bucket: S3_BUCKET,
-  endpoint: S3_ENDPOINT,
-  sessionToken: S3_SESSION_TOKEN,
-  acl: 'public-read' as any,
-})
-
+import { write } from 'bun'
+import { transcodeToWebM, convertImageToWebP, s3PublicUrl, s3 } from '@/social/lib/media.js'
 
 export async function postUpload(req: Request): Promise<Response> {
   const endpoint = '/social/v1/post/upload'
