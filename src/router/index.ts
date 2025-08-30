@@ -1,6 +1,7 @@
 import { setCorsHeaders } from '../utils/cors.js'
 import { clickerRouter } from './clicker.js'
 import { discordRouter } from './discord.js'
+import { mediaRouter } from './media.js'
 
 export const mainRouter = async (req: Request): Promise<Response> => {
 	const url = new URL(req.url)
@@ -12,6 +13,7 @@ export const mainRouter = async (req: Request): Promise<Response> => {
 
 	// Dispatch by project
 	if (path.startsWith('/discord')) return await discordRouter(req)
+	if (path.startsWith('/media')) return await mediaRouter(req)
 	if (path.startsWith('/clicker')) return await clickerRouter(req)
 
 	return new Response('Not Found', { status: 404, headers: setCorsHeaders() })

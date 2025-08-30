@@ -109,12 +109,6 @@ export async function showLevel(
 			}
 		}
 
-		// Debug: Log avatar URL
-		console.log('Avatar URL:', avatarUrl)
-		console.log('User ID:', targetUser.id)
-		console.log('Username:', targetUser.username)
-		console.log('Display Name:', targetUser.displayName)
-
 		// Calculate XP for next level
 		const xpForNextLevel = utils.calculateXpForNextLevel(userLevel)
 		const currentXP = userExperience

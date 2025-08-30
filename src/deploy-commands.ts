@@ -588,6 +588,10 @@ const commands = [
 		],
 	},
 	{
+		name: 'moderation',
+		description: 'Moderation tools',
+	},
+	{
 		name: 'ticket',
 		description: 'Manage tickets',
 		options: [

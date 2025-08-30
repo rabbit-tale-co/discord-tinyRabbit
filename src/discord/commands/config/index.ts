@@ -7,6 +7,7 @@ import { config as starboardConfig } from './starboard.js'
 import { config as supportProvidersConfig } from './supportProviders.js'
 import { config as ticketConfig } from './ticket.js'
 import { config as welcomeGoodbyeConfig } from './welcomeGoodbye.js'
+import { config as moderationConfig } from './moderation.js'
 
 type ConfigHandler = (
 	inter:
@@ -26,6 +27,7 @@ const configHandlers: Record<string, ConfigHandler> = {
 	welcome_goodbye: welcomeGoodbyeConfig,
 	birthday: birthdayConfig,
 	supportProviders: supportProvidersConfig,
+	moderation: moderationConfig,
 	// Add more handlers as needed
 	// tempvc: tempvcConfig,
 	// economy: economyConfig,
@@ -166,6 +168,15 @@ export async function config(
 		) {
 			// Handle welcome & goodbye configuration
 			await configHandlers.welcome_goodbye(inter)
+		} else if (
+			customId.startsWith('moderation_') ||
+			customId.includes('moderation') ||
+			customId.includes('watch_roles') ||
+			customId.includes('ban_interval') ||
+			customId.includes('delete_message_days')
+		) {
+			// Handle moderation configuration
+			await configHandlers.moderation(inter)
 		} else if (
 			customId.startsWith('birthday_') ||
 			customId.includes('birthday') ||
