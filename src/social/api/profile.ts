@@ -23,12 +23,12 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
     const ab = await (f as File).arrayBuffer()
     const input = Buffer.from(ab)
     const isGif = ((f as File).type || '').toLowerCase() === 'image/gif' || ((f as File).name || '').toLowerCase().endsWith('.gif')
-    const uid = randomUUIDv7()
     const folder = kind === 'avatar' ? `avatar/${userId}` : `covers/${userId}`
+    const baseName = kind // stable filename without random suffix
 
     if (isGif) {
       const out = await convertGifToWebM(input, cropW > 0 && cropH > 0 ? { x: cropX, y: cropY, w: cropW, h: cropH } : undefined)
-      const key = `${folder}/${kind}-${uid}.webm`
+      const key = `${folder}/${baseName}.webm`
       const file = s3.file(key)
       await write(file, new Blob([out], { type: 'video/webm' }))
       APILogger.response(200, endpoint)
@@ -36,7 +36,7 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
     }
 
     const outImg = await convertImageToWebP(input, cropW > 0 && cropH > 0 ? { x: cropX, y: cropY, w: cropW, h: cropH } : undefined)
-    const key = `${folder}/${kind}-${uid}.webp`
+    const key = `${folder}/${baseName}.webp`
     const file = s3.file(key)
     await write(file, new Blob([outImg], { type: 'image/webp' }))
     APILogger.response(200, endpoint)
