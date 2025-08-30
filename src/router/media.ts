@@ -9,7 +9,6 @@ import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 const BUCKET = 'social-art'
 
-const log = (...args: unknown[]) => { try { StatusLogger.debug(`[media] ${args.map(String).join(' ')}`) } catch {} }
 const logErr = (...args: unknown[]) => { try { StatusLogger.error('[media]', args.map(String).join(' ')) } catch {} }
 
 async function resolveFfmpegCmd(): Promise<string> {
@@ -50,6 +49,35 @@ async function convertGifToWebM(inputBuf: Buffer, crop?: { x: number; y: number;
     args.push('-vf', `crop=${Math.floor(crop.w)}:${Math.floor(crop.h)}:${Math.floor(crop.x)}:${Math.floor(crop.y)}`)
   }
   args.push('-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32', '-pix_fmt', 'yuv420p', '-an', outPath)
+  StatusLogger.debug(`media: ffmpeg args ${args.join(' ')}`)
+  await new Promise<void>((resolve, reject) => {
+    const p = spawn(cmd, args)
+    let stderr = ''
+    p.stderr.on('data', (d) => { try { stderr += String(d) } catch {} })
+    p.on('error', (e) => { APILogger.error(String(e), 'ffmpeg spawn'); reject(e) })
+    p.on('close', (code) => {
+      if (code === 0) { StatusLogger.info('media: ffmpeg exit 0'); resolve() }
+      else { APILogger.error(`exit ${code} ${stderr.slice(0,400)}`, 'ffmpeg'); reject(new Error(`ffmpeg exited ${code}: ${stderr}`)) }
+    })
+  })
+  const out = await fs.readFile(outPath)
+  await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  return out
+}
+
+async function convertImageToWebP(inputBuf: Buffer, crop?: { x: number; y: number; w: number; h: number }) {
+  const cmd = await resolveFfmpegCmd()
+  StatusLogger.info(`media: ffmpeg command ${cmd}`)
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'media-'))
+  const inPath = path.join(tmpDir, 'in.img')
+  const outPath = path.join(tmpDir, 'out.webp')
+  await fs.writeFile(inPath, inputBuf)
+  const args: string[] = ['-y', '-i', inPath]
+  if (crop && crop.w > 0 && crop.h > 0) {
+    args.push('-vf', `crop=${Math.floor(crop.w)}:${Math.floor(crop.h)}:${Math.floor(crop.x)}:${Math.floor(crop.y)}`)
+  }
+  // Encode still image to WebP with good quality
+  args.push('-c:v', 'libwebp', '-q:v', '80', outPath)
   StatusLogger.debug(`media: ffmpeg args ${args.join(' ')}`)
   await new Promise<void>((resolve, reject) => {
     const p = spawn(cmd, args)
@@ -114,11 +142,11 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
       return new Response(JSON.stringify({ path: pathKey, mime }), { headers: setCorsHeaders() })
     }
 
-    // Non-GIF: pass-through upload
-    const ext = (f.name.split('.').pop() || 'bin').toLowerCase()
-    pathKey = `${folder}/${kind}-${uid}.${ext}`
-    mime = f.type || 'application/octet-stream'
-    const url = await uploadPublic(pathKey, new Blob([input], { type: mime }), mime)
+    // Non-GIF: convert to WebP (optionally crop)
+    const outImg = await convertImageToWebP(input, cropW > 0 && cropH > 0 ? { x: cropX, y: cropY, w: cropW, h: cropH } : undefined)
+    pathKey = `${folder}/${kind}-${uid}.webp`
+    mime = 'image/webp'
+    const url = await uploadPublic(pathKey, new Blob([outImg], { type: mime }), mime)
     if (kind === 'avatar') {
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', userId)
       if (error) APILogger.error(error.message, 'db:update avatar_url')
@@ -126,7 +154,7 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
       const { error } = await supabase.from('profiles').update({ cover_url: url }).eq('user_id', userId)
       if (error) APILogger.error(error.message, 'db:update cover_url')
     }
-    APILogger.update(`media image ${kind} -> ${pathKey}`)
+    APILogger.update(`media image->webp ${kind} -> ${pathKey}`)
     return new Response(JSON.stringify({ path: pathKey, mime }), { headers: setCorsHeaders() })
   } catch (e) {
     APILogger.error((e as Error).message, 'media:handleProfile')
