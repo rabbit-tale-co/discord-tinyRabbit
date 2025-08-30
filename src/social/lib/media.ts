@@ -24,14 +24,10 @@ export const s3 = new S3Client({
   acl: 'public-read-write',
 })
 
-export function s3PublicUrl(key: string): string {
-  return `${S3_ENDPOINT}/${S3_BUCKET}/${key}`
-}
-
 export async function s3PutBuffer(key: string, buf: Buffer, contentType: string) {
   const file = s3.file(key)
   await write(file, new Blob([buf], { type: contentType }))
-  return { key, url: s3PublicUrl(key), contentType }
+  return { key, contentType }
 }
 
 export async function resolveFfmpegCmd(): Promise<string> {
