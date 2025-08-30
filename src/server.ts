@@ -5,6 +5,7 @@ import * as Events from '@/discord/events/index.js'
 import * as Services from '@/discord/services/index.js'
 import PresenceService from '@/discord/services/presenceService.js'
 import * as Router from '@/router/index.js'
+import { s3 } from '@/social/lib/media.js'
 import {
 	APILogger,
 	BirthdayLogger,
@@ -42,6 +43,21 @@ serve({
 })
 
 ServerLogger.start(PORT)
+
+// S3 startup diagnostics (non-sensitive)
+try {
+  const bucket = env.SOCIAL_S3_BUCKET || ''
+  const endpoint = (env.SOCIAL_S3_ENDPOINT || '').replace(/\/$/, '')
+  const accessSet = Boolean(env.SOCIAL_S3_ACCESS_KEY && String(env.SOCIAL_S3_ACCESS_KEY).trim())
+  const secretSet = Boolean(env.SOCIAL_S3_SECRET_KEY && String(env.SOCIAL_S3_SECRET_KEY).trim())
+  StatusLogger.info(
+    `[S3] Config -> bucket="${bucket || '(empty)'}" endpoint="${endpoint || '(empty)'}" accessKeySet=${accessSet} secretKeySet=${secretSet}`
+  )
+  // Touch client to ensure it is constructed
+  void s3
+} catch (e) {
+  StatusLogger.error('[S3] Initialization error', e as Error)
+}
 
 // Initialize Database
 DatabaseLogger.init()
