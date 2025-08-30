@@ -66,8 +66,14 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
     const cropY = Number(form.get('crop_y') || 0)
     const cropW = Number(form.get('crop_w') || 0)
     const cropH = Number(form.get('crop_h') || 0)
-    if (!userId) return new Response(JSON.stringify({ error: 'Missing userId' }), { status: 400, headers: setCorsHeaders() })
-    if (!(f instanceof File)) return new Response(JSON.stringify({ error: 'No file' }), { status: 400, headers: setCorsHeaders() })
+    if (!userId) return new Response(JSON.stringify({
+      error: 'Missing userId' }), { status: 400, headers: setCorsHeaders()
+    })
+    if (!(f instanceof File)) return new Response(JSON.stringify({
+      error: 'No file'
+    }), {
+      status: 400, headers: setCorsHeaders()
+    })
 
     const ab = await f.arrayBuffer()
     const input = Buffer.from(ab)
@@ -108,6 +114,10 @@ export async function mediaRouter(req: Request): Promise<Response> {
   const pathName = url.pathname
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: setCorsHeaders() })
+
+  if (req.method === 'GET' && pathName === '/media/health') {
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+  }
 
   if (req.method === 'POST' && pathName.startsWith('/media/profile/avatar')) {
     return await handleProfile(req, 'avatar')
