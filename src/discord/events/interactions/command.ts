@@ -210,11 +210,11 @@ const commandMap: Record<string, commandStructure> = {
 	config: {
 		handler: centralizedConfig, // Route to centralized config
 	},
-	moderation: {
-		subcommands: {
-			ban_id: commands.moderation.banById,
-		},
-	},
+	// moderation: {
+	// 	subcommands: {
+	// 		ban_id: commands.moderation.banById,
+	// 	},
+	// },
 	ticket: {
 		subcommands: {
 			list: async (inter: Discord.ChatInputCommandInteraction) => {
