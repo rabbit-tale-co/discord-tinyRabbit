@@ -2,7 +2,7 @@ import { setCorsHeaders } from '@/utils/cors.js'
 import { APILogger, bunnyLog } from '@/utils/bunnyLogger.js'
 import { randomUUIDv7 } from 'bun'
 import { write } from 'bun'
-import { transcodeToWebM, convertImageToWebP, s3PublicUrl, s3 } from '@/social/lib/media.js'
+import { transcodeToWebM, convertImageToWebP, s3 } from '@/social/lib/media.js'
 
 export async function postUpload(req: Request): Promise<Response> {
   const endpoint = '/social/v1/post/upload'
@@ -38,9 +38,8 @@ export async function postUpload(req: Request): Promise<Response> {
     const key = `posts/${postId}/${randomUUIDv7()}.${mime.startsWith('video/') ? 'webm' : 'webp'}`
     const file = s3.file(key)
     await write(file, new Blob([out], { type: mime }))
-    const url = s3PublicUrl(key)
     APILogger.response(200, endpoint)
-    return new Response(JSON.stringify({ path: key, url, mime }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    return new Response(JSON.stringify({ path: key, mime }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
     APILogger.error(error as Error, '/social/v1/post/upload')
     return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })

@@ -1,7 +1,7 @@
 import { setCorsHeaders } from '@/utils/cors.js'
 import { randomUUIDv7 } from 'bun'
 import { write } from 'bun'
-import { convertGifToWebM, convertImageToWebP, s3PublicUrl, s3 } from '@/social/lib/media.js'
+import { convertGifToWebM, convertImageToWebP, s3 } from '@/social/lib/media.js'
 import { APILogger, bunnyLog } from '@/utils/bunnyLogger.js'
 
 async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Response> {
@@ -31,18 +31,16 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
       const key = `${folder}/${kind}-${uid}.webm`
       const file = s3.file(key)
       await write(file, new Blob([out], { type: 'video/webm' }))
-      const url = s3PublicUrl(key)
       APILogger.response(200, endpoint)
-      return new Response(JSON.stringify({ path: key, url, mime: 'video/webm' }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+      return new Response(JSON.stringify({ path: key, mime: 'video/webm' }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
     }
 
     const outImg = await convertImageToWebP(input, cropW > 0 && cropH > 0 ? { x: cropX, y: cropY, w: cropW, h: cropH } : undefined)
     const key = `${folder}/${kind}-${uid}.webp`
     const file = s3.file(key)
     await write(file, new Blob([outImg], { type: 'image/webp' }))
-    const url = s3PublicUrl(key)
     APILogger.response(200, endpoint)
-    return new Response(JSON.stringify({ path: key, url, mime: 'image/webp' }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    return new Response(JSON.stringify({ path: key, mime: 'image/webp' }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
     APILogger.error(error as Error, endpoint)
     return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
