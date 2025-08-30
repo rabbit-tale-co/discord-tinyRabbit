@@ -6,7 +6,7 @@ export const errorHandler = (handler: (req: Request) => Promise<Response>) => {
 		try {
 			return await handler(req)
 		} catch (error) {
-			bunnyLog.error(`Error handling request: ${error}`)
+			bunnyLog.log(error, `Error handling request: ${error}`)
 			return new Response('Internal Server Error', {
 				status: 500,
 				headers: setCorsHeaders(),
