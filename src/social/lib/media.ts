@@ -9,16 +9,13 @@ const S3_ENDPOINT = env.SOCIAL_S3_ENDPOINT as string
 const S3_ACCESS_KEY = env.SOCIAL_S3_ACCESS_KEY as string
 const S3_SECRET_KEY = env.SOCIAL_S3_SECRET_KEY as string
 
-console.log('S3_BUCKET', S3_BUCKET)
-console.log('S3_ENDPOINT', S3_ENDPOINT)
-console.log('S3_ACCESS_KEY', S3_ACCESS_KEY)
-console.log('S3_SECRET_KEY', S3_SECRET_KEY)
-
 export const s3 = new S3Client({
   accessKeyId: S3_ACCESS_KEY,
   secretAccessKey: S3_SECRET_KEY,
   bucket: S3_BUCKET,
+  region: 'eu-central',
   endpoint: S3_ENDPOINT,
+  virtualHostedStyle: true,
   acl: 'public-read-write',
 })
 
