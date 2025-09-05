@@ -66,6 +66,8 @@ export const DatabaseLogger = {
  * API & External Services Logging
  */
 export const APILogger = {
+  info: (message: string) =>
+		bunnyLog.log('api', `Info: ${message}`),
 	request: (method: string, endpoint: string) =>
 		bunnyLog.log('api', `${method} ${endpoint}`),
 	response: (status: number, endpoint: string) =>

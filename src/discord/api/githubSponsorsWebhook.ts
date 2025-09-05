@@ -38,8 +38,15 @@ export async function handleGitHubSponsorsWebhook(req: Request): Promise<Respons
 
 		const data = JSON.parse(body)
 
-		// Validate the webhook payload
+		// Handle GitHub ping events (webhook verification)
+		if (data.zen) {
+			APILogger.info('GitHub webhook ping received - webhook is working correctly')
+			return new Response('OK', { status: 200 })
+		}
+
+		// Validate the webhook payload for sponsorship events
 		if (!data.action || !data.sponsorship) {
+			APILogger.error('Invalid webhook payload - missing action or sponsorship data')
 			return new Response('Invalid webhook payload', { status: 400 })
 		}
 
