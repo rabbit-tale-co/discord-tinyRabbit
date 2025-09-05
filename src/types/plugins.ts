@@ -290,6 +290,12 @@ type SupportProviders = {
 		message?: string | null
 		webhook_url?: string | null
 	}
+	github_sponsors: {
+		enabled: boolean
+		channel_id: string | null
+		message?: string | null
+		webhook_url?: string | null
+	}
 	components?: {
 		[key: string]: ComponentContainer
 	}

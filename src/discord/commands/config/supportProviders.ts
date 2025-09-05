@@ -164,6 +164,57 @@ const SECTION_BUILDERS = {
 			separator2,
 		}
 	},
+
+	githubSponsorsConfig: (
+		config: DefaultConfigs['supportProviders'],
+		guild?: Discord.Guild
+	) => {
+		const titleSection = V2.makeSection(
+			[
+				'## ⭐ **GitHub Sponsors Configuration**',
+				'> Configure GitHub Sponsors notifications.',
+			],
+			V2.makeButton({
+				custom_id: 'boost_back_to_main',
+				label: 'Back',
+				style: Discord.ButtonStyle.Secondary,
+			})
+		)
+
+		const separator1 = V2.makeSeparator({
+			spacing: Discord.SeparatorSpacingSize.Large,
+			divider: false,
+		})
+
+		const currentMessage = getCurrentGitHubSponsorsMessage(config)
+		const currentSettingsSection = V2.makeTextDisplay(
+			[
+				'### 📊 **Current GitHub Sponsors Settings**',
+				`**Status**: ${config.github_sponsors?.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+				`**Channel**: ${config.github_sponsors?.channel_id ? `<#${config.github_sponsors.channel_id}>` : '❌ Not Set'}`,
+				`**Message**: ${currentMessage !== getDefaultGitHubSponsorsMessage() ? '✅ Configured' : '❌ Default'}`,
+				'',
+				currentMessage
+					? `### 🎭 **Current Message Template**\n\`\`\`${currentMessage}\`\`\``
+					: '',
+				currentMessage
+					? `### ✨ **Rendered Preview** (with sample data)\n${generateMessagePreview(currentMessage)}`
+					: '',
+			].join('\n')
+		)
+
+		const separator2 = V2.makeSeparator({
+			spacing: Discord.SeparatorSpacingSize.Large,
+			divider: false,
+		})
+
+		return {
+			titleSection,
+			separator1,
+			currentSettingsSection,
+			separator2,
+		}
+	},
 }
 
 /* -------------------------------------------------------------------------- */
@@ -216,6 +267,30 @@ function getCurrentPatreonMessage(
  */
 function getDefaultPatreonMessage(): string {
 	return '💖 **{display_name}** just became a Patreon supporter! Thank you for your support!'
+}
+
+/**
+ * Get current GitHub Sponsors message with proper priority
+ */
+function getCurrentGitHubSponsorsMessage(
+	config: DefaultConfigs['supportProviders']
+): string {
+	return (
+		(
+			config.components?.github_sponsors?.components?.[0] as {
+				text?: string
+			}
+		)?.text ||
+		config.github_sponsors?.message ||
+		getDefaultGitHubSponsorsMessage()
+	)
+}
+
+/**
+ * Get default GitHub Sponsors message
+ */
+function getDefaultGitHubSponsorsMessage(): string {
+	return '⭐ **{display_name}** just became a GitHub sponsor! Thank you for your support!'
 }
 
 /**
@@ -408,7 +483,9 @@ async function handleInitialConfig(
 			`Discord Boost: ${boostConfig.discord_boost?.enabled ? '✅ Enabled' : '❌ Disabled'}\n`,
 			`Discord Channel: ${boostConfig.discord_boost?.channel_id ? `<#${boostConfig.discord_boost.channel_id}>` : '❌ Not Set'}\n`,
 			`Patreon: ${boostConfig.patreon?.enabled ? '✅ Enabled' : '❌ Disabled'}\n`,
-			`Patreon Channel: ${boostConfig.patreon?.channel_id ? `<#${boostConfig.patreon.channel_id}>` : '❌ Not Set'}`,
+			`Patreon Channel: ${boostConfig.patreon?.channel_id ? `<#${boostConfig.patreon.channel_id}>` : '❌ Not Set'}\n`,
+			`GitHub Sponsors: ${boostConfig.github_sponsors?.enabled ? '✅ Enabled' : '❌ Disabled'}\n`,
+			`GitHub Channel: ${boostConfig.github_sponsors?.channel_id ? `<#${boostConfig.github_sponsors.channel_id}>` : '❌ Not Set'}`,
 		].join('')
 	)
 
@@ -450,6 +527,12 @@ async function handleInitialConfig(
 				description: 'Configure Patreon notifications',
 				emoji: '💖',
 			},
+			{
+				label: 'GitHub Sponsors',
+				value: 'github_sponsors',
+				description: 'Configure GitHub Sponsors notifications',
+				emoji: '⭐',
+			},
 		])
 
 	const menuRow = V2.makeActionRow([configMenu])
@@ -482,6 +565,9 @@ async function handleConfigSelect(inter: Discord.StringSelectMenuInteraction) {
 		case 'patreon':
 			await handlePatreonConfig(inter, boostConfig)
 			break
+		case 'github_sponsors':
+			await handleGitHubSponsorsConfig(inter, boostConfig)
+			break
 		default:
 			StatusLogger.warn(
 				`[Boost Support Config] Unknown config option: ${selectedOption}`
@@ -504,6 +590,23 @@ async function handleDiscordBoostConfig(
 ) {
 	const sections = SECTION_BUILDERS.discordBoostConfig(config, inter.guild)
 
+	// Create enable/disable buttons at the top
+	const statusButtons = [
+		V2.makeButton({
+			custom_id: 'boost_discord_enable',
+			label: 'Enable',
+			style: Discord.ButtonStyle.Success,
+			disabled: config.discord_boost?.enabled,
+		}),
+		V2.makeButton({
+			custom_id: 'boost_discord_disable',
+			label: 'Disable',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !config.discord_boost?.enabled,
+		}),
+	]
+	const statusRow = V2.makeActionRow(statusButtons)
+
 	const channelSelect = V2.makeChannelSelect({
 		custom_id: 'boost_discord_channel_select',
 		placeholder: 'Select Discord boost notification channel',
@@ -517,13 +620,30 @@ async function handleDiscordBoostConfig(
 
 	const channelRow = V2.makeActionRow([channelSelect])
 
+	// Create message action buttons
+	const editButton = V2.makeButton({
+		custom_id: 'boost_discord_edit_message',
+		label: 'Edit Message',
+		style: Discord.ButtonStyle.Primary,
+	})
+
+	const resetButton = V2.makeButton({
+		custom_id: 'boost_discord_reset_message',
+		label: 'Reset to Default',
+		style: Discord.ButtonStyle.Secondary,
+	})
+
+	const actionRow = V2.makeActionRow([editButton, resetButton])
+
 	await inter.editReply({
 		components: [
 			sections.titleSection,
 			sections.separator1,
 			sections.currentSettingsSection,
 			sections.separator2,
+			statusRow,
 			channelRow,
+			actionRow,
 		],
 		flags: Discord.MessageFlags.IsComponentsV2,
 	})
@@ -539,6 +659,23 @@ async function handlePatreonConfig(
 ) {
 	const sections = SECTION_BUILDERS.patreonConfig(config, inter.guild)
 
+	// Create enable/disable buttons at the top
+	const statusButtons = [
+		V2.makeButton({
+			custom_id: 'boost_patreon_enable',
+			label: 'Enable',
+			style: Discord.ButtonStyle.Success,
+			disabled: config.patreon?.enabled,
+		}),
+		V2.makeButton({
+			custom_id: 'boost_patreon_disable',
+			label: 'Disable',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !config.patreon?.enabled,
+		}),
+	]
+	const statusRow = V2.makeActionRow(statusButtons)
+
 	const channelSelect = V2.makeChannelSelect({
 		custom_id: 'boost_patreon_channel_select',
 		placeholder: 'Select Patreon notification channel',
@@ -552,13 +689,99 @@ async function handlePatreonConfig(
 
 	const channelRow = V2.makeActionRow([channelSelect])
 
+	// Create message action buttons
+	const editButton = V2.makeButton({
+		custom_id: 'boost_patreon_edit_message',
+		label: 'Edit Message',
+		style: Discord.ButtonStyle.Primary,
+	})
+
+	const resetButton = V2.makeButton({
+		custom_id: 'boost_patreon_reset_message',
+		label: 'Reset to Default',
+		style: Discord.ButtonStyle.Secondary,
+	})
+
+	const actionRow = V2.makeActionRow([editButton, resetButton])
+
 	await inter.editReply({
 		components: [
 			sections.titleSection,
 			sections.separator1,
 			sections.currentSettingsSection,
 			sections.separator2,
+			statusRow,
 			channelRow,
+			actionRow,
+		],
+		flags: Discord.MessageFlags.IsComponentsV2,
+	})
+}
+
+async function handleGitHubSponsorsConfig(
+	inter:
+		| Discord.StringSelectMenuInteraction
+		| Discord.ChannelSelectMenuInteraction
+		| Discord.ButtonInteraction
+		| Discord.ModalSubmitInteraction,
+	config: DefaultConfigs['supportProviders']
+) {
+	const sections = SECTION_BUILDERS.githubSponsorsConfig(config, inter.guild)
+
+	// Create enable/disable buttons at the top
+	const statusButtons = [
+		V2.makeButton({
+			custom_id: 'boost_github_sponsors_enable',
+			label: 'Enable',
+			style: Discord.ButtonStyle.Success,
+			disabled: config.github_sponsors?.enabled,
+		}),
+		V2.makeButton({
+			custom_id: 'boost_github_sponsors_disable',
+			label: 'Disable',
+			style: Discord.ButtonStyle.Danger,
+			disabled: !config.github_sponsors?.enabled,
+		}),
+	]
+	const statusRow = V2.makeActionRow(statusButtons)
+
+	const channelSelect = V2.makeChannelSelect({
+		custom_id: 'boost_github_sponsors_channel_select',
+		placeholder: 'Select GitHub Sponsors notification channel',
+		channel_types: [Discord.ChannelType.GuildText],
+	})
+
+	// Pre-select current channel if set
+	if (config.github_sponsors?.channel_id) {
+		channelSelect.setDefaultChannels([config.github_sponsors.channel_id])
+	}
+
+	const channelRow = V2.makeActionRow([channelSelect])
+
+	// Create message action buttons
+	const editButton = V2.makeButton({
+		custom_id: 'boost_github_sponsors_edit_message',
+		label: 'Edit Message',
+		style: Discord.ButtonStyle.Primary,
+	})
+
+	const resetButton = V2.makeButton({
+		custom_id: 'boost_github_sponsors_reset_message',
+		label: 'Reset to Default',
+		style: Discord.ButtonStyle.Secondary,
+	})
+
+	const actionRow = V2.makeActionRow([editButton, resetButton])
+
+	await inter.editReply({
+		components: [
+			sections.titleSection,
+			sections.separator1,
+			sections.currentSettingsSection,
+			sections.separator2,
+			statusRow,
+			channelRow,
+			actionRow,
 		],
 		flags: Discord.MessageFlags.IsComponentsV2,
 	})
@@ -611,6 +834,22 @@ async function handleChannelSelect(
 			})
 
 			await handlePatreonConfig(inter, boostConfig)
+		} else if (inter.customId === 'boost_github_sponsors_channel_select') {
+			if (!boostConfig.github_sponsors) {
+				boostConfig.github_sponsors = {
+					enabled: false,
+					channel_id: null,
+				}
+			}
+			boostConfig.github_sponsors.channel_id = channel
+			await saveConfig(inter, boostConfig)
+
+			await inter.followUp({
+				content: `✅ GitHub Sponsors notification channel set to <#${channel}>`,
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+
+			await handleGitHubSponsorsConfig(inter, boostConfig)
 		}
 	} catch (error) {
 		StatusLogger.error(
@@ -651,33 +890,97 @@ async function handleButtonClick(inter: Discord.ButtonInteraction) {
 			await updateMainConfigMessage(inter)
 			break
 
-		case 'boost_discord_toggle':
+		case 'boost_discord_enable':
 			if (!boostConfig.discord_boost) {
 				boostConfig.discord_boost = {
 					enabled: false,
 					channel_id: null,
 				}
 			}
-			boostConfig.discord_boost.enabled = !boostConfig.discord_boost.enabled
+			boostConfig.discord_boost.enabled = true
 			await saveConfig(inter, boostConfig)
 			await inter.followUp({
-				content: `✅ Discord boost notifications ${boostConfig.discord_boost.enabled ? 'enabled' : 'disabled'}`,
+				content: '✅ Discord boost notifications enabled',
 				flags: Discord.MessageFlags.Ephemeral,
 			})
 			await updateMainConfigMessage(inter)
 			break
 
-		case 'boost_patreon_toggle':
+		case 'boost_discord_disable':
+			if (!boostConfig.discord_boost) {
+				boostConfig.discord_boost = {
+					enabled: false,
+					channel_id: null,
+				}
+			}
+			boostConfig.discord_boost.enabled = false
+			await saveConfig(inter, boostConfig)
+			await inter.followUp({
+				content: '✅ Discord boost notifications disabled',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			await updateMainConfigMessage(inter)
+			break
+
+		case 'boost_patreon_enable':
 			if (!boostConfig.patreon) {
 				boostConfig.patreon = {
 					enabled: false,
 					channel_id: null,
 				}
 			}
-			boostConfig.patreon.enabled = !boostConfig.patreon.enabled
+			boostConfig.patreon.enabled = true
 			await saveConfig(inter, boostConfig)
 			await inter.followUp({
-				content: `✅ Patreon notifications ${boostConfig.patreon.enabled ? 'enabled' : 'disabled'}`,
+				content: '✅ Patreon notifications enabled',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			await updateMainConfigMessage(inter)
+			break
+
+		case 'boost_patreon_disable':
+			if (!boostConfig.patreon) {
+				boostConfig.patreon = {
+					enabled: false,
+					channel_id: null,
+				}
+			}
+			boostConfig.patreon.enabled = false
+			await saveConfig(inter, boostConfig)
+			await inter.followUp({
+				content: '✅ Patreon notifications disabled',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			await updateMainConfigMessage(inter)
+			break
+
+		case 'boost_github_sponsors_enable':
+			if (!boostConfig.github_sponsors) {
+				boostConfig.github_sponsors = {
+					enabled: false,
+					channel_id: null,
+				}
+			}
+			boostConfig.github_sponsors.enabled = true
+			await saveConfig(inter, boostConfig)
+			await inter.followUp({
+				content: '✅ GitHub Sponsors notifications enabled',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			await updateMainConfigMessage(inter)
+			break
+
+		case 'boost_github_sponsors_disable':
+			if (!boostConfig.github_sponsors) {
+				boostConfig.github_sponsors = {
+					enabled: false,
+					channel_id: null,
+				}
+			}
+			boostConfig.github_sponsors.enabled = false
+			await saveConfig(inter, boostConfig)
+			await inter.followUp({
+				content: '✅ GitHub Sponsors notifications disabled',
 				flags: Discord.MessageFlags.Ephemeral,
 			})
 			await updateMainConfigMessage(inter)
@@ -689,6 +992,10 @@ async function handleButtonClick(inter: Discord.ButtonInteraction) {
 
 		case 'boost_patreon_edit_message':
 			await handleEditPatreonMessage(inter)
+			break
+
+		case 'boost_github_sponsors_edit_message':
+			await handleEditGitHubSponsorsMessage(inter)
 			break
 
 		case 'boost_discord_reset_message':
@@ -731,6 +1038,27 @@ async function handleButtonClick(inter: Discord.ButtonInteraction) {
 				flags: Discord.MessageFlags.Ephemeral,
 			})
 			await handlePatreonConfig(inter, boostConfig)
+			break
+
+		case 'boost_github_sponsors_reset_message':
+			boostConfig.github_sponsors = boostConfig.github_sponsors || {
+				enabled: false,
+				channel_id: null,
+			}
+			boostConfig.github_sponsors.message = getDefaultGitHubSponsorsMessage()
+			// Also reset components
+			if (boostConfig.components?.github_sponsors) {
+				boostConfig.components.github_sponsors.components[0] = {
+					type: Discord.ComponentType.TextDisplay,
+					text: getDefaultGitHubSponsorsMessage(),
+				} as unknown as ComponentsV2
+			}
+			await saveConfig(inter, boostConfig)
+			await inter.followUp({
+				content: '✅ GitHub Sponsors message reset to default',
+				flags: Discord.MessageFlags.Ephemeral,
+			})
+			await handleGitHubSponsorsConfig(inter, boostConfig)
 			break
 
 		case 'boost_back_to_main':
@@ -828,6 +1156,44 @@ async function handleModalSubmit(inter: Discord.ModalSubmitInteraction) {
 		})
 
 		await handlePatreonConfig(inter, boostConfig)
+	} else if (inter.customId === 'boost_github_sponsors_message_modal') {
+		const newMessage = inter.fields.getTextInputValue('boost_github_sponsors_message')
+
+		// Update components
+		if (!boostConfig.components) {
+			boostConfig.components = {}
+		}
+		if (!boostConfig.components.github_sponsors) {
+			boostConfig.components.github_sponsors = { components: [] }
+		}
+
+		// Update the message component (first component in the array)
+		if (boostConfig.components.github_sponsors.components.length < 1) {
+			boostConfig.components.github_sponsors.components.push({} as ComponentsV2)
+		}
+
+		boostConfig.components.github_sponsors.components[0] = {
+			type: Discord.ComponentType.TextDisplay,
+			text: newMessage,
+		} as unknown as ComponentsV2
+
+		// Also update the legacy message field
+		if (!boostConfig.github_sponsors) {
+			boostConfig.github_sponsors = {
+				enabled: false,
+				channel_id: null,
+			}
+		}
+		boostConfig.github_sponsors.message = newMessage
+
+		await saveConfig(inter, boostConfig)
+
+		await inter.followUp({
+			content: '✅ GitHub Sponsors message updated successfully',
+			flags: Discord.MessageFlags.Ephemeral,
+		})
+
+		await handleGitHubSponsorsConfig(inter, boostConfig)
 	}
 }
 
@@ -883,6 +1249,30 @@ async function handleEditPatreonMessage(inter: Discord.ButtonInteraction) {
 	await inter.showModal(modal)
 }
 
+async function handleEditGitHubSponsorsMessage(inter: Discord.ButtonInteraction) {
+	const boostConfig = await loadConfig(inter)
+
+	const modal = new Discord.ModalBuilder()
+		.setCustomId('boost_github_sponsors_message_modal')
+		.setTitle('Edit GitHub Sponsors Message')
+
+	const messageInput = new Discord.TextInputBuilder()
+		.setCustomId('boost_github_sponsors_message')
+		.setLabel('GitHub Sponsors Announcement Message')
+		.setStyle(Discord.TextInputStyle.Paragraph)
+		.setValue(getCurrentGitHubSponsorsMessage(boostConfig))
+		.setRequired(true)
+		.setMaxLength(2000)
+
+	const messageRow =
+		new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
+			messageInput
+		)
+	modal.addComponents(messageRow)
+
+	await inter.showModal(modal)
+}
+
 async function updateMainConfigMessage(
 	inter:
 		| Discord.ButtonInteraction
@@ -907,7 +1297,9 @@ async function updateMainConfigMessage(
 			`Discord Boost: ${boostConfig.discord_boost?.enabled ? '✅ Enabled' : '❌ Disabled'}\n`,
 			`Discord Channel: ${boostConfig.discord_boost?.channel_id ? `<#${boostConfig.discord_boost.channel_id}>` : '❌ Not Set'}\n`,
 			`Patreon: ${boostConfig.patreon?.enabled ? '✅ Enabled' : '❌ Disabled'}\n`,
-			`Patreon Channel: ${boostConfig.patreon?.channel_id ? `<#${boostConfig.patreon.channel_id}>` : '❌ Not Set'}`,
+			`Patreon Channel: ${boostConfig.patreon?.channel_id ? `<#${boostConfig.patreon.channel_id}>` : '❌ Not Set'}\n`,
+			`GitHub Sponsors: ${boostConfig.github_sponsors?.enabled ? '✅ Enabled' : '❌ Disabled'}\n`,
+			`GitHub Channel: ${boostConfig.github_sponsors?.channel_id ? `<#${boostConfig.github_sponsors.channel_id}>` : '❌ Not Set'}`,
 		].join('')
 	)
 
@@ -948,6 +1340,12 @@ async function updateMainConfigMessage(
 				value: 'patreon',
 				description: 'Configure Patreon notifications',
 				emoji: '💖',
+			},
+			{
+				label: 'GitHub Sponsors',
+				value: 'github_sponsors',
+				description: 'Configure GitHub Sponsors notifications',
+				emoji: '⭐',
 			},
 		])
 

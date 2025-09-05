@@ -96,6 +96,18 @@ const availablePlugins = [
 		category: 'Voice',
 		premium: false,
 	},
+
+	// Support Providers Category
+	{
+		id: 'supportProviders',
+		title: 'Support Providers',
+		description: 'Handle Discord boosts, Patreon, and GitHub Sponsors with role management',
+		iconSolid: 'SolidHeart',
+		iconOutline: 'OutlineHeart',
+		badge: 'SolidCarrot',
+		category: 'Community',
+		premium: true,
+	},
 ]
 
 type Plugin = {

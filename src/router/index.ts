@@ -1,6 +1,7 @@
 import { setCorsHeaders } from '../utils/cors.js'
 import { clickerRouter } from './clicker.js'
 import { discordRouter } from './discord.js'
+import { githubRouter } from './github.js'
 import { socialRouter } from './social.js'
 
 export const mainRouter = async (req: Request): Promise<Response> => {
@@ -15,6 +16,7 @@ export const mainRouter = async (req: Request): Promise<Response> => {
 	if (path.startsWith('/discord')) return await discordRouter(req)
 	if (path.startsWith('/social')) return await socialRouter(req)
 	if (path.startsWith('/clicker')) return await clickerRouter(req)
+	if (path.startsWith('/github')) return await githubRouter(req)
 
 	return new Response('Not Found', { status: 404, headers: setCorsHeaders() })
 }

@@ -109,6 +109,10 @@ export async function buttonInteractionHandler(
 			inter.customId.startsWith('levels_') ||
 			inter.customId.startsWith('welcome_goodbye_') ||
 			inter.customId.startsWith('birthday_') ||
+			inter.customId.startsWith('boost_') ||
+			inter.customId.includes('patreon') ||
+			inter.customId.includes('github_sponsors') ||
+			inter.customId.includes('support_providers') ||
 			inter.customId.includes('config')
 		) {
 			await centralizedConfig(inter)

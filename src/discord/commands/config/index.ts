@@ -186,6 +186,15 @@ export async function config(
 		) {
 			// Handle birthday configuration
 			await configHandlers.birthday(inter)
+		} else if (
+			customId.startsWith('boost_') ||
+			customId.includes('boost') ||
+			customId.includes('patreon') ||
+			customId.includes('github_sponsors') ||
+			customId.includes('support_providers')
+		) {
+			// Handle support providers configuration
+			await configHandlers.supportProviders(inter)
 		} else {
 			StatusLogger.warn(`[Config Router] Unhandled interaction: ${customId}`)
 			if (!inter.replied && !inter.deferred) {

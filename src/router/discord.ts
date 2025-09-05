@@ -1,4 +1,3 @@
-import { bunnyLog } from 'bunny-log'
 import * as API from '@/discord/api/index.js'
 import { fetchAvailablePlugins } from '@/discord/plugins/index.js'
 import { APILogger } from '@/utils/bunnyLogger.js'
@@ -105,6 +104,13 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 		req: Request
 	): Promise<Response> => {
 		return await API.handlePatreonWebhook(req)
+	},
+
+	// GitHub Sponsors webhook endpoint
+	'POST /discord/v1/webhooks/github-sponsors': async (
+		req: Request
+	): Promise<Response> => {
+		return await API.handleGitHubSponsorsWebhook(req)
 	},
 
 	// Guild endpoints

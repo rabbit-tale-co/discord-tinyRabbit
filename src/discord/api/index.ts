@@ -13,6 +13,7 @@ export * from './licenseEndpoints.js'
 export * from './licenseManager.js'
 export { LicenseManager } from './licenseManager.js'
 export * from './patreonWebhook.js'
+export * from './githubSponsorsWebhook.js'
 export * from './plugins.js'
 // Helper exports
 export {

@@ -640,6 +640,23 @@ const createSupportProvidersComponents = () => {
 				} as unknown as API.TextDisplay,
 			] as ComponentsV2[],
 		},
+		github_sponsors: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '⭐ **{display_name}** just became a GitHub sponsor! Thank you for your support!',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Your support helps us keep this community amazing! ⭐',
+				} as unknown as API.TextDisplay,
+			] as ComponentsV2[],
+		},
 	}
 }
 
@@ -773,6 +790,13 @@ const default_configs: DefaultConfigs = {
 			channel_id: null,
 			message:
 				'💖 **{display_name}** just became a Patreon supporter! Thank you for your support!',
+			webhook_url: null,
+		},
+		github_sponsors: {
+			enabled: false,
+			channel_id: null,
+			message:
+				'⭐ **{display_name}** just became a GitHub sponsor! Thank you for your support!',
 			webhook_url: null,
 		},
 		components: createSupportProvidersComponents(),
@@ -1177,7 +1201,7 @@ async function migrateTicketEmbeds(
 		// and ensure components are properly initialized
 		if (ticketConfig.embeds) {
 			// Remove the legacy embeds property using destructuring
-			const { embeds, ...cleanConfig } = ticketConfig
+			const { embeds: _, ...cleanConfig } = ticketConfig
 
 			// Update the ticketConfig to the clean version
 			Object.assign(ticketConfig, cleanConfig)

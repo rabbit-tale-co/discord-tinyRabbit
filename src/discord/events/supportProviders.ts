@@ -1,4 +1,3 @@
-import { BunnyLogger, bunnyLog } from 'bunny-log'
 import type * as Discord from 'discord.js'
 import { MessageFlags } from 'discord.js'
 import * as api from '@/discord/api/index.js'
@@ -179,4 +178,93 @@ async function handlePatreonEvent(
 	}
 }
 
-export { handleBoostEvent, handlePatreonEvent }
+/**
+ * Handles GitHub Sponsors webhook events
+ * @param {Discord.Guild} guild - The guild to send the notification to
+ * @param {string} sponsorName - The name of the GitHub sponsor
+ * @param {string} tier - The GitHub Sponsors tier (optional)
+ * @param {string} action - The action that triggered the event
+ */
+async function handleGitHubSponsorsEvent(
+	guild: Discord.Guild,
+	sponsorName: string,
+	tier?: string,
+	action?: string
+) {
+	// Get the support providers config
+	const config = await api.getPluginConfig(
+		guild.client.user.id,
+		guild.id,
+		'supportProviders'
+	)
+
+	// Check if the plugin is enabled
+	if (!config.enabled) {
+		return
+	}
+
+	// Check if GitHub Sponsors notifications are enabled
+	if (!config.github_sponsors?.enabled) {
+		return
+	}
+
+	// Check if the GitHub Sponsors channel is set
+	if (!config.github_sponsors.channel_id) {
+		return
+	}
+
+	// Get the GitHub Sponsors channel
+	const githubSponsorsChannel = guild.channels.cache.get(config.github_sponsors.channel_id) as
+		| Discord.TextChannel
+		| undefined
+
+	// Check if the GitHub Sponsors channel is found
+	if (!githubSponsorsChannel) {
+		StatusLogger.error(
+			`GitHub Sponsors channel not found: ${config.github_sponsors.channel_id}`
+		)
+		return
+	}
+
+	try {
+		// Send GitHub Sponsors notification
+		if (config.components?.github_sponsors) {
+			const githubSponsorsComponents = components.buildV2Components(
+				(config.components.github_sponsors
+					.components as components.ComponentConfig[]) ?? [],
+				{ displayName: sponsorName } as Discord.GuildMember,
+				guild
+			)
+
+			await githubSponsorsChannel.send({
+				components: githubSponsorsComponents,
+				flags: MessageFlags.IsComponentsV2,
+			})
+		} else if (config.github_sponsors.message) {
+			// Fallback to simple message if no components
+			let message = config.github_sponsors.message
+				.replace('{display_name}', sponsorName)
+				.replace('{username}', sponsorName)
+
+			if (tier) {
+				message = message.replace('{tier}', tier)
+			}
+
+			if (action) {
+				message = message.replace('{action}', action)
+			}
+
+			await githubSponsorsChannel.send(message)
+		}
+
+		StatusLogger.success(
+			`GitHub Sponsors notification sent for ${sponsorName} in ${guild.name} (${action})`
+		)
+	} catch (error) {
+		StatusLogger.error(
+			`Error sending GitHub Sponsors notification in guild ${guild.name}: ${error instanceof Error ? error.message : String(error)}`
+		)
+	}
+}
+
+export { handleBoostEvent, handlePatreonEvent, handleGitHubSponsorsEvent }
