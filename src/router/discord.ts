@@ -1,11 +1,10 @@
-import { errorHandler } from '@/utils/errorHandler.js'
-import { setCorsHeaders } from '@/utils/cors.js'
-
-import * as API from '@/discord/api/index.js'
 import { bunnyLog } from 'bunny-log'
+import * as API from '@/discord/api/index.js'
 import { fetchAvailablePlugins } from '@/discord/plugins/index.js'
-import getPackageVersion from '@/utils/getPackageVersion.js'
 import { APILogger } from '@/utils/bunnyLogger.js'
+import { setCorsHeaders } from '@/utils/cors.js'
+import { errorHandler } from '@/utils/errorHandler.js'
+import getPackageVersion from '@/utils/getPackageVersion.js'
 
 /**
  * Discord API Route Handlers
@@ -28,13 +27,15 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 	'GET /discord/v1/stats': async (req: Request): Promise<Response> => {
 		const url = new URL(req.url)
 		const bot_id = url.searchParams.get('bot_id')
+		const guild_id = url.searchParams.get('guild_id') ?? undefined
+
 		if (!bot_id)
 			return new Response('Missing bot_id', {
 				status: 400,
 				headers: setCorsHeaders(),
 			})
 
-		const stats = await API.fetchAllStats(bot_id)
+		const stats = await API.fetchAllStats(bot_id, undefined, guild_id)
 		return new Response(JSON.stringify(stats), {
 			status: 200,
 			headers: setCorsHeaders({
@@ -97,6 +98,13 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 				'Content-Type': 'application/json',
 			}),
 		})
+	},
+
+	// Patreon webhook endpoint
+	'POST /discord/v1/webhooks/patreon': async (
+		req: Request
+	): Promise<Response> => {
+		return await API.handlePatreonWebhook(req)
 	},
 
 	// Guild endpoints

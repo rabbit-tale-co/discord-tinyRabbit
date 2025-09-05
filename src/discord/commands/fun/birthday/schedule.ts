@@ -1,9 +1,9 @@
 import * as Discord from 'discord.js'
-import * as api from '@/discord/api/index.js'
 import cron from 'node-cron'
-import { replacePlaceholders } from '@/utils/replacePlaceholders.js'
+import * as api from '@/discord/api/index.js'
 import type { ComponentsV2 } from '@/types/plugins.js'
 import { BirthdayLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
+import { replacePlaceholders } from '@/utils/replacePlaceholders.js'
 
 interface BirthdayUser {
 	id: string
@@ -176,7 +176,7 @@ export async function scheduleBirthdayCheck(
 	}
 
 	// Run daily at 9:00 AM UTC // + 2h
-	cron.schedule('0 11 * * *', () => sendBirthdayAnnouncements(client), {
+	cron.schedule('0 9 * * *', () => sendBirthdayAnnouncements(client), {
 		timezone: 'UTC',
 	})
 }

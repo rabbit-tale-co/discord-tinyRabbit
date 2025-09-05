@@ -1,10 +1,10 @@
-import type { ButtonInteraction, ThreadChannel } from 'discord.js'
+import type { ButtonInteraction } from 'discord.js'
 import * as Discord from 'discord.js'
-import * as commands from '@/discord/commands/index.js'
+import { updateTicketRating } from '@/discord/api/tickets.js'
 import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import { PLUGINS } from '@/discord/commands/constants.js'
-import { updateTicketRating } from '@/discord/api/tickets.js'
-import { StatusLogger, EventLogger } from '@/utils/bunnyLogger.js'
+import * as commands from '@/discord/commands/index.js'
+import { EventLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 type ButtonHandler = (inter: ButtonInteraction) => Promise<void>
 
@@ -24,31 +24,31 @@ const buttonMap: Record<string, ButtonStructure> = {
 	// Auto-close rating buttons (rate_1, rate_2, rate_3, rate_4, rate_5)
 	rate_1: {
 		handler: async (inter: ButtonInteraction) => {
-			const [_, guildId, threadId] = inter.customId.split(':')
+			const [_, threadId] = inter.customId.split(':')
 			await handleTicketRating(inter, threadId, 1)
 		},
 	},
 	rate_2: {
 		handler: async (inter: ButtonInteraction) => {
-			const [_, guildId, threadId] = inter.customId.split(':')
+			const [_, threadId] = inter.customId.split(':')
 			await handleTicketRating(inter, threadId, 2)
 		},
 	},
 	rate_3: {
 		handler: async (inter: ButtonInteraction) => {
-			const [_, guildId, threadId] = inter.customId.split(':')
+			const [_, threadId] = inter.customId.split(':')
 			await handleTicketRating(inter, threadId, 3)
 		},
 	},
 	rate_4: {
 		handler: async (inter: ButtonInteraction) => {
-			const [_, guildId, threadId] = inter.customId.split(':')
+			const [_, threadId] = inter.customId.split(':')
 			await handleTicketRating(inter, threadId, 4)
 		},
 	},
 	rate_5: {
 		handler: async (inter: ButtonInteraction) => {
-			const [_, guildId, threadId] = inter.customId.split(':')
+			const [_, threadId] = inter.customId.split(':')
 			await handleTicketRating(inter, threadId, 5)
 		},
 	},
@@ -85,10 +85,25 @@ export async function buttonInteractionHandler(
 	inter: ButtonInteraction
 ): Promise<void> {
 	try {
+		// Handle rating buttons early (especially from DMs) to avoid routing to config
+		if (inter.customId.startsWith('tickets:rate:')) {
+			const [, , threadId, ratingStr] = inter.customId.split(':')
+			const rating = Number.parseInt(ratingStr)
+			if (!Number.isFinite(rating)) {
+				StatusLogger.warn(
+					`[Rating] Invalid rating value in custom_id=${inter.customId}`
+				)
+			} else {
+				await handleTicketRating(inter, threadId, rating)
+			}
+			return
+		}
+
 		// For all configuration-related buttons, delegate to centralized config
 		if (
 			inter.customId.startsWith('ticket_') ||
-			inter.customId.startsWith('tickets:') ||
+			(inter.customId.startsWith('tickets:') &&
+				!inter.customId.startsWith('tickets:rate:')) ||
 			inter.customId.startsWith('starboard_') ||
 			inter.customId.startsWith('starboard:') ||
 			inter.customId.startsWith('levels_') ||
@@ -193,6 +208,9 @@ async function handleTicketRating(
 ): Promise<void> {
 	try {
 		// Update the ticket rating in the database
+		StatusLogger.info(
+			`[Rating] Persisting rating. user=${inter.user.id} thread=${threadId} rating=${rating} msg=${inter.message.id}`
+		)
 		await updateTicketRating(
 			inter.client.user.id,
 			threadId,
@@ -284,6 +302,9 @@ async function handleTicketRating(
 		}
 
 		// Update transcript message rating
+		StatusLogger.info(
+			`[Rating] Updating transcript rating for thread=${threadId} rating=${rating}`
+		)
 		await updateTranscriptRating(inter, threadId, rating)
 	} catch (error) {
 		StatusLogger.error('Error processing ticket rating', error as Error)
@@ -348,6 +369,9 @@ async function updateTranscriptRating(
 				metadata.transcript_channel.message_id
 			)
 		} catch (error) {
+			StatusLogger.warn(
+				`[Rating] Could not fetch transcript message ${metadata.transcript_channel.message_id}: ${String(error)}`
+			)
 			return
 		}
 

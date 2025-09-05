@@ -1,21 +1,23 @@
+import type {
+	SectionComponent,
+	SeparatorComponent,
+	TextDisplayComponent,
+} from 'discord.js'
 import * as Discord from 'discord.js'
+import supabase from '@/db/supabase.js'
+import type {
+	API,
+	ComponentsV2,
+	DefaultConfigs,
+	PluginResponse,
+	Plugins,
+	TicketTemplates,
+} from '@/types/plugins.js'
 import {
 	DatabaseLogger,
 	PluginLogger,
 	StatusLogger,
 } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
-import type { API, TicketTemplates, ComponentsV2 } from '@/types/plugins.js'
-import type {
-	PluginResponse,
-	DefaultConfigs,
-	Plugins,
-} from '@/types/plugins.js'
-import type {
-	SectionComponent,
-	TextDisplayComponent,
-	SeparatorComponent,
-} from 'discord.js'
 
 // Define the ticket components structure using our type definitions
 const createTicketComponents = (): TicketTemplates => {
@@ -602,6 +604,45 @@ const createLevelsComponents = () => {
 	}
 }
 
+const createSupportProvidersComponents = () => {
+	return {
+		discord_boost: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '🎉 **{display_name}** just boosted the server! Thank you for your support!',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Your support helps us keep this community amazing! 💖',
+				} as unknown as API.TextDisplay,
+			] as ComponentsV2[],
+		},
+		patreon: {
+			components: [
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: '💖 **{display_name}** just became a Patreon supporter! Thank you for your support!',
+				} as unknown as API.TextDisplay,
+				{
+					type: Discord.ComponentType.Separator,
+					divider: false,
+					spacing: Discord.SeparatorSpacingSize.Small,
+				} as unknown as API.Separator,
+				{
+					type: Discord.ComponentType.TextDisplay,
+					text: 'Your support helps us keep this community amazing! 💖',
+				} as unknown as API.TextDisplay,
+			] as ComponentsV2[],
+		},
+	}
+}
+
 const default_configs: DefaultConfigs = {
 	levels: {
 		enabled: false,
@@ -718,6 +759,23 @@ const default_configs: DefaultConfigs = {
 			update_interval: 60,
 			top_count: 10,
 		},
+	},
+	supportProviders: {
+		enabled: false,
+		discord_boost: {
+			enabled: false,
+			channel_id: null,
+			message:
+				'🎉 **{display_name}** just boosted the server! Thank you for your support!',
+		},
+		patreon: {
+			enabled: false,
+			channel_id: null,
+			message:
+				'💖 **{display_name}** just became a Patreon supporter! Thank you for your support!',
+			webhook_url: null,
+		},
+		components: createSupportProvidersComponents(),
 	},
 }
 
@@ -1169,6 +1227,7 @@ function getAllPluginsCount(): number {
 		moderation: true,
 		music: true,
 		economy: true,
+		supportProviders: true,
 	} satisfies Record<keyof DefaultConfigs, boolean>).length
 }
 

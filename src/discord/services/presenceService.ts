@@ -1,47 +1,57 @@
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
+import supabase from '@/db/supabase.js'
 
 class PresenceService {
 	private readonly client: Discord.Client
+	private isUpdating = false
+	// kept for potential future metrics; remove if not needed
 	private static readonly HOLIDAY_PRESENCES = [
 		{
 			dates: { start: '04-01', end: '04-02' }, // April Fools
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '🤡 Jokes around!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '🤡 Jokes around!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		{
 			dates: { start: '02-14', end: '02-14' }, // Valentine's Day
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '❤️ Spread love!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '❤️ Spread love!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		{
 			dates: { start: '06-01', end: '06-30' }, // pride month
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '🌈 Happy Pride Month!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '🌈 Happy Pride Month!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		{
 			dates: { start: '12-20', end: '12-26' }, // Christmas
-			activity: {
-				type: Discord.ActivityType.Custom,
-				name: '🎄 Merry Xmas!',
-			},
+			activities: [
+				{
+					type: Discord.ActivityType.Custom,
+					name: '🎄 Merry Xmas!',
+				},
+			],
 			status: 'online' as Discord.PresenceStatusData,
 		},
 		// Add more holidays as needed
 	]
 
 	private static readonly STATS_UPDATE_INTERVAL = 15 * 60 * 1000 // 15 minutes
-	private static readonly PRESENCE_UPDATE_INTERVAL = 24 * 60 * 60 * 1000 // 24 hours
 
 	constructor(client: Discord.Client) {
 		this.client = client
@@ -52,20 +62,45 @@ class PresenceService {
 			throw new Error('Client user not available')
 		}
 
-		// Initial load
-		this.updatePresence()
-		this.updateApplicationDescription()
+		// Initial load (do both on start)
+		void this.updateAll()
 
-		// Set up intervals
+		// Second run after a moment (cache may not be fully ready on READY)
+		setTimeout(() => void this.updateAll(), 5_000)
+
+		// Set up unified interval co 15 min
 		setInterval(
-			() => this.updateApplicationDescription(),
+			() => void this.updateAll(),
 			PresenceService.STATS_UPDATE_INTERVAL
 		)
-		setInterval(
-			// FIXME: sometimes custom status is empty
-			() => this.updatePresence(),
-			PresenceService.PRESENCE_UPDATE_INTERVAL
+
+		// Update stats when guilds are created or deleted
+		this.client.on(
+			'guildCreate',
+			() => void this.updateApplicationDescription()
 		)
+		this.client.on(
+			'guildDelete',
+			() => void this.updateApplicationDescription()
+		)
+	}
+
+	private async updateAll(): Promise<void> {
+		if (this.isUpdating) return
+		this.isUpdating = true
+		try {
+			await Promise.allSettled([
+				this.updatePresence(),
+				this.updateApplicationDescription(),
+			])
+		} catch (error) {
+			StatusLogger.error(
+				'Error during presenceService.updateAll',
+				error as Error
+			)
+		} finally {
+			this.isUpdating = false
+		}
 	}
 
 	public async updatePresence(): Promise<void> {
@@ -76,7 +111,7 @@ class PresenceService {
 			const holidayPresence = this.getHolidayPresence()
 			if (holidayPresence) {
 				user.setPresence({
-					activities: [holidayPresence.activity],
+					activities: holidayPresence.activities,
 					status: holidayPresence.status,
 				})
 			} else {
@@ -117,11 +152,26 @@ class PresenceService {
 			const user = this.client.user
 			if (!user) return
 
+			// Pobierz statystyki z API, ale nadpisz serwery/uzytkownikow danymi live z klienta
 			const stats = await api.fetchAllStats(user.id, this.client)
+			const liveServers = this.client.guilds.cache.size
+			const liveUsers = this.client.guilds.cache.reduce(
+				(sum, g) => sum + (g.memberCount || 0),
+				0
+			)
+			stats.servers = liveServers
+			stats.users = liveUsers
 
-			const totalPlugins = api.getAllPluginsCount()
+			// Upsert stats to the bot_stats table for dashboard consumption
+			const { error: upsertError } = await supabase
+				.from('bot_stats')
+				.upsert({ bot_id: user.id, ...stats }, { onConflict: 'bot_id' })
 
-			const description = `- configure me with \`/config\` (5 done / ${totalPlugins} plugins)
+			if (upsertError) {
+				StatusLogger.error('Error upserting bot stats', upsertError)
+			}
+
+			const description = `- configure me with \`/config\` (5 done / ${stats.total_plugins} plugins)
 
 🐇 Tiny Rabbit Stats:
 🏰 Servers: ${stats.servers.toLocaleString()}

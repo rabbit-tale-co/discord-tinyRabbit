@@ -1,11 +1,11 @@
+import type * as Discord from 'discord.js'
+import supabase from '@/db/supabase.js'
 import type {
 	CurrencyBalance,
 	CurrencyMultiplier,
 	CurrencyTransaction,
 } from '@/types/economy.js'
 import { APILogger, DatabaseLogger } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
-import type * as Discord from 'discord.js'
 
 // Cache for user balances
 const balance_cache: Record<string, CurrencyBalance> = {}
@@ -36,7 +36,9 @@ export async function getUserBalance(
 
 		if (error) {
 			if (error.code === 'PGRST116') return { data: null, error: null } // No matching row found
-			DatabaseLogger.error(`Error fetching user balance: ${error instanceof Error ? error.message : String(error)}`)
+			DatabaseLogger.error(
+				`Error fetching user balance: ${error instanceof Error ? error.message : String(error)}`
+			)
 			return { data: null, error: 'Failed to get user balance' }
 		}
 
@@ -45,7 +47,9 @@ export async function getUserBalance(
 
 		return { data, error: null }
 	} catch (error) {
-		DatabaseLogger.error(`Error in getUserBalance: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error in getUserBalance: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return { data: null, error: 'Failed to get user balance' }
 	}
 }
@@ -97,7 +101,9 @@ export async function updateUserBalance(
 			.single()
 
 		if (error) {
-			DatabaseLogger.error(`Error updating balance: ${error instanceof Error ? error.message : String(error)}`)
+			DatabaseLogger.error(
+				`Error updating balance: ${error instanceof Error ? error.message : String(error)}`
+			)
 			return { data: null, error: 'Failed to update user balance' }
 		}
 
@@ -116,7 +122,9 @@ export async function updateUserBalance(
 
 		return { data, error: null }
 	} catch (error) {
-		DatabaseLogger.error(`Error in updateUserBalance: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error in updateUserBalance: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return { data: null, error: 'Failed to update user balance' }
 	}
 }
@@ -142,13 +150,17 @@ export async function getTransactionHistory(
 			.limit(limit)
 
 		if (error) {
-			DatabaseLogger.error(`Error fetching transaction history: ${error instanceof Error ? error.message : String(error)}`)
+			DatabaseLogger.error(
+				`Error fetching transaction history: ${error instanceof Error ? error.message : String(error)}`
+			)
 			return { data: null, error: 'Failed to get transaction history' }
 		}
 
 		return { data, error: null }
 	} catch (error) {
-		DatabaseLogger.error(`Error in getTransactionHistory: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error in getTransactionHistory: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return { data: null, error: 'Failed to get transaction history' }
 	}
 }
@@ -168,13 +180,17 @@ export async function getMultipliers(
 			.eq('guild_id', guildId)
 
 		if (error) {
-			DatabaseLogger.error(`Error fetching multipliers: ${error instanceof Error ? error.message : String(error)}`)
+			DatabaseLogger.error(
+				`Error fetching multipliers: ${error instanceof Error ? error.message : String(error)}`
+			)
 			return { data: null, error: 'Failed to get multipliers' }
 		}
 
 		return { data, error: null }
 	} catch (error) {
-		DatabaseLogger.error(`Error in getMultipliers: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error in getMultipliers: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return { data: null, error: 'Failed to get multipliers' }
 	}
 }
@@ -200,7 +216,9 @@ export async function getTopUsers(
 			.limit(limit)
 
 		if (error) {
-			DatabaseLogger.error(`Error fetching top users: ${error instanceof Error ? error.message : String(error)}`)
+			DatabaseLogger.error(
+				`Error fetching top users: ${error instanceof Error ? error.message : String(error)}`
+			)
 			return { data: null, error: 'Failed to get top users' }
 		}
 
@@ -213,7 +231,9 @@ export async function getTopUsers(
 
 		return { data: mappedData, error: null }
 	} catch (error) {
-		DatabaseLogger.error(`Error in getTopUsers: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error in getTopUsers: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return { data: null, error: 'Failed to get top users' }
 	}
 }

@@ -1,8 +1,8 @@
 import type * as Discord from 'discord.js'
-import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
-import { getPluginConfig } from '@/discord/api/plugins.js'
 import supabase from '@/db/supabase.js'
+import { getPluginConfig } from '@/discord/api/plugins.js'
 import { client } from '@/server.js'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 type SocialPlatform = 'minecraft' | 'youtube' | 'twitter' | 'tiktok' | 'twitch'
 
@@ -37,7 +37,9 @@ async function linkSocialAccount(
 		)
 
 		if (error) {
-			APILogger.error(`Error updating ${platform} data in Supabase: ${error.message}`)
+			APILogger.error(
+				`Error updating ${platform} data in Supabase: ${error.message}`
+			)
 			return false
 		}
 
@@ -63,7 +65,9 @@ async function linkSocialAccount(
 		)
 		return true
 	} catch (error) {
-		StatusLogger.error(`Error linking ${platform} account: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Error linking ${platform} account: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return false
 	}
 }
@@ -93,12 +97,16 @@ export async function linkMinecraftAccount(
 			.single()
 
 		if (fetchError && fetchError.code !== 'PGRST116') {
-			APILogger.error(`Error fetching existing Minecraft link: ${fetchError.message}`)
+			APILogger.error(
+				`Error fetching existing Minecraft link: ${fetchError.message}`
+			)
 			return false
 		}
 
 		if (existingLink?.minecraft_uuid) {
-			StatusLogger.warn(`User ${user_id} already has a linked Minecraft account`)
+			StatusLogger.warn(
+				`User ${user_id} already has a linked Minecraft account`
+			)
 			return false
 		}
 
@@ -116,7 +124,9 @@ export async function linkMinecraftAccount(
 		)
 
 		if (upsert_error) {
-			APILogger.error(`Error updating Minecraft data in Supabase: ${upsert_error.message}`)
+			APILogger.error(
+				`Error updating Minecraft data in Supabase: ${upsert_error.message}`
+			)
 			return false
 		}
 

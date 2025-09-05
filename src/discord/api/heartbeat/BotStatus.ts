@@ -1,6 +1,6 @@
-import { client } from '@/server.js' // Ensure correct import of client
 import { bunnyLog } from 'bunny-log'
 import supabase from '@/db/supabase.js'
+import { client } from '@/server.js' // Ensure correct import of client
 
 /**
  * Checks the status of the bot and the database connection.

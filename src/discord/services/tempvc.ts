@@ -1,7 +1,7 @@
 import * as Discord from 'discord.js'
-import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
 import * as api from '@/discord/api/index.js'
 import type * as Types from '@/types/index.js'
+import { ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import * as utils from '@/utils/index.js'
 
 // Update the type to Bun.Timer if you're using Bun, otherwise NodeJS.Timeout

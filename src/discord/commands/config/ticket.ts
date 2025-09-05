@@ -1,19 +1,19 @@
 import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
+import * as V2 from 'discord-components-v2'
 import { ID } from '@/discord/commands/constants.js'
-import type { DefaultConfigs } from '@/types/plugins.js'
 import {
 	loadCfg,
 	saveCfg,
 } from '@/discord/commands/moderation/tickets/limits.js'
+import type { DefaultConfigs } from '@/types/plugins.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
+import * as utils from '@/utils/index.js'
 import {
-	ticketUtils,
 	formatTimeThreshold,
-	UI_BUILDERS,
 	type TIME_VALUE_PRESETS,
+	ticketUtils,
+	UI_BUILDERS,
 } from '@/utils/tickets.js'
-import * as V2 from 'discord-components-v2'
 
 // Map to store original interactions for updates
 const original_config_interactions = new Map<

@@ -50,7 +50,9 @@ export async function removeBirthday(
 				Discord.MessageFlags.Ephemeral | Discord.MessageFlags.IsComponentsV2,
 		})
 	} catch (error) {
-		StatusLogger.error(`Failed to remove birthday: ${error instanceof Error ? error.message : String(error)}`)
+		StatusLogger.error(
+			`Failed to remove birthday: ${error instanceof Error ? error.message : String(error)}`
+		)
 		handleResponse(interaction, 'error', 'Failed to remove birthday', {
 			code: 'BD005',
 		})

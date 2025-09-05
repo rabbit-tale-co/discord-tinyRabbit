@@ -1,11 +1,13 @@
 import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
-import { config as ticketConfig } from './ticket.js'
-import { config as starboardConfig } from './starboard.js'
-import { config as levelsConfig } from './levels.js'
-import { config as welcomeGoodbyeConfig } from './welcomeGoodbye.js'
+import * as utils from '@/utils/index.js'
 import { config as birthdayConfig } from './birthday.js'
+import { config as levelsConfig } from './levels.js'
+import { config as starboardConfig } from './starboard.js'
+import { config as supportProvidersConfig } from './supportProviders.js'
+import { config as ticketConfig } from './ticket.js'
+import { config as welcomeGoodbyeConfig } from './welcomeGoodbye.js'
+import { config as moderationConfig } from './moderation.js'
 
 type ConfigHandler = (
 	inter:
@@ -24,6 +26,8 @@ const configHandlers: Record<string, ConfigHandler> = {
 	levels: levelsConfig,
 	welcome_goodbye: welcomeGoodbyeConfig,
 	birthday: birthdayConfig,
+	supportProviders: supportProvidersConfig,
+	moderation: moderationConfig,
 	// Add more handlers as needed
 	// tempvc: tempvcConfig,
 	// economy: economyConfig,
@@ -164,6 +168,15 @@ export async function config(
 		) {
 			// Handle welcome & goodbye configuration
 			await configHandlers.welcome_goodbye(inter)
+		} else if (
+			customId.startsWith('moderation_') ||
+			customId.includes('moderation') ||
+			customId.includes('watch_roles') ||
+			customId.includes('ban_interval') ||
+			customId.includes('delete_message_days')
+		) {
+			// Handle moderation configuration
+			await configHandlers.moderation(inter)
 		} else if (
 			customId.startsWith('birthday_') ||
 			customId.includes('birthday') ||

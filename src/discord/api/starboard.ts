@@ -30,7 +30,9 @@ async function getStarboardEntry(
 		}
 
 		// Log the error
-		DatabaseLogger.error(`Error fetching starboard entry: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error fetching starboard entry: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return null
 	}
 
@@ -65,7 +67,9 @@ async function createStarboardEntry(
 	// Check if there is an error inserting the starboard entry
 	if (error) {
 		// Log the error
-		DatabaseLogger.error(`Error creating starboard entry: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error creating starboard entry: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }
@@ -92,7 +96,9 @@ async function deleteStarboardEntry(
 	// Check if there is an error deleting the starboard entry
 	if (error) {
 		// Log the error
-		DatabaseLogger.error(`Error deleting starboard entry: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error deleting starboard entry: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }
@@ -122,7 +128,9 @@ async function updateStarboardEntry(
 	// Check if there is an error updating the starboard entry
 	if (error) {
 		// Log the error
-		DatabaseLogger.error(`Error updating starboard entry: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error updating starboard entry: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }

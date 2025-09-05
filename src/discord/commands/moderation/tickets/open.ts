@@ -1,23 +1,23 @@
-import { loadCfg } from './limits.js'
-import type { PlaceholderMap } from '@/discord/components/ui-builder.js'
-import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
-import * as api from '@/discord/api/index.js'
-import * as limits from './limits.js'
-import { threadMetadataStore as store } from './state.js'
-import type { ThreadMetadata } from '@/types/tickets.js'
-import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
-import {
-	StatusLogger,
-	ServiceLogger,
-	CommandLogger,
-} from '@/utils/bunnyLogger.js'
-import { buildUniversalComponents } from '@/discord/components/index.js'
-import {
-	replacePlaceholders,
-	replacecustom_idPlaceholders,
-} from '@/utils/replacePlaceholders.js'
 import type { ButtonBuilder } from 'discord.js'
+import * as Discord from 'discord.js'
+import * as api from '@/discord/api/index.js'
+import { buildUniversalComponents } from '@/discord/components/index.js'
+import type { PlaceholderMap } from '@/discord/components/ui-builder.js'
+import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
+import type { ThreadMetadata } from '@/types/tickets.js'
+import {
+	CommandLogger,
+	ServiceLogger,
+	StatusLogger,
+} from '@/utils/bunnyLogger.js'
+import * as utils from '@/utils/index.js'
+import {
+	replacecustom_idPlaceholders,
+	replacePlaceholders,
+} from '@/utils/replacePlaceholders.js'
+import * as limits from './limits.js'
+import { loadCfg } from './limits.js'
+import { threadMetadataStore as store } from './state.js'
 
 // Add these types at the top of the file after imports
 type TicketInteraction =
@@ -787,7 +787,7 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			// Ensure placeholders are strictly Record<string, string>
 			const stringPlaceholders: Record<string, string> = {}
 			for (const key in placeholders) {
-				if (Object.prototype.hasOwnProperty.call(placeholders, key)) {
+				if (Object.hasOwn(placeholders, key)) {
 					stringPlaceholders[key] = String(placeholders[key])
 				}
 			}

@@ -1,7 +1,7 @@
-import { getServerLeaderboard } from '@/discord/api/leaderBoard.js'
 import type * as Discord from 'discord.js'
-import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
+import { getServerLeaderboard } from '@/discord/api/leaderBoard.js'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Gets the global rank of a user based on their XP.
@@ -37,7 +37,9 @@ async function getGlobalRank(
 		return global_rank > 0 ? global_rank : null
 	} catch (error) {
 		// Log the error
-		APILogger.error(`Error fetching global rank: ${error instanceof Error ? error.message : String(error)}`)
+		APILogger.error(
+			`Error fetching global rank: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return null
 	}
 }

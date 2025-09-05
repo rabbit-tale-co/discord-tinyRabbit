@@ -1,7 +1,6 @@
-import type { DefaultConfigs } from '@/types/plugins.js'
-import type { PluginResponse } from '@/types/plugins.js'
 import * as Discord from 'discord.js'
 import * as api from '@/discord/api/index.js'
+import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
 
 export const MS_IN = {
 	second: 1000,

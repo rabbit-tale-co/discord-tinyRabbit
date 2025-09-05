@@ -1,11 +1,11 @@
-import * as utils from '@/utils/index.js'
-import * as api from '@/discord/api/index.js'
-import type { Level, LevelStatus } from '@/types/levels.js'
 import type { Channel, Guild, Message, User } from 'discord.js'
-import { client } from '@/server.js'
-import { LevelUpResult } from '@/utils/index.js'
+import * as api from '@/discord/api/index.js'
 import * as services from '@/discord/services/index.js'
+import { client } from '@/server.js'
+import type { Level, LevelStatus } from '@/types/levels.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
+import * as utils from '@/utils/index.js'
+import { LevelUpResult } from '@/utils/index.js'
 
 const userMessages: Record<
 	string,

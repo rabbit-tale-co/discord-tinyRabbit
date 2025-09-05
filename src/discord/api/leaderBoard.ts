@@ -1,9 +1,9 @@
-import { calculateTotalXpForLevel } from '@/utils/xpUtils.js'
-import type { LeaderboardEntry, LeaderboardUser } from '@/types/leaderboard.js'
 import type * as Discord from 'discord.js'
+import supabase from '@/db/supabase.js'
+import type { LeaderboardEntry, LeaderboardUser } from '@/types/leaderboard.js'
 import type { UserData } from '@/types/user.js'
 import { APILogger, DatabaseLogger, StatusLogger } from '@/utils/bunnyLogger.js'
-import supabase from '@/db/supabase.js'
+import { calculateTotalXpForLevel } from '@/utils/xpUtils.js'
 
 const BOT_TOKEN = process.env.BOT_TOKEN
 
@@ -172,7 +172,9 @@ async function getServerLeaderboard(
 
 		// Check if there are no users in the leaderboard
 		if (!data || data.length === 0) {
-			StatusLogger.warn(`No users found in the leaderboard for guild ${guild_id}`)
+			StatusLogger.warn(
+				`No users found in the leaderboard for guild ${guild_id}`
+			)
 			return []
 		}
 

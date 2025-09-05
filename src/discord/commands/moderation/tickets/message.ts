@@ -1,20 +1,20 @@
 import * as Discord from 'discord.js'
-import type {
-	TicketTemplates,
-	ComponentsV2,
-	PluginResponse,
-	DefaultConfigs,
-} from '@/types/plugins.js'
 import * as V2 from 'discord-components-v2'
 import { ID } from '@/commands/constants.js'
-import {
-	replacePlaceholders,
-	type PlaceholderMap,
-} from '@/discord/components/ui-builder.js'
 import {
 	buildV2Components,
 	type ComponentConfig,
 } from '@/discord/components/index.js'
+import {
+	type PlaceholderMap,
+	replacePlaceholders,
+} from '@/discord/components/ui-builder.js'
+import type {
+	ComponentsV2,
+	DefaultConfigs,
+	PluginResponse,
+	TicketTemplates,
+} from '@/types/plugins.js'
 
 // Define container styles enum since it's not exported from discord.js
 enum ContainerStyle {

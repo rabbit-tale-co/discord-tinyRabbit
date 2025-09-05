@@ -1,6 +1,6 @@
 import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
 import * as api from '@/discord/api/index.js'
+import * as utils from '@/utils/index.js'
 
 export async function showLevel(
 	interaction: Discord.ChatInputCommandInteraction
@@ -27,7 +27,7 @@ export async function showLevel(
 		// Get target user
 		const targetUser = interaction.options.getUser('user') || interaction.user
 
-		// Get user data
+		// Get user data from API
 		const data = await api.getUser(
 			interaction.client.user.id,
 			guildId,
@@ -38,8 +38,17 @@ export async function showLevel(
 			throw new Error('User not found in database.')
 		}
 
-		const userExperience = data.xp
-		const userLevel = data.level
+		// Debug: Log the data we're getting
+		console.log('User data from API:', {
+			user_id: targetUser.id,
+			guild_id: guildId,
+			data: data,
+			userExperience: data.xp,
+			userLevel: data.level,
+		})
+
+		const userExperience = data.xp ?? 0
+		const userLevel = data.level ?? 0
 
 		// Get rankings
 		const [globalRank, serverRank] = await Promise.all([
@@ -47,19 +56,75 @@ export async function showLevel(
 			api.getServerRank(interaction.client.user.id, guildId, targetUser.id),
 		])
 
-		// Get avatar url
-		const avatarUrl = targetUser
-			.displayAvatarURL({ size: 4096 })
-			.replace('webp', 'png')
+		// Debug: Log ranking data
+		console.log('Ranking data:', {
+			globalRank: globalRank,
+			serverRank: serverRank,
+		})
 
-		const colorHex = await new utils.ColorThief().getDominantColor(avatarUrl)
-		const accentColor = Number.parseInt(colorHex.replace('#', ''), 16)
+		// Get avatar url with better fallback handling
+		let avatarUrl = targetUser.displayAvatarURL({
+			size: 1024,
+			extension: 'png',
+			forceStatic: true,
+		})
+
+		// Debug: Check if avatar URL is valid
+		console.log('Initial avatar URL:', avatarUrl)
+
+		// If the avatar URL is a default Discord avatar, try to get the user's actual avatar
+		if (avatarUrl.includes('embed/avatars/') || !avatarUrl) {
+			console.log('Detected default avatar, trying alternative methods...')
+
+			// Try different methods to get the actual avatar
+			try {
+				// Method 1: Try without forceStatic
+				avatarUrl = targetUser.displayAvatarURL({
+					size: 1024,
+					extension: 'png',
+				})
+				console.log('Method 1 avatar URL:', avatarUrl)
+
+				// Method 2: Try with different size
+				if (avatarUrl.includes('embed/avatars/')) {
+					avatarUrl = targetUser.displayAvatarURL({
+						size: 512,
+						extension: 'png',
+					})
+					console.log('Method 2 avatar URL:', avatarUrl)
+				}
+
+				// Method 3: Try with webp extension
+				if (avatarUrl.includes('embed/avatars/')) {
+					avatarUrl = targetUser.displayAvatarURL({
+						size: 1024,
+						extension: 'webp',
+					})
+					console.log('Method 3 avatar URL:', avatarUrl)
+				}
+			} catch (error) {
+				console.warn('Failed to get avatar URL:', error)
+				// Use a default avatar URL as last resort
+				avatarUrl = `https://cdn.discordapp.com/embed/avatars/${parseInt(targetUser.discriminator) % 5}.png`
+			}
+		}
 
 		// Calculate XP for next level
-		const xpForNextLevel = utils.calculateXpForNextLevel(userLevel ?? 0)
-		const xpNeededForNextLevel = xpForNextLevel - (userExperience ?? 0)
+		const xpForNextLevel = utils.calculateXpForNextLevel(userLevel)
+		const currentXP = userExperience
+		const requiredXP = xpForNextLevel
 
-		// Create components array
+		// Debug: Log XP calculations
+		console.log('XP calculations:', {
+			currentXP: currentXP,
+			requiredXP: requiredXP,
+			userLevel: userLevel,
+			xpForNextLevel: xpForNextLevel,
+		})
+
+		// Additional data section removed (no longer used with canvas removal)
+
+		// Build Components V2 summary instead of canvas image
 		const components = [
 			{
 				type: Discord.ComponentType.Section,
@@ -70,9 +135,7 @@ export async function showLevel(
 					},
 					{
 						type: Discord.ComponentType.TextDisplay,
-						content: `⭐️ **Level**: ${utils.formatter.format(userLevel ?? 0)}\n✨ **XP**: ${utils.formatter.format(userExperience ?? 0)}\n🎯 **Next Level in**: ${utils.formatter.format(
-							xpNeededForNextLevel ?? 0
-						)}`,
+						content: `⭐️ **Level**: ${utils.formatter.format(userLevel ?? 0)}\n✨ **XP**: ${utils.formatter.format(currentXP ?? 0)} / ${utils.formatter.format(requiredXP ?? 0)}`,
 					},
 				],
 				accessory: {
@@ -81,17 +144,6 @@ export async function showLevel(
 						url: avatarUrl,
 					},
 				},
-			},
-			{
-				type: Discord.ComponentType.MediaGallery,
-				items: [
-					{
-						media: {
-							url: 'https://cdn.discordapp.com/splashes/1004735926234271864/60d186cd18b27e1fe9efba5481e42a19.jpg?size=2048',
-							description: 'Rabbit Hole',
-						},
-					},
-				],
 			},
 			{
 				type: Discord.ComponentType.Separator,
@@ -108,9 +160,8 @@ export async function showLevel(
 			},
 		]
 
-		// Prepare message options
 		const messageOptions: Discord.InteractionEditReplyOptions = {
-			components: components,
+			components,
 			flags:
 				Discord.MessageFlags.SuppressEmbeds |
 				Discord.MessageFlags.IsComponentsV2,

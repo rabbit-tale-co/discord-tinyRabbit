@@ -1,9 +1,9 @@
 import * as Discord from 'discord.js'
-import { ticketUtils, formatTimeThreshold } from '@/utils/tickets.js'
-import * as api from '@/discord/api/index.js'
-import type { PluginResponse, DefaultConfigs } from '@/types/plugins.js'
 import * as V2 from 'discord-components-v2'
 import { ID } from '@/commands/constants.js'
+import * as api from '@/discord/api/index.js'
+import type { DefaultConfigs, PluginResponse } from '@/types/plugins.js'
+import { formatTimeThreshold, ticketUtils } from '@/utils/tickets.js'
 
 // Add missing ID constants
 const ROLE_LIMIT_ROLE_SELECT = 'role_limit_role_select'

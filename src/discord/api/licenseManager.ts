@@ -1,5 +1,5 @@
 import supabase from '@/db/supabase.js'
-import { StatusLogger, APILogger } from '@/utils/bunnyLogger.js'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 const LicenseManager = {
 	// Internal state for license status.
@@ -57,7 +57,9 @@ const LicenseManager = {
 				this._isTrialActive = false
 			}
 		} catch (err: any) {
-			StatusLogger.error(`Error verifying license: ${err instanceof Error ? err.message : String(err)}`)
+			StatusLogger.error(
+				`Error verifying license: ${err instanceof Error ? err.message : String(err)}`
+			)
 			this._isPremium = false
 			this._isTrialActive = false
 		}
@@ -84,7 +86,9 @@ const LicenseManager = {
 				`Trial status checked. Trial active: ${this._isTrialActive}`
 			)
 		} catch (err: any) {
-			StatusLogger.error(`Error checking trial status: ${err instanceof Error ? err.message : String(err)}`)
+			StatusLogger.error(
+				`Error checking trial status: ${err instanceof Error ? err.message : String(err)}`
+			)
 			this._isTrialActive = false
 		}
 	},
@@ -107,7 +111,9 @@ async function getLicenseInfo(licenseKey: string): Promise<any> {
 		}
 		return data
 	} catch (err) {
-		APILogger.error(`Error fetching license info: ${err instanceof Error ? err.message : String(err)}`)
+		APILogger.error(
+			`Error fetching license info: ${err instanceof Error ? err.message : String(err)}`
+		)
 		throw err
 	}
 }

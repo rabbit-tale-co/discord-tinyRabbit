@@ -1,6 +1,6 @@
 import type * as Discord from 'discord.js'
-import { DatabaseLogger } from '@/utils/bunnyLogger.js'
 import supabase from '@/db/supabase.js'
+import { DatabaseLogger } from '@/utils/bunnyLogger.js'
 
 /**
  * Calculates the total XP for the bot.
@@ -27,7 +27,9 @@ async function fetchTotalBotXp(
 		return total_xp
 	} catch (error) {
 		// Log the error
-		DatabaseLogger.error(`Error calculating total XP: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error calculating total XP: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }
@@ -52,7 +54,9 @@ async function fetchTotalXp(): Promise<number> {
 		return total_xp
 	} catch (error) {
 		// Log the error
-		DatabaseLogger.error(`Error calculating total XP: ${error instanceof Error ? error.message : String(error)}`)
+		DatabaseLogger.error(
+			`Error calculating total XP: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }

@@ -1,14 +1,14 @@
 import * as Discord from 'discord.js'
-import * as utils from '@/utils/index.js'
+import { config as centralizedConfig } from '@/discord/commands/config/index.js'
+import * as commands from '@/discord/commands/index.js'
 import { loadCfg } from '@/discord/commands/moderation/tickets/limits.js'
 import { buildUniversalComponents } from '@/discord/components/index.js'
-import * as commands from '@/discord/commands/index.js'
-import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import {
-	StatusLogger,
 	CommandLogger,
 	EventLogger,
+	StatusLogger,
 } from '@/utils/bunnyLogger.js'
+import * as utils from '@/utils/index.js'
 
 type commandHandler = (
 	inter: Discord.ChatInputCommandInteraction
@@ -210,6 +210,11 @@ const commandMap: Record<string, commandStructure> = {
 	config: {
 		handler: centralizedConfig, // Route to centralized config
 	},
+	// moderation: {
+	// 	subcommands: {
+	// 		ban_id: commands.moderation.banById,
+	// 	},
+	// },
 	ticket: {
 		subcommands: {
 			list: async (inter: Discord.ChatInputCommandInteraction) => {

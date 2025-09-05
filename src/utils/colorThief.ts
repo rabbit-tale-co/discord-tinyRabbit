@@ -1,6 +1,6 @@
+import { promisify } from 'node:util'
 import { extractColors } from 'extract-colors'
 import getPixels from 'get-pixels'
-import { promisify } from 'node:util'
 
 const getPixelsAsync = promisify(getPixels)
 

@@ -1,7 +1,7 @@
-import { encryptToken } from '@/utils/crypto.js'
+import { bunnyLog } from 'bunny-log'
 import type * as Discord from 'discord.js'
 import supabase from '@/db/supabase.js'
-import { bunnyLog } from 'bunny-log'
+import { encryptToken } from '@/utils/crypto.js'
 
 /**
  * @param {Discord.ClientUser} bot - The bot user.
@@ -33,7 +33,7 @@ async function saveBotData(bot: Discord.ClientUser): Promise<boolean> {
 			.maybeSingle()
 
 		if (fetchError) {
-			bunnyLog.error('Error checking existing bot data:', fetchError)
+			bunnyLog.log('error', 'Error checking existing bot data:', fetchError)
 			return false
 		}
 
@@ -47,9 +47,9 @@ async function saveBotData(bot: Discord.ClientUser): Promise<boolean> {
 		if (error) {
 			return false
 		}
-		bunnyLog.database('Bot data saved successfully')
+		bunnyLog.log('database', 'Bot data saved successfully')
 	} catch (error) {
-		bunnyLog.error('Error saving bot data:', error)
+		bunnyLog.log('error', 'Error saving bot data:', error)
 		return false
 	}
 }

@@ -1,5 +1,5 @@
-import * as Discord from 'discord.js'
 import { bunnyLog } from 'bunny-log'
+import * as Discord from 'discord.js'
 import * as Inter from '@/discord/events/interactions/index.js'
 
 /**

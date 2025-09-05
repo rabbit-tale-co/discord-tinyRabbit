@@ -1,25 +1,24 @@
-import { env, serve, type Server } from 'bun'
+import { env, type Server, serve } from 'bun'
+import * as Discord from 'discord.js'
 import * as API from '@/discord/api/index.js'
 import * as Events from '@/discord/events/index.js'
+import * as Services from '@/discord/services/index.js'
+import PresenceService from '@/discord/services/presenceService.js'
 import * as Router from '@/router/index.js'
-import * as Discord from 'discord.js'
 import {
-	ServerLogger,
-	DiscordLogger,
 	DatabaseLogger,
-	APILogger,
-	ServiceLogger,
+	DiscordLogger,
+	EventLogger,
 	GuildLogger,
 	PluginLogger,
+	ServerLogger,
+	ServiceLogger,
+	StatsLogger,
 	StatusLogger,
-	EventLogger,
-	BirthdayLogger,
-	StatsLogger
 } from '@/utils/bunnyLogger.js'
-import * as Birthday from './discord/commands/fun/birthday/index.js'
 import * as Database from './db/initDatabase.js'
-import PresenceService from '@/discord/services/presenceService.js'
-import * as Services from '@/discord/services/index.js'
+import supabase from './db/supabase.js'
+import * as Birthday from './discord/commands/fun/birthday/index.js'
 import * as Tickets from './discord/commands/moderation/tickets/index.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5000', 10)
@@ -88,6 +87,7 @@ async function collectAllPluginStats(client: Discord.Client) {
 		'moderation',
 		'music',
 		'economy',
+		'supportProviders',
 	] as const
 
 	const pluginStats = await Promise.all(
@@ -158,11 +158,22 @@ async function collectAllPluginStats(client: Discord.Client) {
 											!!(config as Record<string, unknown>).currency_name &&
 											!!(config as Record<string, unknown>).starting_balance
 										break
+									case 'supportProviders': {
+										const supportConfig = config as Record<string, unknown>
+										const discordBoost = supportConfig.discord_boost as
+											| Record<string, unknown>
+											| undefined
+										const patreon = supportConfig.patreon as
+											| Record<string, unknown>
+											| undefined
+										isActive = !!discordBoost?.enabled || !!patreon?.enabled
+										break
+									}
 								}
 							}
 
 							return isActive ? 1 : 0
-						} catch (error) {
+						} catch {
 							// Silent continue for individual guild errors
 							return 0
 						}
@@ -184,6 +195,7 @@ async function collectAllPluginStats(client: Discord.Client) {
 					moderation: { name: 'Auto-Moderation' },
 					music: { name: 'Music Player' },
 					economy: { name: 'Economy System' },
+					supportProviders: { name: 'Support Providers' },
 				}
 
 				const info = pluginDisplayInfo[pluginType]
@@ -218,7 +230,9 @@ async function collectAllPluginStats(client: Discord.Client) {
  */
 client.once('ready', async (c) => {
 	if (!c.user) {
-		StatusLogger.error('Client user is null - cannot proceed with bot initialization')
+		StatusLogger.error(
+			'Client user is null - cannot proceed with bot initialization'
+		)
 		return
 	}
 
@@ -256,6 +270,44 @@ client.once('ready', async (c) => {
 	ServiceLogger.init()
 	presenceService.initialize()
 
+	// Set up an interval to periodically update global stats
+	setInterval(
+		async () => {
+			try {
+				StatusLogger.info('Periodically updating global bot stats...')
+				const base = await API.fetchAllStats(c.user.id, c)
+				const liveServers = c.guilds.cache.size
+				const liveUsers = c.guilds.cache.reduce(
+					(sum, g) => sum + (g.memberCount || 0),
+					0
+				)
+				const globalStats = { ...base, servers: liveServers, users: liveUsers }
+
+				const { error: upsertError } = await supabase
+					.from('bot_stats')
+					.upsert(
+						{ bot_id: c.user.id, ...globalStats },
+						{ onConflict: 'bot_id' }
+					)
+
+				if (upsertError) {
+					StatusLogger.error(
+						'Error during periodic upsert of bot stats',
+						upsertError
+					)
+				} else {
+					StatusLogger.success('Global bot stats updated periodically.')
+				}
+			} catch (statsError) {
+				StatusLogger.error(
+					'Failed to periodically update global bot stats',
+					statsError as Error
+				)
+			}
+		},
+		15 * 60 * 1000
+	) // 15 minutes, same as presence service
+
 	try {
 		// Start services in parallel
 		await Promise.all([
@@ -276,16 +328,15 @@ client.once('ready', async (c) => {
 
 		// Display statistics
 		StatsLogger.display(pluginStats)
-		PluginLogger.totalStats(c.guilds.cache.size, c.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0))
+		PluginLogger.totalStats(
+			c.guilds.cache.size,
+			c.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0)
+		)
 
 		// ========================================
 		// ✅ FINAL STARTUP SECTION
 		// ========================================
 		StatusLogger.success('All services initialized successfully')
-
-		// Restart presence updater
-		presenceService.initialize()
-
 	} catch (error) {
 		StatusLogger.error('Failed to initialize some services', error as Error)
 	}
@@ -311,12 +362,17 @@ client.on(Discord.Events.InteractionCreate, Events.interactionHandler)
 client.on(Discord.Events.VoiceStateUpdate, Events.handleVoiceStateUpdate)
 client.on(Discord.Events.GuildMemberAdd, Events.handleMemberJoin)
 client.on(Discord.Events.GuildMemberRemove, Events.handleMemberLeave)
+client.on(Discord.Events.GuildMemberUpdate, (oldMember, newMember) => {
+	Events.handleBoostEvent(
+		oldMember as Discord.GuildMember,
+		newMember as Discord.GuildMember
+	)
+})
 EventLogger.complete()
 
 // Connect to Discord
 DiscordLogger.connect()
 client.login(env.BOT_TOKEN)
-
 
 /**
  * TODO: FEATURES LIST:

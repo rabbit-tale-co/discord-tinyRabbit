@@ -1,5 +1,5 @@
-import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 import * as Discord from 'discord.js'
+import { APILogger, StatusLogger } from '@/utils/bunnyLogger.js'
 
 async function fetchDiscordAPI(endpoint: string) {
 	const response = await fetch(`https://discord.com/api/${endpoint}`, {
@@ -41,7 +41,9 @@ async function getCustomInvite(guildId: string) {
 		if (error instanceof Error && error.message.includes('Status: 403')) {
 			StatusLogger.info(`No permission to fetch invites for guild ${guildId}`)
 		} else {
-			APILogger.error(`Error fetching custom invites: ${error instanceof Error ? error.message : String(error)}`)
+			APILogger.error(
+				`Error fetching custom invites: ${error instanceof Error ? error.message : String(error)}`
+			)
 		}
 		return null
 	}
@@ -59,21 +61,31 @@ async function getBotGuilds() {
 					invite_link = inviteCode ? `https://discord.gg/${inviteCode}` : ''
 				}
 
+				const getRandomAvatar = () => {
+					const randomNumber = Math.floor(Math.random() * 6) // 0-5
+					return `https://cdn.discordapp.com/embed/avatars/${randomNumber}.png?size=4096`
+				}
+
 				const icon = guild.icon
-					? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
-					: null
+					? guild.icon.startsWith('a_')
+						? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.gif?size=4096`
+						: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=4096`
+					: getRandomAvatar()
 
 				return {
 					...guild,
 					icon,
 					invite_link,
+					botInGuild: true, // Always true since these are guilds the bot is in
 				}
 			})
 		)
 
 		return detailedGuilds
 	} catch (error) {
-		APILogger.error(`Error fetching bot guilds: ${error instanceof Error ? error.message : String(error)}`)
+		APILogger.error(
+			`Error fetching bot guilds: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }
@@ -113,7 +125,9 @@ async function getGuildDetails(guild_id: string) {
 			channels,
 		}
 	} catch (error) {
-		APILogger.error(`Error fetching guild details: ${error instanceof Error ? error.message : String(error)}`)
+		APILogger.error(
+			`Error fetching guild details: ${error instanceof Error ? error.message : String(error)}`
+		)
 		throw error
 	}
 }
@@ -129,7 +143,9 @@ async function checkBotMembership(guildId: Discord.Snowflake) {
 		StatusLogger.error(`Unexpected status code: ${response.status}`)
 		return false
 	} catch (error) {
-		APILogger.error(`Error checking bot membership: ${error instanceof Error ? error.message : String(error)}`)
+		APILogger.error(
+			`Error checking bot membership: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return false
 	}
 }
@@ -143,7 +159,9 @@ async function checkUserOnServer(
 			.then(() => true)
 			.catch(() => false)
 	} catch (error) {
-		APILogger.error(`Error checking user on server: ${error instanceof Error ? error.message : String(error)}`)
+		APILogger.error(
+			`Error checking user on server: ${error instanceof Error ? error.message : String(error)}`
+		)
 		return false
 	}
 }

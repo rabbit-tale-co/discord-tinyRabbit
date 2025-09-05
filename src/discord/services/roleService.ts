@@ -1,8 +1,8 @@
-import * as api from '@/discord/api/index.js'
 import type * as Discord from 'discord.js'
-import { LevelUpResult } from '@/utils/index.js'
+import * as api from '@/discord/api/index.js'
 import type { LevelStatus } from '@/types/levels.js'
 import { StatusLogger } from '@/utils/bunnyLogger.js'
+import { LevelUpResult } from '@/utils/index.js'
 
 /**
  * Updates a member's roles based on their level.

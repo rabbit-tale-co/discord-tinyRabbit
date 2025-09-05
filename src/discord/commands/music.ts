@@ -1,7 +1,11 @@
 import type * as Discord from 'discord.js'
 import * as MusicAPI from '@/discord/api/music.js'
-import { StatusLogger, ServiceLogger, CommandLogger } from '@/utils/bunnyLogger.js'
 import { client } from '@/server.js'
+import {
+	CommandLogger,
+	ServiceLogger,
+	StatusLogger,
+} from '@/utils/bunnyLogger.js'
 
 // Export function for the "play" subcommand
 export async function play(interaction: Discord.ChatInputCommandInteraction) {
@@ -23,7 +27,10 @@ export async function play(interaction: Discord.ChatInputCommandInteraction) {
 		)
 		await interaction.reply({ content: `Now playing: **${query}**` })
 	} catch (error) {
-		ServiceLogger.error('Music Play', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Music Play',
+			error instanceof Error ? error : new Error(String(error))
+		)
 		await interaction.reply({ content: 'Error playing music.' })
 	}
 }
@@ -34,7 +41,10 @@ export async function pause(interaction: Discord.ChatInputCommandInteraction) {
 		await MusicAPI.pauseMusic(client, interaction.guildId)
 		await interaction.reply({ content: 'Music paused.' })
 	} catch (error) {
-		ServiceLogger.error('Music Pause', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Music Pause',
+			error instanceof Error ? error : new Error(String(error))
+		)
 
 		await interaction.reply({
 			content: 'Error pausing music.',
@@ -48,7 +58,10 @@ export async function resume(interaction: Discord.ChatInputCommandInteraction) {
 		await MusicAPI.resumeMusic(client, interaction.guildId)
 		await interaction.reply({ content: 'Music resumed.' })
 	} catch (error) {
-		ServiceLogger.error('Music Resume', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Music Resume',
+			error instanceof Error ? error : new Error(String(error))
+		)
 		await interaction.reply({
 			content: 'Error resuming music.',
 		})
@@ -63,7 +76,10 @@ export async function skip(interaction: Discord.ChatInputCommandInteraction) {
 			content: 'Skipped to the next track.',
 		})
 	} catch (error) {
-		ServiceLogger.error('Music Skip', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Music Skip',
+			error instanceof Error ? error : new Error(String(error))
+		)
 		await interaction.reply({
 			content: 'Error skipping track.',
 		})
@@ -78,7 +94,10 @@ export async function stop(interaction: Discord.ChatInputCommandInteraction) {
 			content: 'Music stopped and queue cleared.',
 		})
 	} catch (error) {
-		ServiceLogger.error('Music Stop', error instanceof Error ? error : new Error(String(error)))
+		ServiceLogger.error(
+			'Music Stop',
+			error instanceof Error ? error : new Error(String(error))
+		)
 		await interaction.reply({
 			content: 'Error stopping music.',
 		})

@@ -1,43 +1,21 @@
 {
-  "compilerOptions": {
-    "module": "NodeNext",
-    "target": "ES2022",
-    "moduleResolution": "NodeNext",
-    "baseUrl": ".",
-    "paths": {
-      "@/classes/*": [
-        "src/classes/*"
-      ],
-      "@/*": [
-        "src/*"
-      ],
-      "@/types/*": [
-        "src/types/*"
-      ],
-      "@/utils/*": [
-        "src/utils/*"
-      ],
-      "@/db/*": [
-        "src/db/*"
-      ],
-      "@/api/*": [
-        "src/api/*"
-      ],
-      "@/commands/*": [
-        "src/discord/commands/*"
-      ],
-      "@/events/*": [
-        "src/discord/events/*"
-      ],
-      "@/plugins/*": [
-        "src/discord/plugins/*"
-      ],
-      "@/components/*": [
-        "src/discord/components/*"
-      ],
-      "@/services/*": [
-        "src/discord/services/*"
-      ],
-    }
-  }
+	"compilerOptions": {
+		"module": "NodeNext",
+		"target": "ES2022",
+		"moduleResolution": "NodeNext",
+		"baseUrl": ".",
+		"paths": {
+			"@/classes/*": ["src/classes/*"],
+			"@/*": ["src/*"],
+			"@/types/*": ["src/types/*"],
+			"@/utils/*": ["src/utils/*"],
+			"@/db/*": ["src/db/*"],
+			"@/api/*": ["src/api/*"],
+			"@/commands/*": ["src/discord/commands/*"],
+			"@/events/*": ["src/discord/events/*"],
+			"@/plugins/*": ["src/discord/plugins/*"],
+			"@/components/*": ["src/discord/components/*"],
+			"@/services/*": ["src/discord/services/*"]
+		}
+	}
 }

@@ -1,7 +1,7 @@
+import { env } from 'node:process'
 import { REST } from '@discordjs/rest'
 import { BunnyLogger } from 'bunny-log'
 import { Routes } from 'discord-api-types/v10'
-import { env } from 'node:process'
 
 const { BOT_TOKEN, BOT_CLIENT_ID } = env
 const bunLog = new BunnyLogger(false).hex('discord', '#5865f2')
@@ -565,9 +565,31 @@ const commands = [
 						},
 						value: 'moderation',
 					},
+					{
+						name: 'Support Providers',
+						name_localizations: {
+							'en-US': 'Support Providers',
+							fr: 'Fournisseurs de Support',
+							'es-ES': 'Proveedores de Soporte',
+							de: 'Support-Anbieter',
+							'zh-CN': '支持提供者',
+							ru: 'Поставщики поддержки',
+							'pt-BR': 'Fornecedores de Suporte',
+							ar: 'دعم التعزيز',
+							hi: 'सपोर्ट प्रदाता',
+							ja: 'サポートプロバイダー',
+							ko: '지원 제공자',
+							pl: 'Dostawcy Wsparcia',
+						},
+						value: 'supportProviders',
+					},
 				],
 			},
 		],
+	},
+	{
+		name: 'moderation',
+		description: 'Moderation tools',
 	},
 	{
 		name: 'ticket',

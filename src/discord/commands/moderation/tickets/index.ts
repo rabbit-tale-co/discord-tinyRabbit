@@ -1,17 +1,17 @@
-export * from './close.js'
-export * from './open.js'
-export * from './message.js'
-export * from './state.js'
-export * from './limits.js'
 export * from '@/commands/constants.js'
+export * from './close.js'
+export * from './limits.js'
+export * from './message.js'
+export * from './open.js'
+export * from './state.js'
 
 // Add inactivity checker functionality
 import * as Discord from 'discord.js'
-import { StatusLogger, ServiceLogger } from '@/utils/bunnyLogger.js'
-import { ticketStore } from './state.js'
-import { autoCloseTicket } from './close.js'
-import type { ThreadMetadata } from '@/types/tickets.js'
 import * as api from '@/discord/api/index.js'
+import type { ThreadMetadata } from '@/types/tickets.js'
+import { ServiceLogger, StatusLogger } from '@/utils/bunnyLogger.js'
+import { autoCloseTicket } from './close.js'
+import { ticketStore } from './state.js'
 
 const INACTIVITY_CHECK_INTERVAL = 60 * 1000 // Check every minute
 const DEFAULT_INACTIVITY_THRESHOLD = 72 * 60 * 60 * 1000 // 72 hours
