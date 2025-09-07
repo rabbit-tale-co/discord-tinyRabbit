@@ -15,16 +15,50 @@ export async function postUpload(req: Request): Promise<Response> {
     if (!postId || !userId) return new Response(JSON.stringify({ error: 'Missing ids' }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
     if (!(f instanceof File)) return new Response(JSON.stringify({ error: 'No file' }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
 
-    bunnyLog.log('api', `post upload: userId=${userId} postId=${postId} name=${(f as File).name} type=${(f as File).type} size=${(f as File).size}`)
+    // Validate file type and prevent MIME manipulation
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
+    const allAllowedTypes = [...allowedImageTypes, ...allowedVideoTypes]
 
-    const ab = await (f as File).arrayBuffer()
+    if (!allAllowedTypes.includes(f.type)) {
+      return new Response(JSON.stringify({
+        error: 'Invalid file type',
+        message: 'Only image and video files are allowed in posts'
+      }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    }
+
+    // Additional validation: check if MIME type matches file extension
+    const fileExt = f.name.split('.').pop()?.toLowerCase()
+    const expectedVideoExts = ['mp4', 'webm', 'mov', 'avi']
+    const expectedImageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+
+    const isVideo = f.type.startsWith('video/')
+    const isImage = f.type.startsWith('image/')
+
+    if (isVideo && fileExt && !expectedVideoExts.includes(fileExt)) {
+      return new Response(JSON.stringify({
+        error: 'MIME type mismatch',
+        message: 'Video file extension does not match MIME type'
+      }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    }
+
+    if (isImage && fileExt && !expectedImageExts.includes(fileExt)) {
+      return new Response(JSON.stringify({
+        error: 'MIME type mismatch',
+        message: 'Image file extension does not match MIME type'
+      }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    }
+
+    bunnyLog.log('api', `post upload: userId=${userId} postId=${postId} name=${f.name} type=${f.type} size=${f.size}`)
+
+    const ab = await f.arrayBuffer()
     const input = Buffer.from(ab)
-    const ext = ((f as File).name.split('.').pop() || '').toLowerCase()
-    const type = ((f as File).type || '').toLowerCase()
+    const ext = (f.name.split('.').pop() || '').toLowerCase()
+    const type = (f.type || '').toLowerCase()
 
     let out: Buffer
     let mime: string
-    if (type.startsWith('video/') || ['mp4', 'mov', 'avi'].includes(ext)) {
+    if (isVideo || ['mp4', 'mov', 'avi'].includes(ext)) {
       out = await transcodeToWebM(input)
       mime = 'video/webm'
     } else if (type === 'image/gif' || ext === 'gif') {

@@ -1,5 +1,4 @@
 import { setCorsHeaders } from '@/utils/cors.js'
-import { randomUUIDv7 } from 'bun'
 import { write } from 'bun'
 import { convertGifToWebM, convertImageToWebP, s3 } from '@/social/lib/media.js'
 import { APILogger, bunnyLog } from '@/utils/bunnyLogger.js'
@@ -20,9 +19,30 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
 
     bunnyLog.log('api', `profile ${kind} upload: userId=${userId} name=${(f as File).name} type=${(f as File).type} size=${(f as File).size}`)
 
-    const ab = await (f as File).arrayBuffer()
+    // Validate file type and prevent MIME manipulation
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+
+    if (!allowedImageTypes.includes(f.type)) {
+      return new Response(JSON.stringify({
+        error: 'Invalid file type',
+        message: 'Only image files are allowed for profile pictures'
+      }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    }
+
+    // Additional validation: check if MIME type matches file extension
+    const fileExt = f.name.split('.').pop()?.toLowerCase()
+    const expectedImageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+
+    if (fileExt && !expectedImageExts.includes(fileExt)) {
+      return new Response(JSON.stringify({
+        error: 'MIME type mismatch',
+        message: 'Image file extension does not match MIME type'
+      }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    }
+
+    const ab = await f.arrayBuffer()
     const input = Buffer.from(ab)
-    const isGif = ((f as File).type || '').toLowerCase() === 'image/gif' || ((f as File).name || '').toLowerCase().endsWith('.gif')
+    const isGif = f.type.toLowerCase() === 'image/gif' || f.name.toLowerCase().endsWith('.gif')
     const folder = kind === 'avatar' ? `avatar/${userId}` : `covers/${userId}`
     const baseName = kind // stable filename without random suffix
 
