@@ -54,7 +54,7 @@ export async function convertGifToWebM(inputBuf: Buffer, crop?: { x: number; y: 
   await fs.writeFile(inPath, inputBuf)
   const args: string[] = ['-y', '-i', inPath]
   if (crop && crop.w > 0 && crop.h > 0) args.push('-vf', `crop=${Math.floor(crop.w)}:${Math.floor(crop.h)}:${Math.floor(crop.x)}:${Math.floor(crop.y)}`)
-  args.push('-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32', '-pix_fmt', 'yuv420p', '-an', outPath)
+  args.push('-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '100', '-pix_fmt', 'yuv420p', '-an', outPath)
   await runFfmpeg(args, tmpDir)
   const out = await fs.readFile(outPath)
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
@@ -68,7 +68,7 @@ export async function convertImageToWebP(inputBuf: Buffer, crop?: { x: number; y
   await fs.writeFile(inPath, inputBuf)
   const args: string[] = ['-y', '-i', inPath]
   if (crop && crop.w > 0 && crop.h > 0) args.push('-vf', `crop=${Math.floor(crop.w)}:${Math.floor(crop.h)}:${Math.floor(crop.x)}:${Math.floor(crop.y)}`)
-  args.push('-c:v', 'libwebp', '-q:v', '80', outPath)
+  args.push('-c:v', 'libwebp', '-q:v', '100', '-lossless', '1', outPath)
   await runFfmpeg(args, tmpDir)
   const out = await fs.readFile(outPath)
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
@@ -80,7 +80,7 @@ export async function transcodeToWebM(inputBuf: Buffer) {
   const inPath = path.join(tmpDir, 'in.bin')
   const outPath = path.join(tmpDir, 'out.webm')
   await fs.writeFile(inPath, inputBuf)
-  const args: string[] = ['-y', '-i', inPath, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32', '-pix_fmt', 'yuv420p', '-an', outPath]
+  const args: string[] = ['-y', '-i', inPath, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '100', '-pix_fmt', 'yuv420p', '-an', outPath]
   await runFfmpeg(args, tmpDir)
   const out = await fs.readFile(outPath)
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
