@@ -4,9 +4,6 @@ import { randomUUIDv7 } from 'bun'
 import { write } from 'bun'
 import { transcodeToWebM, convertImageToWebP, s3 } from '@/social/lib/media.js'
 
-// Store postId for the first image upload
-const postIdMap = new Map<string, string>()
-
 export async function postUpload(req: Request): Promise<Response> {
   const endpoint = '/social/v1/post/upload'
   APILogger.request(req.method, endpoint)
@@ -52,18 +49,8 @@ export async function postUpload(req: Request): Promise<Response> {
       }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
     }
 
-    // Generate or reuse postId for this user's upload session
-    let postId: string
-    if (requestedPostId && postIdMap.has(requestedPostId)) {
-      // Reuse existing postId for subsequent images
-      postId = postIdMap.get(requestedPostId)!
-    } else {
-      // Generate new postId for first image
-      postId = randomUUIDv7()
-      if (requestedPostId) {
-        postIdMap.set(requestedPostId, postId)
-      }
-    }
+    // Use requestedPostId if provided, otherwise generate new one
+    const postId = requestedPostId || randomUUIDv7()
 
     bunnyLog.log('api', `post upload: userId=${userId} postId=${postId} name=${f.name} type=${f.type} size=${f.size}`)
 
