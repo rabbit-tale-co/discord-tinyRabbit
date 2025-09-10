@@ -69,11 +69,12 @@ export async function postUpload(req: Request): Promise<Response> {
       mime = 'image/webp'
     }
 
-    const key = `posts/${postId}/${randomUUIDv7()}.${mime.startsWith('video/') ? 'webm' : 'webp'}`
+    const imageId = randomUUIDv7()
+    const key = `posts/${postId}/${imageId}.${mime.startsWith('video/') ? 'webm' : 'webp'}`
     const file = s3.file(key)
     await write(file, new Blob([out], { type: mime }))
     APILogger.response(200, endpoint)
-    return new Response(JSON.stringify({ path: key, mime }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    return new Response(JSON.stringify({ path: key, mime, imageId }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
     APILogger.error(error as Error, '/social/v1/post/upload')
     return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })

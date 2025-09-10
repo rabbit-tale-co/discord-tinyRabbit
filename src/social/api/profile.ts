@@ -52,7 +52,7 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
       const file = s3.file(key)
       await write(file, new Blob([out], { type: 'video/webm' }))
       APILogger.response(200, endpoint)
-      return new Response(JSON.stringify({ path: key, mime: 'video/webm' }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+      return new Response(JSON.stringify({ path: key, mime: 'video/webm', imageId: baseName }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
     }
 
     const outImg = await convertImageToWebP(input, cropW > 0 && cropH > 0 ? { x: cropX, y: cropY, w: cropW, h: cropH } : undefined)
@@ -60,7 +60,7 @@ async function handleProfile(req: Request, kind: 'avatar' | 'cover'): Promise<Re
     const file = s3.file(key)
     await write(file, new Blob([outImg], { type: 'image/webp' }))
     APILogger.response(200, endpoint)
-    return new Response(JSON.stringify({ path: key, mime: 'image/webp' }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    return new Response(JSON.stringify({ path: key, mime: 'image/webp', imageId: baseName }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
     APILogger.error(error as Error, endpoint)
     return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
