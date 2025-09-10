@@ -4,15 +4,18 @@ import { randomUUIDv7 } from 'bun'
 import { write } from 'bun'
 import { transcodeToWebM, convertImageToWebP, s3 } from '@/social/lib/media.js'
 
+// Store postId for the first image upload
+const postIdMap = new Map<string, string>()
+
 export async function postUpload(req: Request): Promise<Response> {
   const endpoint = '/social/v1/post/upload'
   APILogger.request(req.method, endpoint)
   try {
     const form = await req.formData()
-    const postId = String(form.get('postId') || '')
+    const requestedPostId = String(form.get('postId') || '')
     const userId = String(form.get('userId') || '')
     const f = form.get('file')
-    if (!postId || !userId) return new Response(JSON.stringify({ error: 'Missing ids' }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    if (!userId) return new Response(JSON.stringify({ error: 'Missing userId' }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
     if (!(f instanceof File)) return new Response(JSON.stringify({ error: 'No file' }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
 
     // Validate file type and prevent MIME manipulation
@@ -49,6 +52,19 @@ export async function postUpload(req: Request): Promise<Response> {
       }), { status: 400, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
     }
 
+    // Generate or reuse postId for this user's upload session
+    let postId: string
+    if (requestedPostId && postIdMap.has(requestedPostId)) {
+      // Reuse existing postId for subsequent images
+      postId = postIdMap.get(requestedPostId)!
+    } else {
+      // Generate new postId for first image
+      postId = randomUUIDv7()
+      if (requestedPostId) {
+        postIdMap.set(requestedPostId, postId)
+      }
+    }
+
     bunnyLog.log('api', `post upload: userId=${userId} postId=${postId} name=${f.name} type=${f.type} size=${f.size}`)
 
     const ab = await f.arrayBuffer()
@@ -74,7 +90,7 @@ export async function postUpload(req: Request): Promise<Response> {
     const file = s3.file(key)
     await write(file, new Blob([out], { type: mime }))
     APILogger.response(200, endpoint)
-    return new Response(JSON.stringify({ path: key, mime, imageId }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    return new Response(JSON.stringify({ path: key, mime, imageId, postId }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
     APILogger.error(error as Error, '/social/v1/post/upload')
     return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
