@@ -52,6 +52,15 @@ export async function postUpload(req: Request): Promise<Response> {
     // Use requestedPostId if provided, otherwise generate new one
     const postId = requestedPostId || randomUUIDv7()
 
+    console.log(`[POST UPLOAD] Request details:`, {
+      requestedPostId,
+      finalPostId: postId,
+      userId,
+      fileName: f.name,
+      fileType: f.type,
+      fileSize: f.size
+    })
+
     bunnyLog.log('api', `post upload: userId=${userId} postId=${postId} name=${f.name} type=${f.type} size=${f.size}`)
 
     const ab = await f.arrayBuffer()
@@ -76,6 +85,14 @@ export async function postUpload(req: Request): Promise<Response> {
     const key = `posts/${postId}/${imageId}.${mime.startsWith('video/') ? 'webm' : 'webp'}`
     const file = s3.file(key)
     await write(file, new Blob([out], { type: mime }))
+
+    console.log(`[POST UPLOAD] Upload completed:`, {
+      postId,
+      imageId,
+      storagePath: key,
+      mime
+    })
+
     APILogger.response(200, endpoint)
     return new Response(JSON.stringify({ path: key, mime, imageId, postId }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
