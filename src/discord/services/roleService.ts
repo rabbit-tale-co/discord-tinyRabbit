@@ -24,7 +24,7 @@ async function updateMemberRoles(
 
 		// Check if level roles are defined in the configuration
 		if (!config || !config.reward_roles) {
-			// StatusLogger.error(`No role mappings found in config for guild ${guild.id}`)
+			StatusLogger.warn(`No role mappings found in config for guild ${guild.id}`)
 			return
 		}
 
@@ -110,6 +110,8 @@ async function updateMemberRoles(
 		// StatusLogger.info(`Channel ID: ${channel_id}`)
 		// StatusLogger.info(userData.levelChangeStatus)
 
+		// Log channel configuration for debugging
+
 		// Send a notification to the level-up channel if specified
 		if (
 			reward_channel_id &&
@@ -138,9 +140,13 @@ async function updateMemberRoles(
 					.replace(/{user}/g, `<@${user.id}>`)
 					.replace(/{username}/g, user.displayName || user.username)
 					.replace(/{level}/g, userData.level.toString())
+					.replace(/{role}/g, `<@&${newRole.role_id}>`)
+					.replace(/{role_name}/g, newRoleObject.name)
 
 				// Send the message
 				await channel.send(message)
+			} else {
+				StatusLogger.warn(`Could not fetch reward channel ${reward_channel_id}`)
 			}
 		}
 	} catch (error) {

@@ -14,6 +14,8 @@ export * from './licenseManager.js'
 export { LicenseManager } from './licenseManager.js'
 export * from './patreonWebhook.js'
 export * from './githubSponsorsWebhook.js'
+export * from './twitchWebhook.js'
+export * from './twitchStreams.js'
 export * from './plugins.js'
 // Helper exports
 export {

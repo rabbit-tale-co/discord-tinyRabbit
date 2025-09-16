@@ -235,6 +235,7 @@ export async function commandInteractionHandler(
 ): Promise<void> {
 	if (!inter.isChatInputCommand()) return
 
+
 	try {
 		const cmd = commandMap[inter.commandName]
 		if (!cmd) {

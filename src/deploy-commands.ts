@@ -165,7 +165,7 @@ const commands = [
 				type: 1, // SUB_COMMAND
 				name: 'set',
 				description: 'Set user level (Admin only)',
-				default_member_permissions: '0',
+				default_member_permissions: '32', // MANAGE_GUILD permission
 				options: [
 					{
 						type: 6, // USER

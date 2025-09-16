@@ -28,14 +28,16 @@ export async function setLevel(
 			throw new Error('The XP system is currently disabled on this server.')
 		}
 
-		// Check admin permissions
+		// Check permissions for level management
 		if (
 			!interaction.memberPermissions?.has(
-				Discord.PermissionFlagsBits.Administrator
+				Discord.PermissionFlagsBits.ManageGuild
+			) && !interaction.memberPermissions?.has(
+				Discord.PermissionFlagsBits.ManageRoles
 			)
 		) {
 			throw new Error(
-				'You need to have administrator permissions to use this command.'
+				'You need to have Manage Server or Manage Roles permissions to use this command.'
 			)
 		}
 
@@ -44,11 +46,28 @@ export async function setLevel(
 		const newLevel = interaction.options.getNumber('level', true)
 		const newXp = interaction.options.getNumber('xp', true)
 
+		// Get current user data to compare levels
+		const currentData = await api.getUserLevel(
+			interaction.client.user.id,
+			guildId,
+			targetUser.id
+		) as { level?: number } | null
+		const oldLevel = currentData?.level || 0
+
+		// Determine level change status
+		let levelChangeStatus = utils.LevelUpResult.NoChange
+		if (newLevel > oldLevel) {
+			levelChangeStatus = utils.LevelUpResult.LevelUp
+		} else if (newLevel < oldLevel) {
+			levelChangeStatus = utils.LevelUpResult.LevelDown
+		}
+
+
 		// Update user data
 		const updatedData: LevelStatus = {
 			xp: newXp,
 			level: newLevel,
-			levelChangeStatus: utils.LevelUpResult.NoChange,
+			levelChangeStatus: levelChangeStatus,
 		}
 
 		await api.addOrUpdateUserLevel(

@@ -112,3 +112,57 @@ export async function postDelete(req: Request): Promise<Response> {
   }
   return new Response(JSON.stringify({ ok: true }), { headers: setCorsHeaders() })
 }
+
+export async function postDeleteFolder(req: Request): Promise<Response> {
+  const endpoint = '/social/v1/post/delete-folder'
+  APILogger.request(req.method, endpoint)
+
+  try {
+    const form = await req.formData()
+    const postId = String(form.get('postId') || '')
+
+    if (!postId) {
+      return new Response(JSON.stringify({ error: 'Missing postId' }), {
+        status: 400,
+        headers: setCorsHeaders({ 'Content-Type': 'application/json' })
+      })
+    }
+
+    console.log(`[POST DELETE FOLDER] Deleting folder for post:`, { postId })
+    bunnyLog.log('api', `post delete folder: postId=${postId}`)
+
+    // List all files in the post folder
+    const folderPrefix = `posts/${postId}/`
+    const response = await s3.list({ prefix: folderPrefix })
+    const files = response.contents || []
+
+    if (files.length > 0) {
+      // Delete all files in the folder
+      const deletePromises = files.map(file => s3.delete(file.key))
+      await Promise.all(deletePromises)
+
+      console.log(`[POST DELETE FOLDER] Deleted ${files.length} files for post:`, { postId, fileCount: files.length })
+      bunnyLog.log('api', `post delete folder completed: postId=${postId} files=${files.length}`)
+    } else {
+      console.log(`[POST DELETE FOLDER] No files found for post:`, { postId })
+    }
+
+    APILogger.response(200, endpoint)
+    return new Response(JSON.stringify({
+      ok: true,
+      deletedFiles: files.length,
+      postId
+    }), {
+      headers: setCorsHeaders({ 'Content-Type': 'application/json' })
+    })
+  } catch (error) {
+    console.error(`[POST DELETE FOLDER] Error:`, error)
+    APILogger.error(error as Error, endpoint)
+    return new Response(JSON.stringify({
+      error: (error as Error).message
+    }), {
+      status: 500,
+      headers: setCorsHeaders({ 'Content-Type': 'application/json' })
+    })
+  }
+}

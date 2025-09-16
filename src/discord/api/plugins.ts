@@ -745,6 +745,12 @@ const default_configs: DefaultConfigs = {
 		},
 		twitch: {
 			role_id: null,
+			stream_notifications: {
+				enabled: false,
+				channel_id: null,
+				message: null,
+				ping_role_id: null,
+			},
 		},
 	},
 	moderation: {

@@ -654,15 +654,19 @@ export async function claimTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Check if user has permission to claim tickets (moderator role or admin)
+		// Check if user has permission to claim tickets (moderator role or specific permissions)
 		const hasModRole = cfg.mods_role_ids?.some((roleId) =>
 			member.roles.cache.has(roleId)
 		)
-		const hasAdminPerms = member.permissions.has(
-			Discord.PermissionFlagsBits.Administrator
+		const hasModPerms = member.permissions.has(
+			Discord.PermissionFlagsBits.ManageChannels
+		) || member.permissions.has(
+			Discord.PermissionFlagsBits.ManageMessages
+		) || member.permissions.has(
+			Discord.PermissionFlagsBits.ManageGuild
 		)
 
-		if (!hasModRole && !hasAdminPerms) {
+		if (!hasModRole && !hasModPerms) {
 			await utils.handleResponse(
 				inter,
 				'error',
@@ -1010,16 +1014,20 @@ export async function joinTicket(inter: Discord.ButtonInteraction) {
 			return
 		}
 
-		// Check if user has permission to join tickets (moderator role or admin)
+		// Check if user has permission to join tickets (moderator role or specific permissions)
 		const member = inter.member as Discord.GuildMember
 		const hasModRole = cfg.mods_role_ids?.some((roleId) =>
 			member.roles.cache.has(roleId)
 		)
-		const hasAdminPerms = member.permissions.has(
-			Discord.PermissionFlagsBits.Administrator
+		const hasModPerms = member.permissions.has(
+			Discord.PermissionFlagsBits.ManageChannels
+		) || member.permissions.has(
+			Discord.PermissionFlagsBits.ManageMessages
+		) || member.permissions.has(
+			Discord.PermissionFlagsBits.ManageGuild
 		)
 
-		if (!hasModRole && !hasAdminPerms) {
+		if (!hasModRole && !hasModPerms) {
 			await utils.handleResponse(
 				inter,
 				'error',

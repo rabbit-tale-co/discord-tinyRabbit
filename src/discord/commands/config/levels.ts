@@ -309,6 +309,8 @@ const SECTION_BUILDERS = {
 				'• `{level}` - The new level reached',
 				'• `{user}` - Mention the user',
 				"• `{username}` - User's display name",
+				'• `{role}` - Mention the new role (⚠️ pings role)',
+				'• `{role_name}` - Name of the new role (plain text)',
 			].join('\n')
 		)
 

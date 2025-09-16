@@ -238,6 +238,12 @@ type ConnectSocial = {
 	}
 	twitch: {
 		role_id: string | null
+		stream_notifications: {
+			enabled: boolean
+			channel_id: string | null
+			message: string | null
+			ping_role_id: string | null
+		}
 	}
 }
 
