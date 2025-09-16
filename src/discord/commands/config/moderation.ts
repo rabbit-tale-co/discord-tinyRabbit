@@ -25,8 +25,7 @@ export async function config(
 
 	try {
 		if (
-			inter.isChatInputCommand() ||
-			(inter.isButton() && inter.customId === 'moderation_config_back')
+			inter.isChatInputCommand()
 		) {
 			await showMainConfig(inter)
 			return
@@ -217,6 +216,13 @@ async function handleRoleSelect(inter: Discord.RoleSelectMenuInteraction) {
 }
 
 async function handleButton(inter: Discord.ButtonInteraction) {
+	// Don't defer for modal buttons
+	const isModalButton = inter.customId.includes('_custom')
+
+	if (!isModalButton && !inter.replied && !inter.deferred) {
+		await inter.deferUpdate()
+	}
+
 	const cfg = await api.getPluginConfig(
 		inter.client.user.id,
 		inter.guildId!,
@@ -308,7 +314,6 @@ async function handleButton(inter: Discord.ButtonInteraction) {
 			return
 		}
 		case 'moderation_config_back':
-			if (!inter.replied && !inter.deferred) await inter.deferUpdate()
 			return showMainConfigFromAny(inter)
 		default:
 			if (inter.customId === 'moderation_config_back')
@@ -379,12 +384,24 @@ async function handleModal(inter: Discord.ModalSubmitInteraction) {
 }
 
 async function showWatchRoles(inter: Discord.StringSelectMenuInteraction) {
+	// Load current config to preselect watched roles
+	const cfg = await api.getPluginConfig(
+		inter.client.user.id,
+		inter.guildId!,
+		'moderation'
+	)
+
 	const select = V2.makeRoleSelect({
 		custom_id: 'moderation_watch_roles_select',
 		placeholder: 'Select roles to watch',
 		min_values: 0,
 		max_values: 25,
 	})
+
+	// Preselect currently configured watched roles
+	if (cfg?.watch_roles && Array.isArray(cfg.watch_roles) && cfg.watch_roles.length > 0) {
+		select.setDefaultRoles(cfg.watch_roles)
+	}
 
 	const row = V2.makeActionRow([select])
 	const back = V2.makeButton({
@@ -482,16 +499,16 @@ async function showDeleteDays(inter: Discord.StringSelectMenuInteraction) {
 	})
 }
 
-async function showMainConfigFromAny(inter: {
-	editReply: (
-		options?: Discord.InteractionEditReplyOptions
-	) => Promise<Discord.Message>
-	client: Discord.Client
-	guildId: string
-}) {
+async function showMainConfigFromAny(inter:
+	| Discord.ButtonInteraction
+	| Discord.ChannelSelectMenuInteraction
+	| Discord.RoleSelectMenuInteraction
+	| Discord.ModalSubmitInteraction
+	| Discord.StringSelectMenuInteraction
+) {
 	const cfg = await api.getPluginConfig(
 		inter.client.user.id,
-		inter.guildId,
+		inter.guildId!,
 		'moderation'
 	)
 
