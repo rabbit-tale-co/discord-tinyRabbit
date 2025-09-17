@@ -8,10 +8,10 @@ type Kind = 'avatar' | 'cover'
 
 function buildFolder(entity: Entity, kind: Kind, id: string): { folder: string; baseName: string } {
   if (entity === 'profile') {
-    return { folder: kind === 'avatar' ? `avatar/${id}` : `covers/${id}`, baseName: kind }
+    return { folder: kind === 'avatar' ? `avatar/profile/${id}` : `covers/profile/${id}`, baseName: kind }
   }
-  // rabbit-hole
-  return { folder: kind === 'avatar' ? `rabbit-hole/avatar/${id}` : `rabbit-hole/covers/${id}`, baseName: kind === 'avatar' ? 'avatar' : 'cover' }
+  // rabbit-hole - use same structure as profile but under rabbit-hole root
+  return { folder: kind === 'avatar' ? `/avatar/rabbit-hole/${id}` : `/covers/rabbit-hole/${id}`, baseName: kind === 'avatar' ? 'avatar' : 'cover' }
 }
 
 function publicBase(): string {
