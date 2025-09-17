@@ -21,7 +21,12 @@ function publicBase(): string {
     (process.env.S3_ENDPOINT || '').trim(),
   ]
   const v = envs.find(Boolean) || ''
-  return v.replace(/\/$/, '')
+  const cleaned = v.replace(/\/$/, '')
+  // Ensure URL has protocol
+  if (cleaned && !cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    return `https://${cleaned}`
+  }
+  return cleaned
 }
 
 export async function handleEntityUpload(req: Request, defaultEntity: Entity, kind: Kind): Promise<Response> {
