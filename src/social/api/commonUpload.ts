@@ -73,7 +73,9 @@ export async function handleEntityUpload(req: Request, defaultEntity: Entity, ki
     }
 
     const base = publicBase()
-    const url = base ? `${base}/${key}?v=${imageId}` : `/${key}`
+    // Add bucket name to URL for rabbit-hole entities
+    const bucketPrefix = entity === 'rabbit-hole' ? 'rabbit-hole/' : ''
+    const url = base ? `${base}/${bucketPrefix}${key}?v=${imageId}` : `/${bucketPrefix}${key}`
     APILogger.response(200, endpoint)
     return new Response(JSON.stringify({ path: key, url, mime: isGif ? 'video/webm' : 'image/webp', imageId }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
