@@ -19,7 +19,6 @@ function publicBase(): string {
     (process.env.SOCIAL_PUBLIC_BASE || '').trim(),
     (process.env.SOCIAL_S3_ENDPOINT || '').trim(),
     (process.env.S3_ENDPOINT || '').trim(),
-    (process.env.NEXT_PUBLIC_S3_ENDPOINT || '').trim(),
   ]
   const v = envs.find(Boolean) || ''
   return v.replace(/\/$/, '')
