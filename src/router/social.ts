@@ -2,7 +2,6 @@ import { profileAvatar, profileCover } from '@/social/api/profile.js'
 import { postUpload, postDelete } from '@/social/api/post.js'
 import { setCorsHeaders } from '../utils/cors.js'
 import { errorHandler } from '@/utils/errorHandler.js'
-import { rabbitHoleAvatar, rabbitHoleCover } from '@/social/api/rabbitHoles.js'
 
 // Social API Route Handlers – consistent with discord.ts style
 const routes: Record<string, (req: Request) => Promise<Response>> = {
@@ -11,10 +10,6 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   // Profile media
   'POST /social/v1/profile/avatar': profileAvatar,
   'POST /social/v1/profile/cover': profileCover,
-
-  // Rabbit Hole media
-  'POST /social/v1/rabbit-holes/avatar': rabbitHoleAvatar,
-  'POST /social/v1/rabbit-holes/cover': rabbitHoleCover,
 
   // Post media
   'POST /social/v1/post/upload': postUpload,
