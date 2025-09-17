@@ -11,7 +11,7 @@ function buildFolder(entity: Entity, kind: Kind, id: string): { folder: string; 
     return { folder: kind === 'avatar' ? `avatar/profile/${id}` : `covers/profile/${id}`, baseName: kind }
   }
   // rabbit-hole - use same structure as profile but under rabbit-hole root
-  return { folder: kind === 'avatar' ? `/avatar/rabbit-hole/${id}` : `/covers/rabbit-hole/${id}`, baseName: kind === 'avatar' ? 'avatar' : 'cover' }
+  return { folder: kind === 'avatar' ? `avatar/rabbit-hole/${id}` : `covers/rabbit-hole/${id}`, baseName: kind === 'avatar' ? 'avatar' : 'cover' }
 }
 
 function publicBase(): string {
