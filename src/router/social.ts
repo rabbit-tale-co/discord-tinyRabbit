@@ -1,5 +1,5 @@
 import { profileAvatar, profileCover } from '@/social/api/profile.js'
-import { postUpload, postDelete } from '@/social/api/post.js'
+import { postUpload, postDelete, postDeleteFolder } from '@/social/api/post.js'
 import { setCorsHeaders } from '../utils/cors.js'
 import { errorHandler } from '@/utils/errorHandler.js'
 
@@ -14,6 +14,11 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   // Post media
   'POST /social/v1/post/upload': postUpload,
   'POST /social/v1/post/delete': postDelete,
+  'POST /social/v1/post/delete-folder': postDeleteFolder,
+
+  // Rabbit Hole (Feed) media
+  'POST /social/v1/feed/avatar': profileAvatar, // Reuse profile logic for feed avatars
+  'POST /social/v1/feed/cover': profileCover,   // Reuse profile logic for feed covers
 }
 
 export async function socialRouter(req: Request): Promise<Response> {

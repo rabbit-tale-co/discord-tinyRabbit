@@ -1,17 +1,20 @@
 import { setCorsHeaders } from '@/utils/cors.js'
 import { write, randomUUIDv7 } from 'bun'
-import { convertGifToWebM, convertImageToWebP, s3 } from '@/social/lib/media.js'
+import { convertGifToWebM, convertImageToWebP, generateThumbnail, s3 } from '@/social/lib/media.js'
 import { APILogger, bunnyLog } from '@/utils/bunnyLogger.js'
 
-type Entity = 'profile' | 'rabbit-hole'
+type Entity = 'profile' | 'rabbit-hole' | 'feed'
 type Kind = 'avatar' | 'cover'
 
 function buildFolder(entity: Entity, kind: Kind, id: string): { folder: string; baseName: string } {
   if (entity === 'profile') {
     return { folder: kind === 'avatar' ? `avatar/profile/${id}` : `covers/profile/${id}`, baseName: kind }
   }
-  // rabbit-hole - use same structure as profile but under rabbit-hole root
-  return { folder: kind === 'avatar' ? `avatar/rabbit-hole/${id}` : `covers/rabbit-hole/${id}`, baseName: kind === 'avatar' ? 'avatar' : 'cover' }
+  if (entity === 'rabbit-hole') {
+    return { folder: kind === 'avatar' ? `avatar/rabbit-hole/${id}` : `covers/rabbit-hole/${id}`, baseName: kind === 'avatar' ? 'avatar' : 'cover' }
+  }
+  // feed - use same structure as rabbit-hole but under feed root
+  return { folder: kind === 'avatar' ? `avatar/feed/${id}` : `covers/feed/${id}`, baseName: kind === 'avatar' ? 'avatar' : 'cover' }
 }
 
 function publicBase(): string {
@@ -37,8 +40,9 @@ export async function handleEntityUpload(req: Request, defaultEntity: Entity, ki
     // auto-detect entity by presence of id fields; fall back to defaultEntity
     const userId = String(form.get('userId') || '')
     const rhId = String((form.get('rabbitHoleId') || form.get('rabbit_hole_id') || '') as string)
-    const entity: Entity = rhId ? 'rabbit-hole' : (userId ? 'profile' : defaultEntity)
-    const id = rhId || userId || ''
+    const feedId = String((form.get('feedId') || form.get('feed_id') || '') as string)
+    const entity: Entity = feedId ? 'feed' : (rhId ? 'rabbit-hole' : (userId ? 'profile' : defaultEntity))
+    const id = feedId || rhId || userId || ''
     const f = form.get('file')
     const cropX = Number(form.get('crop_x') || 0)
     const cropY = Number(form.get('crop_y') || 0)
@@ -62,22 +66,51 @@ export async function handleEntityUpload(req: Request, defaultEntity: Entity, ki
     const imageId = randomUUIDv7()
     const key = `${folder}/${baseName}.${isGif ? 'webm' : 'webp'}`
 
+    // Generate thumbnail for the uploaded media
+    let thumbnail: Buffer | undefined
+    let thumbnailKey: string | undefined
+
     if (isGif) {
       const out = await convertGifToWebM(input, cropW > 0 && cropH > 0 ? { x: cropX, y: cropY, w: cropW, h: cropH } : undefined)
       const file = s3.file(key)
       await write(file, new Blob([new Uint8Array(out)], { type: 'video/webm' }))
+
+      // Generate thumbnail for GIF (converted to WebM)
+      thumbnail = await generateThumbnail(out, true)
+      if (thumbnail) {
+        thumbnailKey = `${folder}/${baseName}_thumbnail.webp`
+        const thumbnailFile = s3.file(thumbnailKey)
+        await write(thumbnailFile, new Blob([new Uint8Array(thumbnail)], { type: 'image/webp' }))
+      }
     } else {
       const outImg = await convertImageToWebP(input, cropW > 0 && cropH > 0 ? { x: cropX, y: cropY, w: cropW, h: cropH } : undefined)
       const file = s3.file(key)
       await write(file, new Blob([new Uint8Array(outImg)], { type: 'image/webp' }))
+
+      // For regular images, we don't need a separate thumbnail as they're already optimized
+      // But we could generate one if needed for consistency
     }
 
     const base = publicBase()
-    // Add bucket name to URL for rabbit-hole entities
-    const bucketPrefix = entity === 'rabbit-hole' ? 'rabbit-hole/' : ''
+    // Add bucket name to URL for rabbit-hole and feed entities
+    const bucketPrefix = entity === 'rabbit-hole' ? 'rabbit-hole/' : (entity === 'feed' ? 'feed/' : '')
     const url = base ? `${base}/${bucketPrefix}${key}?v=${imageId}` : `/${bucketPrefix}${key}`
+
+    // Add thumbnail URL if available
+    let thumbnailUrl: string | undefined
+    if (thumbnailKey) {
+      thumbnailUrl = base ? `${base}/${bucketPrefix}${thumbnailKey}?v=${imageId}` : `/${bucketPrefix}${thumbnailKey}`
+    }
+
     APILogger.response(200, endpoint)
-    return new Response(JSON.stringify({ path: key, url, mime: isGif ? 'video/webm' : 'image/webp', imageId }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
+    return new Response(JSON.stringify({
+      path: key,
+      url,
+      mime: isGif ? 'video/webm' : 'image/webp',
+      imageId,
+      thumbnailPath: thumbnailKey,
+      thumbnailUrl
+    }), { headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
   } catch (error) {
     APILogger.error(error as Error, endpoint)
     return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500, headers: setCorsHeaders({ 'Content-Type': 'application/json' }) })
