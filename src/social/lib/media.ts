@@ -80,7 +80,7 @@ export async function transcodeToWebM(inputBuf: Buffer) {
   const inPath = path.join(tmpDir, 'in.bin')
   const outPath = path.join(tmpDir, 'out.webm')
   await fs.writeFile(inPath, inputBuf)
-  const args: string[] = ['-y', '-i', inPath, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '31', '-pix_fmt', 'yuv420p', '-an', outPath]
+  const args: string[] = ['-y', '-i', inPath, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '31', '-pix_fmt', 'yuv420p', outPath]
   await runFfmpeg(args, tmpDir)
   const out = await fs.readFile(outPath)
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
