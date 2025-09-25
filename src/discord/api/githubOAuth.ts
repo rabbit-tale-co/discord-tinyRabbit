@@ -170,10 +170,9 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
         if (messageUpdated) {
           StatusLogger.info(`[GitHub Callback] Wiadomość Discord zaktualizowana pomyślnie dla użytkownika ${discordUserId}`);
         } else {
-          StatusLogger.warn(`[GitHub Callback] Aktualizacja wiadomości Discord zwróciła false dla użytkownika ${discordUserId}`);
-          // Try to send a new message if update failed
-          StatusLogger.info(`[GitHub Callback] Próba wysłania nowej wiadomości dla użytkownika ${discordUserId}`);
-          await sendSuccessMessage(channelId, discordUserId, githubUser);
+          StatusLogger.warn(`[GitHub Callback] Aktualizacja wiadomości Discord nie powiodła się dla użytkownika ${discordUserId}`);
+          // No longer trying to send a new message as it also fails with Missing Access
+          StatusLogger.info(`[GitHub Callback] Konto GitHub ${githubUser.login} zostało pomyślnie połączone z kontem Discord ${discordUserId}`);
         }
       } catch (error) {
         StatusLogger.error(`[GitHub Callback] Błąd aktualizacji wiadomości Discord: ${error instanceof Error ? error.message : String(error)}`);
