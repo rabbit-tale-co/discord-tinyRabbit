@@ -154,129 +154,40 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     // Update Discord message if messageId and channelId are provided
     if (messageId && channelId) {
       try {
-        await updateDiscordMessage(channelId, messageId, githubUser);
-        StatusLogger.info(`Discord message updated successfully for user ${discordUserId}`);
+        const messageUpdated = await updateDiscordMessage(channelId, messageId, githubUser);
+        if (messageUpdated) {
+          StatusLogger.info(`Discord message updated successfully for user ${discordUserId}`);
+        } else {
+          StatusLogger.warn(`Discord message update returned false for user ${discordUserId}`);
+          // Try to send a new message if update failed
+          await sendSuccessMessage(channelId, discordUserId, githubUser);
+        }
       } catch (error) {
         StatusLogger.error(`Failed to update Discord message: ${error instanceof Error ? error.message : String(error)}`);
-        // Continue despite message update error
+        // Try to send a new message if update failed
+        try {
+          await sendSuccessMessage(channelId, discordUserId, githubUser);
+        } catch (msgError) {
+          StatusLogger.error(`Failed to send success message: ${msgError instanceof Error ? msgError.message : String(msgError)}`);
+        }
       }
     }
 
-    // Return HTML success page with better styling
+    // Return minimal HTML page that immediately closes itself
     const successHtml = `
     <!DOCTYPE html>
     <html>
     <head>
       <title>GitHub Connection Successful</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          background-color: #f9f9f9;
-          color: #333;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-          margin: 0;
-        }
-        .container {
-          background-color: white;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-          padding: 30px;
-          text-align: center;
-          max-width: 500px;
-          width: 90%;
-        }
-        .success-icon {
-          color: #2ecc71;
-          font-size: 64px;
-          margin-bottom: 20px;
-        }
-        h1 {
-          color: #2ecc71;
-          margin-bottom: 20px;
-        }
-        p {
-          font-size: 16px;
-          line-height: 1.5;
-          margin-bottom: 20px;
-        }
-        .github-info {
-          background-color: #f5f5f5;
-          border-radius: 6px;
-          padding: 15px;
-          margin-bottom: 20px;
-          text-align: left;
-        }
-        .github-info img {
-          width: 60px;
-          height: 60px;
-          border-radius: 50%;
-          float: left;
-          margin-right: 15px;
-        }
-        .github-info .details {
-          display: inline-block;
-        }
-        .close-button {
-          background-color: #3498db;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 10px 20px;
-          font-size: 16px;
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
-        .close-button:hover {
-          background-color: #2980b9;
-        }
-        .countdown {
-          font-size: 14px;
-          color: #777;
-          margin-top: 10px;
-        }
-      </style>
       <script>
-        // Auto-close the window after 3 seconds
+        // Close the window immediately
         window.onload = function() {
-          let secondsLeft = 3;
-          const countdownElement = document.getElementById('countdown');
-          
-          const countdownInterval = setInterval(function() {
-            secondsLeft--;
-            countdownElement.textContent = 'This window will close automatically in ' + secondsLeft + ' second' + (secondsLeft !== 1 ? 's' : '') + '...';
-            
-            if (secondsLeft <= 0) {
-              clearInterval(countdownInterval);
-              window.close();
-            }
-          }, 1000);
+          window.close();
         };
       </script>
     </head>
     <body>
-      <div class="container">
-        <div class="success-icon">✅</div>
-        <h1>GitHub Connection Successful</h1>
-        <p>Your GitHub account has been successfully connected to your Discord account.</p>
-        
-        <div class="github-info">
-          <img src="${githubUser.avatar_url}" alt="GitHub Avatar">
-          <div class="details">
-            <strong>Username:</strong> ${githubUser.login}<br>
-            <strong>Name:</strong> ${githubUser.name || 'Not provided'}<br>
-            <strong>Profile:</strong> <a href="${githubUser.html_url}" target="_blank">${githubUser.login}</a>
-          </div>
-          <div style="clear: both;"></div>
-        </div>
-        
-        <p>This window will close automatically.</p>
-        <button class="close-button" onclick="window.close()">Close Window Now</button>
-        <div id="countdown" class="countdown">This window will close automatically in 3 seconds...</div>
-      </div>
+      <p>Connection successful. This window will close automatically.</p>
     </body>
     </html>
     `;
@@ -532,6 +443,87 @@ export async function updateDiscordMessage(
     }
   } catch (error) {
     StatusLogger.error(`Error updating Discord message: ${error instanceof Error ? error.message : String(error)}`);
+    return false;
+  }
+}
+
+/**
+ * Sends a new success message to Discord channel after GitHub account connection
+ */
+export async function sendSuccessMessage(
+  channelId: string,
+  discordUserId: string,
+  githubUser: any
+): Promise<boolean> {
+  try {
+    // Get bot token from environment variables
+    const botToken = process.env.BOT_TOKEN;
+
+    if (!botToken) {
+      StatusLogger.error('Missing BOT_TOKEN in environment variables');
+      return false;
+    }
+
+    // Create Discord REST API client
+    const rest = new REST({ version: '10' }).setToken(botToken);
+
+    // Prepare message components
+    const components = [
+      {
+        type: Discord.ComponentType.Section,
+        components: [
+          {
+            type: Discord.ComponentType.TextDisplay,
+            content: '## GitHub Connection Status'
+          },
+          {
+            type: Discord.ComponentType.TextDisplay,
+            content: `✅ **Successfully connected GitHub account**\n\n**Username**: ${githubUser.login}\n**Name**: ${githubUser.name || 'Not provided'}\n**Profile**: [${githubUser.login}](${githubUser.html_url})`
+          }
+        ],
+        accessory: {
+          type: Discord.ComponentType.Thumbnail,
+          media: {
+            url: githubUser.avatar_url
+          }
+        }
+      },
+      {
+        type: Discord.ComponentType.Separator,
+        divider: true,
+        spacing: Discord.SeparatorSpacingSize.Large
+      },
+      {
+        type: Discord.ComponentType.ActionRow,
+        components: [
+          {
+            type: Discord.ComponentType.Button,
+            style: Discord.ButtonStyle.Danger,
+            label: 'Rozłącz konto',
+            custom_id: 'github_disconnect'
+          }
+        ]
+      }
+    ];
+
+    // Send new message
+    try {
+      await rest.post(Routes.channelMessages(channelId), {
+        body: {
+          content: `<@${discordUserId}> Twoje konto GitHub zostało połączone!`,
+          components,
+          flags: Discord.MessageFlags.IsComponentsV2
+        }
+      });
+      
+      StatusLogger.info(`Discord success message sent for user ${discordUserId}`);
+      return true;
+    } catch (error) {
+      StatusLogger.error(`Error sending success message: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  } catch (error) {
+    StatusLogger.error(`Error in sendSuccessMessage: ${error instanceof Error ? error.message : String(error)}`);
     return false;
   }
 }
