@@ -5,6 +5,10 @@ import { config as centralizedConfig } from '@/discord/commands/config/index.js'
 import { PLUGINS } from '@/discord/commands/constants.js'
 import * as commands from '@/discord/commands/index.js'
 import { EventLogger, StatusLogger } from '@/utils/bunnyLogger.js'
+import { db } from '@/db/index.js'
+import { githubDiscordLinks } from '@/db/schema.js'
+import { eq } from 'drizzle-orm'
+import { removeGitHubLink } from '@/discord/api/githubLinks.js'
 
 type ButtonHandler = (inter: ButtonInteraction) => Promise<void>
 
@@ -50,6 +54,11 @@ const buttonMap: Record<string, ButtonStructure> = {
 		handler: async (inter: ButtonInteraction) => {
 			const [_, threadId] = inter.customId.split(':')
 			await handleTicketRating(inter, threadId, 5)
+		},
+	},
+	github_disconnect: {
+		handler: async (inter: ButtonInteraction) => {
+			await handleGithubDisconnect(inter)
 		},
 	},
 	[PLUGINS.TICKETS]: {
@@ -175,6 +184,83 @@ export async function buttonInteractionHandler(
 /* -------------------------------------------------------------------------- */
 /*                            BUTTON HANDLERS                                 */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Handles GitHub account disconnection
+ */
+async function handleGithubDisconnect(inter: ButtonInteraction): Promise<void> {
+  try {
+    await inter.deferReply({
+      flags: Discord.MessageFlags.Ephemeral
+    })
+
+    const discordUserId = inter.user.id
+
+    // Check if user has a connected GitHub account
+    const links = await db.select()
+      .from(githubDiscordLinks)
+      .where(
+        eq(githubDiscordLinks.discord_user_id, discordUserId)
+      )
+
+    if (links.length === 0) {
+      // User doesn't have a connected GitHub account
+      const components = [
+        {
+          type: Discord.ComponentType.TextDisplay,
+          content: '## GitHub Disconnection'
+        },
+        {
+          type: Discord.ComponentType.Separator,
+          divider: true,
+          spacing: Discord.SeparatorSpacingSize.Large
+        },
+        {
+          type: Discord.ComponentType.TextDisplay,
+          content: '❌ **You don\'t have a connected GitHub account**'
+        }
+      ]
+
+      await inter.editReply({
+        components,
+        flags: Discord.MessageFlags.IsComponentsV2
+      })
+      return
+    }
+
+    // Disconnect GitHub account
+    const githubUsername = links[0].github_username
+    await removeGitHubLink(discordUserId)
+
+    // Show success message
+    const components = [
+      {
+        type: Discord.ComponentType.TextDisplay,
+        content: '## GitHub Disconnection'
+      },
+      {
+        type: Discord.ComponentType.Separator,
+        divider: true,
+        spacing: Discord.SeparatorSpacingSize.Large
+      },
+      {
+        type: Discord.ComponentType.TextDisplay,
+        content: `✅ **Successfully disconnected GitHub account**\n\nYour GitHub account (${githubUsername}) has been disconnected from your Discord account.`
+      }
+    ]
+
+    await inter.editReply({
+      components,
+      flags: Discord.MessageFlags.IsComponentsV2
+    })
+  } catch (error) {
+    StatusLogger.error(`Error disconnecting GitHub account: ${error instanceof Error ? error.message : String(error)}`)
+    await inter.editReply({
+      content: 'An error occurred while disconnecting your GitHub account. Please try again later.',
+      flags: Discord.MessageFlags.Ephemeral
+    })
+  }
+}
 
 async function showCloseReasonModal(inter: ButtonInteraction): Promise<void> {
 	try {

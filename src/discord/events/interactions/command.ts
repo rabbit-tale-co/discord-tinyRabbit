@@ -230,9 +230,7 @@ const commandMap: Record<string, commandStructure> = {
 	},
 	github: {
 		subcommands: {
-			connect: commands.github.connect,
 			status: commands.github.githubStatus,
-			disconnect: commands.github.disconnect,
 		},
 	},
 }

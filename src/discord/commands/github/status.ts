@@ -10,11 +10,14 @@ import { APILogger } from '@/utils/index.js'
  * Checks the connection status between GitHub account and Discord account
  */
 export async function githubStatus(
-  interaction: Discord.ChatInputCommandInteraction
+  interaction: Discord.ChatInputCommandInteraction,
+  skipDeferReply: boolean = false
 ): Promise<void> {
   try {
     // Response is ephemeral, so it's only visible to the user
-    await interaction.deferReply({ ephemeral: true })
+    if (!skipDeferReply && !interaction.deferred) {
+      await interaction.deferReply({ flags: Discord.MessageFlags.Ephemeral })
+    }
 
     const discordUserId = interaction.user.id
     const botId = interaction.client.user.id
