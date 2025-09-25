@@ -345,11 +345,11 @@ export async function updateDiscordMessage(
   githubUser: any
 ): Promise<boolean> {
   try {
-    // Pobierz token bota z bazy danych lub zmiennych środowiskowych
-    const botToken = process.env.DISCORD_BOT_TOKEN;
+    // Get bot token from environment variables
+    const botToken = process.env.BOT_TOKEN;
     
     if (!botToken) {
-      StatusLogger.error('Missing DISCORD_BOT_TOKEN in environment variables');
+      StatusLogger.error('Missing BOT_TOKEN in environment variables');
       return false;
     }
     
