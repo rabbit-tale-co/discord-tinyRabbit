@@ -4,7 +4,7 @@ import { db } from '@/db/index.js'
 import { githubDiscordLinks } from '@/db/schema.js'
 import { eq } from 'drizzle-orm'
 
-// Interfejsy dla odpowiedzi OAuth
+// Interfaces for OAuth responses
 interface GitHubOAuthTokenResponse {
   access_token: string
   token_type: string
@@ -19,47 +19,47 @@ interface GitHubUserResponse {
 }
 
 /**
- * Obsługa żądania autoryzacji GitHub OAuth
- * Przekierowuje użytkownika do strony logowania GitHub
+ * Handle GitHub OAuth authorization request
+ * Redirects the user to GitHub login page
  */
 export async function handleGitHubOAuth(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url)
     const discordUserId = url.searchParams.get('discord_user_id')
     const botId = url.searchParams.get('bot_id')
-    
+
     if (!discordUserId || !botId) {
-      return new Response('Brakujące parametry: discord_user_id lub bot_id', { 
+      return new Response('Missing parameters: discord_user_id or bot_id', {
         status: 400,
         headers: setCorsHeaders()
       })
     }
-    
-    // Zapisz stan sesji do weryfikacji w callbacku
+
+    // Save session state for verification in callback
     const state = Buffer.from(JSON.stringify({ discordUserId, botId })).toString('base64')
-    
-    // Utwórz URL autoryzacji GitHub
+
+    // Create GitHub authorization URL
     const githubClientId = process.env.GITHUB_CLIENT_ID
     if (!githubClientId) {
-      StatusLogger.error('Brak GITHUB_CLIENT_ID w zmiennych środowiskowych')
-      return new Response('Błąd konfiguracji serwera', { 
+      StatusLogger.error('Missing GITHUB_CLIENT_ID in environment variables')
+      return new Response('Server configuration error', {
         status: 500,
         headers: setCorsHeaders()
       })
     }
-    
+
     const redirectUri = `${process.env.API_BASE_URL}/github/v1/callback`
     const authUrl = new URL('https://github.com/login/oauth/authorize')
     authUrl.searchParams.append('client_id', githubClientId)
     authUrl.searchParams.append('redirect_uri', redirectUri)
     authUrl.searchParams.append('state', state)
     authUrl.searchParams.append('scope', 'read:user')
-    
-    // Przekieruj użytkownika do GitHub
+
+    // Redirect user to GitHub
     return Response.redirect(authUrl.toString(), 302)
   } catch (error) {
-    StatusLogger.error(`Błąd podczas obsługi GitHub OAuth: ${error instanceof Error ? error.message : String(error)}`)
-    return new Response('Wystąpił błąd podczas autoryzacji', { 
+    StatusLogger.error(`Error handling GitHub OAuth: ${error instanceof Error ? error.message : String(error)}`)
+    return new Response('An error occurred during authorization', {
       status: 500,
       headers: setCorsHeaders()
     })
@@ -67,67 +67,66 @@ export async function handleGitHubOAuth(req: Request): Promise<Response> {
 }
 
 /**
- * Obsługa callbacku GitHub OAuth
- * Odbiera kod autoryzacji i wymienia go na token dostępu
+ * Handle GitHub OAuth callback
+ * Receives authorization code and exchanges it for an access token
  */
 export async function handleGitHubOAuthCallback(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
-    
+
     if (!code || !state) {
-      return new Response('Brakujące parametry: code lub state', { 
+      return new Response('Missing parameters: code or state', {
         status: 400,
         headers: setCorsHeaders()
       })
     }
-    
-    // Dekoduj stan sesji
+
+    // Decode session state
     let stateData: { discordUserId: string, botId: string }
     try {
       stateData = JSON.parse(Buffer.from(state, 'base64').toString())
     } catch (error) {
-      return new Response('Nieprawidłowy format state', { 
+      return new Response('Invalid state format', {
         status: 400,
         headers: setCorsHeaders()
       })
     }
-    
-    // Wymień kod na token dostępu
+
+    // Exchange code for access token
     const tokenResponse = await exchangeCodeForToken(code)
     if (!tokenResponse) {
-      return new Response('Nie udało się uzyskać tokenu dostępu', { 
+      return new Response('Failed to obtain access token', {
         status: 500,
         headers: setCorsHeaders()
       })
     }
-    
-    // Pobierz dane użytkownika GitHub
+
+    // Get GitHub user data
     const githubUser = await fetchGitHubUser(tokenResponse.access_token)
     if (!githubUser) {
-      return new Response('Nie udało się pobrać danych użytkownika GitHub', { 
+      return new Response('Failed to fetch GitHub user data', {
         status: 500,
         headers: setCorsHeaders()
       })
     }
-    
-    // Zapisz powiązanie konta Discord z GitHub
+
+    // Save Discord to GitHub account link
     await createOrUpdateGitHubLink(
       stateData.botId,
       stateData.discordUserId,
       githubUser.login
     )
     
-    // Przekieruj do strony sukcesu
-    const successUrl = new URL(`${process.env.FRONTEND_URL || 'https://discord.com'}/oauth/success`)
-    successUrl.searchParams.append('provider', 'github')
-    successUrl.searchParams.append('username', githubUser.login)
-    
-    return Response.redirect(successUrl.toString(), 302)
+    // Return simple success message
+    return new Response('GitHub account connected successfully. You can now close this window and return to Discord.', {
+      status: 200,
+      headers: setCorsHeaders()
+    })
   } catch (error) {
-    StatusLogger.error(`Błąd podczas obsługi GitHub OAuth callback: ${error instanceof Error ? error.message : String(error)}`)
-    return new Response('Wystąpił błąd podczas autoryzacji', { 
+    StatusLogger.error(`Error handling GitHub OAuth callback: ${error instanceof Error ? error.message : String(error)}`)
+    return new Response('An error occurred during authorization', {
       status: 500,
       headers: setCorsHeaders()
     })
@@ -141,12 +140,12 @@ async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenRespo
   try {
     const clientId = process.env.GITHUB_CLIENT_ID
     const clientSecret = process.env.GITHUB_CLIENT_SECRET
-    
+
     if (!clientId || !clientSecret) {
       StatusLogger.error('Brak GITHUB_CLIENT_ID lub GITHUB_CLIENT_SECRET w zmiennych środowiskowych')
       return null
     }
-    
+
     const response = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -160,12 +159,12 @@ async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenRespo
         redirect_uri: `${process.env.API_BASE_URL}/github/v1/callback`
       })
     })
-    
+
     if (!response.ok) {
       StatusLogger.error(`GitHub API error: ${response.status} ${response.statusText}`)
       return null
     }
-    
+
     return await response.json()
   } catch (error) {
     StatusLogger.error(`Błąd podczas wymiany kodu na token: ${error instanceof Error ? error.message : String(error)}`)
@@ -184,12 +183,12 @@ async function fetchGitHubUser(accessToken: string): Promise<GitHubUserResponse 
         'Accept': 'application/vnd.github.v3+json'
       }
     })
-    
+
     if (!response.ok) {
       StatusLogger.error(`GitHub API error: ${response.status} ${response.statusText}`)
       return null
     }
-    
+
     return await response.json()
   } catch (error) {
     StatusLogger.error(`Błąd podczas pobierania danych użytkownika GitHub: ${error instanceof Error ? error.message : String(error)}`)
@@ -212,7 +211,7 @@ export async function createOrUpdateGitHubLink(
       .where(
         eq(githubDiscordLinks.discord_user_id, discordUserId)
       )
-    
+
     if (existingLinks.length > 0) {
       // Aktualizuj istniejące powiązanie
       await db.update(githubDiscordLinks)
@@ -232,7 +231,7 @@ export async function createOrUpdateGitHubLink(
           github_username: githubUsername
         })
     }
-    
+
     return true
   } catch (error) {
     StatusLogger.error(`Błąd podczas zapisywania powiązania GitHub: ${error instanceof Error ? error.message : String(error)}`)
@@ -250,11 +249,11 @@ export async function findLinkedDiscordAccount(githubUsername: string): Promise<
       .where(
         eq(githubDiscordLinks.github_username, githubUsername)
       )
-    
+
     if (links.length > 0) {
       return links[0].discord_user_id
     }
-    
+
     return null
   } catch (error) {
     StatusLogger.error(`Błąd podczas wyszukiwania powiązanego konta Discord: ${error instanceof Error ? error.message : String(error)}`)
