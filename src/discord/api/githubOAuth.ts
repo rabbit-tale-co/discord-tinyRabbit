@@ -139,10 +139,10 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
 async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenResponse | null> {
   try {
     const clientId = process.env.GITHUB_CLIENT_ID
-    const clientSecret = process.env.GITHUB_CLIENT_SECRET
+    const clientSecret = process.env.GITHUB_SECRET_ID // Using GITHUB_SECRET_ID from .env
 
     if (!clientId || !clientSecret) {
-      StatusLogger.error('Missing GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET in environment variables')
+      StatusLogger.error('Missing GITHUB_CLIENT_ID or GITHUB_SECRET_ID in environment variables')
       return null
     }
 
