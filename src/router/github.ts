@@ -1,4 +1,5 @@
 import * as API from '@/discord/api/index.js'
+import { handleGitHubNotification } from '@/discord/api/githubNotification.js'
 import { setCorsHeaders } from '@/utils/cors.js'
 import { errorHandler } from '@/utils/errorHandler.js'
 
@@ -28,6 +29,13 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 		req: Request
 	): Promise<Response> => {
 		return await API.handleGitHubOAuthCallback(req)
+	},
+
+	// GitHub notification endpoint
+	'GET /github/v1/notify': async (
+		req: Request
+	): Promise<Response> => {
+		return await handleGitHubNotification(req)
 	},
 }
 
