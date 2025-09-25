@@ -87,6 +87,54 @@ export async function githubStatus(
       // Now that we have the actual message ID, store it for future reference
       // This will help with debugging but won't affect the current flow
       StatusLogger.info(`GitHub login message ID: ${reply.id}`)
+      
+      // We need to update the OAuth URL with the correct message ID
+      // Create a new state with the actual message ID
+      const updatedStateData = {
+        userId: discordUserId,
+        botId,
+        messageId: reply.id,
+        channelId: interaction.channelId
+      }
+      
+      const updatedState = Buffer.from(JSON.stringify(updatedStateData)).toString('base64')
+      const updatedOauthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&state=${updatedState}&scope=user:email`
+      
+      // Update the button URL with the new OAuth URL that includes the message ID
+      const updatedComponents = [
+        {
+          type: Discord.ComponentType.TextDisplay,
+          content: '## GitHub Connection Status'
+        },
+        {
+          type: Discord.ComponentType.Separator,
+          divider: true,
+          spacing: Discord.SeparatorSpacingSize.Large
+        },
+        {
+          type: Discord.ComponentType.TextDisplay,
+          content: 'Click the button below to connect your Discord account with GitHub:'
+        },
+        {
+          type: Discord.ComponentType.ActionRow,
+          components: [
+            {
+              type: Discord.ComponentType.Button,
+              style: Discord.ButtonStyle.Link,
+              label: 'Login with GitHub',
+              url: updatedOauthUrl
+            }
+          ]
+        }
+      ]
+      
+      // Update the message with the new button URL
+      await interaction.editReply({
+        components: updatedComponents,
+        flags: Discord.MessageFlags.IsComponentsV2
+      })
+      
+      StatusLogger.info(`Updated GitHub login button with message ID: ${reply.id}`)
       return
     }
 
