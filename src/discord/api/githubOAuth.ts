@@ -287,8 +287,9 @@ export async function fetchGitHubUser(accessToken: string): Promise<{ login: str
     StatusLogger.info(`[GitHub OAuth] Retrieving GitHub user data`)
     const response = await fetch('https://api.github.com/user', {
       headers: {
-        'Authorization': `token ${accessToken}`,
-        'User-Agent': 'Discord-Bot'
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+        'User-Agent': 'RabbitTale-Bot'
       }
     })
 
