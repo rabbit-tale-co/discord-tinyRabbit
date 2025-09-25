@@ -118,7 +118,7 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
       stateData.discordUserId,
       githubUser.login
     )
-    
+
     // Return simple success message
     return new Response('GitHub account connected successfully. You can now close this window and return to Discord.', {
       status: 200,
@@ -134,7 +134,7 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
 }
 
 /**
- * Wymienia kod autoryzacji na token dostępu
+ * Exchanges authorization code for an access token
  */
 async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenResponse | null> {
   try {
@@ -142,10 +142,12 @@ async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenRespo
     const clientSecret = process.env.GITHUB_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      StatusLogger.error('Brak GITHUB_CLIENT_ID lub GITHUB_CLIENT_SECRET w zmiennych środowiskowych')
+      StatusLogger.error('Missing GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET in environment variables')
       return null
     }
 
+    StatusLogger.info(`Exchanging code for token with client ID: ${clientId}`)
+    
     const response = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -161,13 +163,16 @@ async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenRespo
     })
 
     if (!response.ok) {
-      StatusLogger.error(`GitHub API error: ${response.status} ${response.statusText}`)
+      const responseText = await response.text();
+      StatusLogger.error(`GitHub API error: ${response.status} ${response.statusText} - ${responseText}`)
       return null
     }
 
-    return await response.json()
+    const data = await response.json();
+    StatusLogger.info('Successfully obtained GitHub access token');
+    return data;
   } catch (error) {
-    StatusLogger.error(`Błąd podczas wymiany kodu na token: ${error instanceof Error ? error.message : String(error)}`)
+    StatusLogger.error(`Error exchanging code for token: ${error instanceof Error ? error.message : String(error)}`)
     return null
   }
 }
