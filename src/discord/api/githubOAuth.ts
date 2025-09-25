@@ -237,7 +237,7 @@ export async function exchangeCodeForToken(code: string): Promise<string | null>
     const githubClientSecret = process.env.GITHUB_CLIENT_SECRET
 
     if (!githubClientId || !githubClientSecret) {
-      StatusLogger.error('[GitHub OAuth] Missing GITHUB_CLIENT_ID or GITHUB_SECRET_ID in environment variables')
+      StatusLogger.error('[GitHub OAuth] Missing GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET in environment variables')
       return null
     }
 
