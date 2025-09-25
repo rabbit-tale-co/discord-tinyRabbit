@@ -15,6 +15,20 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
 	): Promise<Response> => {
 		return await API.handleGitHubSponsorsWebhook(req)
 	},
+
+	// GitHub OAuth authorization endpoint
+	'GET /github/v1/oauth': async (
+		req: Request
+	): Promise<Response> => {
+		return await API.handleGitHubOAuth(req)
+	},
+
+	// GitHub OAuth callback endpoint
+	'GET /github/v1/callback': async (
+		req: Request
+	): Promise<Response> => {
+		return await API.handleGitHubOAuthCallback(req)
+	},
 }
 
 /**

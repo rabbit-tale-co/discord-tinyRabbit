@@ -20,6 +20,7 @@ export const ACTIONS = [
 
 	// Basic operations
 	'open',
+  'edit',
 	'cancel',
 	'close',
 	'confirm',
@@ -35,6 +36,10 @@ export const ACTIONS = [
 	'select',
 	'config_select',
 	'autoclose',
+
+	// GitHub specific
+	'verify',
+	'unlink',
 ] as const
 
 export const PLUGINS = [
@@ -45,6 +50,7 @@ export const PLUGINS = [
 	'birthday',
 	'tempvc',
 	'slowmode',
+	'github',
 ] as const
 
 export type Action = (typeof ACTIONS)[number]

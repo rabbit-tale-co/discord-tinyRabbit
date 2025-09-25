@@ -228,6 +228,12 @@ const commandMap: Record<string, commandStructure> = {
 			send_panel: sendPanel,
 		},
 	},
+	linkgithub: {
+		handler: commands.social.github,
+	},
+	github: {
+		handler: commands.social.github,
+	},
 }
 
 export async function commandInteractionHandler(

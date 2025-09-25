@@ -301,6 +301,8 @@ type SupportProviders = {
 		channel_id: string | null
 		message?: string | null
 		webhook_url?: string | null
+		role_id?: string | null
+		tier_roles?: Record<string, string> | null
 	}
 	components?: {
 		[key: string]: ComponentContainer
@@ -309,6 +311,10 @@ type SupportProviders = {
 	// ko_fi: { ... }
 	// buymeacoffee: { ... }
 	// etc.
+}
+
+interface Github {
+	enabled: boolean
 }
 
 type PluginTypes = {
@@ -324,6 +330,7 @@ type PluginTypes = {
 	music: Music
 	economy: Economy
 	supportProviders: SupportProviders
+	github: Github
 }
 
 type Plugins = keyof PluginTypes

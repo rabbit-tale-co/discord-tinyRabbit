@@ -6,8 +6,10 @@ import {
 	jsonb,
 	pgTable,
 	primaryKey,
+	serial,
 	text,
 	timestamp,
+	unique,
 	varchar,
 } from 'drizzle-orm/pg-core'
 
@@ -345,11 +347,27 @@ export type LicenseHistory = InferSelectModel<typeof licenseHistory>
 export type LicenseServers = InferSelectModel<typeof licenseServers>
 export type LinkedAccounts = InferSelectModel<typeof linkedAccounts>
 export type Plugins = InferSelectModel<typeof plugins>
+export const githubDiscordLinks = pgTable(
+	'github_discord_links',
+	{
+		id: serial('id').primaryKey(),
+		bot_id: text('bot_id').notNull(),
+		discord_user_id: text('discord_user_id').notNull(),
+		github_username: text('github_username').notNull(),
+		created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+		updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+	},
+	(table) => ({
+		unq: unique().on(table.bot_id, table.discord_user_id, table.github_username),
+	})
+)
+
 export type Starboards = InferSelectModel<typeof starboards>
 export type TempVoiceChannels = InferSelectModel<typeof tempVoiceChannels>
 export type Tickets = InferSelectModel<typeof tickets>
 export type TrialServers = InferSelectModel<typeof trialServers>
 export type UserBalances = InferSelectModel<typeof userBalances>
 export type UserBdays = InferSelectModel<typeof userBdays>
+export type GithubDiscordLinks = InferSelectModel<typeof githubDiscordLinks>
 export type UserLevels = InferSelectModel<typeof userLevels>
 export type VerificationTokens = InferSelectModel<typeof verificationTokens>

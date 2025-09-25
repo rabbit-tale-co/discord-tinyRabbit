@@ -21,7 +21,7 @@ import supabase from './db/supabase.js'
 import * as Birthday from './discord/commands/fun/birthday/index.js'
 import * as Tickets from './discord/commands/moderation/tickets/index.js'
 
-const PORT: number = Number.parseInt(env.PORT || '5000', 10)
+const PORT: number = Number.parseInt(env.PORT || '5001', 10)
 
 // Start HTTP Server
 serve({

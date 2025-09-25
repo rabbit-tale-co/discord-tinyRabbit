@@ -859,38 +859,83 @@ const commands = [
 			},
 		],
 	},
-	// 	name: 'plugin',
-	// 	description: 'Manage your Minecraft account',
-	// 	options: [
-
-	// 		{
-	// 			type: 1, // SUB_COMMAND
-	// 			name: 'game',
-	// 			description: 'Manage your game plugins',
-	// 			options: [
-	// 				{
-	// 					type: 3, // STRING
-	// 					name: 'minecraft',
-	// 					description: 'The name of the game to manage',
-	// 					required: true,
-	// 				},
-	// 			],
-	// 		},
-	// 		{
-	// 			type: 1, // SUB_COMMAND
-	// 			name: 'info',
-	// 			description: 'Get info about a specified game plugin',
-	// 			options: [
-	// 				{
-	// 					type: 3, // STRING
-	// 					name: 'plugin_name',
-	// 					description: 'The name of the game plugin to get info about',
-	// 					required: true,
-	// 				},
-	// 			],
-	// 		},
-	// 	],
-	// },
+{
+    name: 'github',
+    description: 'Link your GitHub account',
+    options: [
+        {
+            type: 1, // SUB_COMMAND
+            name: 'connect',
+            description: 'Connect your account'
+        }
+    ],
+    name_localizations: {
+        da: 'github',
+        de: 'github',
+        'en-GB': 'github',
+        'en-US': 'github',
+        'es-ES': 'github',
+        'es-419': 'github',
+        fr: 'github',
+        hr: 'github',
+        it: 'github',
+        lt: 'github',
+        hu: 'github',
+        nl: 'github',
+        no: 'github',
+        pl: 'github',
+        'pt-BR': 'github',
+        ro: 'github',
+        fi: 'github',
+        'sv-SE': 'github',
+        vi: 'github',
+        tr: 'github',
+        cs: 'github',
+        el: 'github',
+        bg: 'github',
+        ru: 'github',
+        uk: 'github',
+        hi: 'github',
+        th: 'github',
+        'zh-CN': 'github',
+        ja: 'github',
+        'zh-TW': 'github',
+        ko: 'github',
+    },
+    description_localizations: {
+        da: 'Tilknyt din GitHub-konto',
+        de: 'Verknüpfe dein GitHub-Konto',
+        'en-GB': 'Link your GitHub account',
+        'en-US': 'Link your GitHub account',
+        'es-ES': 'Vincula tu cuenta de GitHub',
+        'es-419': 'Vincula tu cuenta de GitHub',
+        fr: 'Liez votre compte GitHub',
+        hr: 'Povežite svoj GitHub račun',
+        it: 'Collega il tuo account GitHub',
+        lt: 'Susiekite savo GitHub paskyrą',
+        hu: 'Kapcsold össze GitHub-fiókodat',
+        nl: 'Koppel je GitHub-account',
+        no: 'Koble GitHub-kontoen din',
+        pl: 'Połącz swoje konto GitHub',
+        'pt-BR': 'Vincule sua conta GitHub',
+        ro: 'Conectează-ți contul GitHub',
+        fi: 'Yhdistä GitHub-tilisi',
+        'sv-SE': 'Länka ditt GitHub-konto',
+        vi: 'Liên kết tài khoản GitHub của bạn',
+        tr: 'GitHub hesabınızı bağlayın',
+        cs: 'Propojte svůj účet GitHub',
+        el: 'Συνδέστε τον λογαριασμό σας GitHub',
+        bg: 'Свържете акаунта си в GitHub',
+        ru: 'Привяжите свой аккаунт GitHub',
+        uk: 'Прив\'яжіть свій обліковий запис GitHub',
+        hi: 'अपना GitHub खाता जोड़ें',
+        th: 'เชื่อมต่อบัญชี GitHub ของคุณ',
+        'zh-CN': '关联您的GitHub账户',
+        ja: 'GitHubアカウントをリンクする',
+        'zh-TW': '關聯您的GitHub帳戶',
+        ko: 'GitHub 계정을 연결하세요',
+    }
+},
 ]
 
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN)

@@ -227,6 +227,38 @@ async function handleGitHubSponsorsEvent(
 	}
 
 	try {
+		// Check if this GitHub sponsor has a linked Discord account
+		const { findLinkedGitHubAccount } = await import('@/discord/api/githubLinks.js')
+		const linkedAccount = await findLinkedGitHubAccount(sponsorName)
+
+		// If we found a linked Discord account and the action is 'created' or 'tier_changed'
+		if (linkedAccount && (action === 'created' || action === 'tier_changed')) {
+			try {
+				// Try to find the Discord member
+				const member = await guild.members.fetch(linkedAccount.discord_user_id)
+
+				// If sponsor role is configured, assign it
+				if (config.github_sponsors.role_id) {
+					await member.roles.add(config.github_sponsors.role_id)
+					StatusLogger.success(
+						`Added GitHub Sponsors role to ${member.user.tag} in ${guild.name}`
+					)
+				}
+
+				// If tier-specific roles are configured, assign them
+				if (tier && config.github_sponsors.tier_roles && config.github_sponsors.tier_roles[tier]) {
+					await member.roles.add(config.github_sponsors.tier_roles[tier])
+					StatusLogger.success(
+						`Added GitHub Sponsors tier role for ${tier} to ${member.user.tag} in ${guild.name}`
+					)
+				}
+			} catch (memberError) {
+				StatusLogger.error(
+					`Failed to assign roles to linked Discord user: ${memberError instanceof Error ? memberError.message : String(memberError)}`
+				)
+			}
+		}
+
 		// Send GitHub Sponsors notification
 		if (config.components?.github_sponsors) {
 			const githubSponsorsComponents = components.buildV2Components(
@@ -252,6 +284,13 @@ async function handleGitHubSponsorsEvent(
 
 			if (action) {
 				message = message.replace('{action}', action)
+			}
+
+			// Add information about linked Discord account if found
+			if (linkedAccount) {
+				message += `\n\n*Discord account linked: <@${linkedAccount.discord_user_id}>*`
+			} else {
+				message += `\n\n*No linked Discord account found. Use \`/linkgithub\` to link your GitHub account.*`
 			}
 
 			await githubSponsorsChannel.send(message)

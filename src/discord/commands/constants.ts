@@ -14,6 +14,7 @@ export const PLUGINS = Object.freeze({
 	BIRTHDAY: 'birthday',
 	TEMPVC: 'tempvc',
 	SLOWMODE: 'slowmode',
+	GITHUB: 'github',
 } as const)
 
 /* -------------------------------------------------------------------------- */
@@ -26,6 +27,17 @@ export const DIRECT_ACTIONS = {
 	CLAIM: 'claim_ticket',
 	JOIN: 'join_ticket',
 	CLOSE: 'close_ticket',
+} as const
+
+/* -------------------------------------------------------------------------- */
+/*                             GITHUB ACTIONS                                 */
+/* -------------------------------------------------------------------------- */
+
+export const GITHUB_ACTIONS = {
+	VERIFY: (userId: Discord.User['id']) =>
+		cid(PLUGINS.GITHUB, 'verify', userId),
+	UNLINK: (userId: Discord.User['id']) =>
+		cid(PLUGINS.GITHUB, 'unlink', userId),
 } as const
 
 // Structured actions (with plugin prefix)
@@ -130,3 +142,7 @@ export type Ticketcustom_id =
 	| typeof TICKET_ACTIONS.AUTO_CLOSE.UNIT_SELECT
 	| ReturnType<typeof TICKET_ACTIONS.AUTO_CLOSE.VALUE_SELECT>
 	| typeof TICKET_ACTIONS.AUTO_CLOSE.PRESET_SELECT
+
+export type Githubcustom_id =
+	| ReturnType<typeof GITHUB_ACTIONS.VERIFY>
+	| ReturnType<typeof GITHUB_ACTIONS.UNLINK>

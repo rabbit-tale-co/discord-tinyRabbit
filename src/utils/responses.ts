@@ -90,7 +90,7 @@ export const handleResponse = async <T extends ResponseType>(
 		!followUp
 	) {
 		await interaction.deferReply({
-			ephemeral: shouldBeEphemeral,
+			flags: shouldBeEphemeral ? 1 << 6 : undefined,
 		})
 	}
 
