@@ -469,12 +469,10 @@ export async function updateDiscordMessage(
       
       // If we get a Missing Access error, try to send a new message to the user via DM
       if (errorMessage.includes('Missing Access')) {
-        StatusLogger.info(`[GitHub OAuth] Attempting to send DM to user ${discordUserId} as fallback`);
-        try {
-          await sendSuccessMessage(channelId, discordUserId, githubUser);
-        } catch (dmError) {
-          StatusLogger.error(`[GitHub OAuth] Failed to send DM as fallback: ${dmError instanceof Error ? dmError.message : String(dmError)}`);
-        }
+        StatusLogger.info(`[GitHub OAuth] Missing Access error - this is expected if the bot doesn't have permissions in the channel`);
+        // Don't attempt to send DM as that also fails with Missing Access
+        // Just log the successful connection
+        StatusLogger.info(`[GitHub OAuth] GitHub account ${githubUser.login} successfully connected to Discord user ${discordUserId}`);
       }
       
       // Don't fail the entire process if we can't update the message
