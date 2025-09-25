@@ -175,13 +175,12 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
           StatusLogger.info(`[GitHub Callback] Konto GitHub ${githubUser.login} zostało pomyślnie połączone z kontem Discord ${discordUserId}`);
         }
       } catch (error) {
-        StatusLogger.error(`[GitHub Callback] Błąd aktualizacji wiadomości Discord: ${error instanceof Error ? error.message : String(error)}`);
-        // Try to send a new message if update failed
-        try {
-          StatusLogger.info(`[GitHub Callback] Próba wysłania nowej wiadomości po błędzie dla użytkownika ${discordUserId}`);
-          await sendSuccessMessage(channelId, discordUserId, githubUser);
-        } catch (msgError) {
-          StatusLogger.error(`[GitHub Callback] Błąd wysyłania nowej wiadomości: ${msgError instanceof Error ? msgError.message : String(msgError)}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("Missing Access")) {
+          StatusLogger.info(`[GitHub OAuth] Missing Access error - this is expected if the bot doesn't have permissions in the channel`);
+          StatusLogger.info(`[GitHub OAuth] GitHub account ${githubUser.login} successfully connected to Discord user ${discordUserId}`);
+        } else {
+          StatusLogger.error(`[GitHub Callback] Błąd aktualizacji wiadomości Discord: ${errorMessage}`);
         }
       }
     } else {
