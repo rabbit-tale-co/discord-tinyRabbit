@@ -166,7 +166,7 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     if (messageId && channelId) {
       StatusLogger.info(`[GitHub Callback] Próba aktualizacji wiadomości Discord: channelId=${channelId}, messageId=${messageId}`)
       try {
-        const messageUpdated = await updateDiscordMessage(channelId, messageId, githubUser);
+        const messageUpdated = await updateDiscordMessage(channelId, messageId, githubUser, discordUserId);
         if (messageUpdated) {
           StatusLogger.info(`[GitHub Callback] Wiadomość Discord zaktualizowana pomyślnie dla użytkownika ${discordUserId}`);
         } else {
@@ -392,14 +392,21 @@ export async function findLinkedDiscordAccount(
 export async function updateDiscordMessage(
   channelId: string,
   messageId: string,
-  githubUser: any
+  githubUser: any,
+  discordUserId: string
 ): Promise<boolean> {
   try {
+    // Validate inputs
+    if (!channelId || !messageId) {
+      StatusLogger.warn(`[GitHub OAuth] Cannot update Discord message: Missing channelId (${channelId}) or messageId (${messageId}) for user ${discordUserId}`);
+      return false;
+    }
+
     // Get bot token from environment variables
     const botToken = process.env.BOT_TOKEN;
 
     if (!botToken) {
-      StatusLogger.error('Missing BOT_TOKEN in environment variables');
+      StatusLogger.error('[GitHub OAuth] Missing BOT_TOKEN in environment variables');
       return false;
     }
 
@@ -438,14 +445,14 @@ export async function updateDiscordMessage(
           {
             type: Discord.ComponentType.Button,
             style: Discord.ButtonStyle.Danger,
-            label: 'Rozłącz konto',
+            label: 'Disconnect account',
             custom_id: 'github_disconnect'
           }
         ]
       }
     ];
 
-    // Aktualizuj wiadomość
+    // Update the message
     try {
       await rest.patch(Routes.channelMessage(channelId, messageId), {
         body: {
@@ -454,16 +461,28 @@ export async function updateDiscordMessage(
         }
       });
       
-      StatusLogger.info(`Discord message updated successfully for user ${githubUser.login}`);
+      StatusLogger.info(`[GitHub OAuth] Discord message updated successfully for user ${discordUserId} (GitHub: ${githubUser.login})`);
       return true;
     } catch (error) {
-      StatusLogger.error(`Error updating Discord message: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      StatusLogger.error(`[GitHub OAuth] Error updating Discord message: ${errorMessage}`);
+      
+      // If we get a Missing Access error, try to send a new message to the user via DM
+      if (errorMessage.includes('Missing Access')) {
+        StatusLogger.info(`[GitHub OAuth] Attempting to send DM to user ${discordUserId} as fallback`);
+        try {
+          await sendSuccessMessage(channelId, discordUserId, githubUser);
+        } catch (dmError) {
+          StatusLogger.error(`[GitHub OAuth] Failed to send DM as fallback: ${dmError instanceof Error ? dmError.message : String(dmError)}`);
+        }
+      }
+      
       // Don't fail the entire process if we can't update the message
       // The GitHub account is still connected successfully
       return true;
     }
   } catch (error) {
-    StatusLogger.error(`Error updating Discord message: ${error instanceof Error ? error.message : String(error)}`);
+    StatusLogger.error(`[GitHub OAuth] Error in updateDiscordMessage: ${error instanceof Error ? error.message : String(error)}`);
     return false;
   }
 }
