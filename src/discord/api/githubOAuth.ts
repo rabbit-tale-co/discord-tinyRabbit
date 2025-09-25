@@ -228,11 +228,13 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
 
 /**
  * Exchange authorization code for access token
+ * @param code - Authorization code from GitHub
+ * @returns Access token or null if exchange failed
  */
-export async function exchangeCodeForToken(code: string): Promise<{ access_token: string } | null> {
+export async function exchangeCodeForToken(code: string): Promise<string | null> {
   try {
     const githubClientId = process.env.GITHUB_CLIENT_ID
-    const githubClientSecret = process.env.GITHUB_SECRET_ID
+    const githubClientSecret = process.env.GITHUB_CLIENT_SECRET
 
     if (!githubClientId || !githubClientSecret) {
       StatusLogger.error('[GitHub OAuth] Missing GITHUB_CLIENT_ID or GITHUB_SECRET_ID in environment variables')
@@ -272,9 +274,9 @@ export async function exchangeCodeForToken(code: string): Promise<{ access_token
     }
 
     StatusLogger.info(`[GitHub OAuth] Successfully obtained access token`)
-    return data
+    return data.access_token
   } catch (error) {
-    StatusLogger.error(`Error exchanging code for token: ${error instanceof Error ? error.message : String(error)}`)
+    StatusLogger.error(`[GitHub OAuth] Error exchanging code for token: ${error instanceof Error ? error.message : String(error)}`)
     return null
   }
 }

@@ -2,9 +2,10 @@ import * as Discord from 'discord.js';
 import { Routes } from 'discord.js';
 import { StatusLogger } from '@/utils/bunnyLogger.js';
 import { setCorsHeaders } from '@/utils/cors.js';
+import { emitGitHubConnectionSuccess } from '../events/githubEvents.js';
 
 /**
- * Wysyła powiadomienie do użytkownika Discord po pomyślnym połączeniu konta GitHub
+ * Sends a notification to Discord user after GitHub account connection
  */
 export async function sendGitHubConnectionNotification(
   channelId: string,
@@ -13,26 +14,26 @@ export async function sendGitHubConnectionNotification(
   success: boolean
 ): Promise<boolean> {
   try {
-    // Pobierz token bota ze zmiennych środowiskowych
+    // Get bot token from environment variables
     const botToken = process.env.BOT_TOKEN;
 
     if (!botToken) {
-      StatusLogger.error('[GitHub Notification] Brak BOT_TOKEN w zmiennych środowiskowych');
+      StatusLogger.error('[GitHub Notification] Missing BOT_TOKEN in environment variables');
       return false;
     }
 
-    // Utwórz klienta REST API Discord
+    // Create Discord REST API client
     const rest = new Discord.REST({ version: '10' }).setToken(botToken);
 
-    // Przygotuj treść wiadomości
+    // Prepare message content
     let content = '';
     if (success) {
-      content = `✅ Konto GitHub **${githubUsername}** zostało pomyślnie połączone z Twoim kontem Discord!`;
+      content = `✅ GitHub account **${githubUsername}** has been successfully connected to your Discord account!`;
     } else {
-      content = `❌ Wystąpił błąd podczas próby połączenia konta GitHub **${githubUsername}** z Twoim kontem Discord.`;
+      content = `❌ An error occurred while trying to connect GitHub account **${githubUsername}** to your Discord account.`;
     }
 
-    // Wyślij wiadomość do kanału
+    // Send message to channel
     await rest.post(Routes.channelMessages(channelId), {
       body: {
         content,
@@ -40,46 +41,54 @@ export async function sendGitHubConnectionNotification(
       }
     });
 
-    StatusLogger.info(`[GitHub Notification] Wysłano powiadomienie o ${success ? 'pomyślnym' : 'nieudanym'} połączeniu konta GitHub dla użytkownika ${discordUserId}`);
+    StatusLogger.info(`[GitHub Notification] Sent notification about ${success ? 'successful' : 'failed'} GitHub account connection for user ${discordUserId}`);
     return true;
   } catch (error) {
-    StatusLogger.error(`[GitHub Notification] Błąd wysyłania powiadomienia: ${error instanceof Error ? error.message : String(error)}`);
+    StatusLogger.error(`[GitHub Notification] Error sending notification: ${error instanceof Error ? error.message : String(error)}`);
     return false;
   }
 }
 
 /**
- * Handler dla endpointu powiadomień GitHub
+ * Handler for GitHub notification endpoint
  */
 export async function handleGitHubNotification(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
     const params = url.searchParams;
     
-    // Pobierz parametry z URL
+    // Get parameters from URL
     const channelId = params.get('channelId');
     const discordUserId = params.get('userId');
     const githubUsername = params.get('githubUsername');
     const success = params.get('success') === 'true';
     
-    // Sprawdź, czy wszystkie wymagane parametry są dostępne
+    // Check if all required parameters are available
     if (!channelId || !discordUserId || !githubUsername) {
-      StatusLogger.error(`[GitHub Notification] Brakujące parametry: channelId=${channelId}, userId=${discordUserId}, githubUsername=${githubUsername}`);
+      StatusLogger.error(`[GitHub Notification] Missing parameters: channelId=${channelId}, userId=${discordUserId}, githubUsername=${githubUsername}`);
       return new Response('Missing required parameters', {
         status: 400,
         headers: setCorsHeaders()
       });
     }
     
-    // Wyślij powiadomienie
-    await sendGitHubConnectionNotification(channelId, discordUserId, githubUsername, success);
+    StatusLogger.info(`[GitHub Notification] Received notification: channelId=${channelId}, userId=${discordUserId}, githubUsername=${githubUsername}, success=${success}`);
     
-    return new Response('Notification sent', {
+    // Emit event instead of sending message directly
+    if (success) {
+      emitGitHubConnectionSuccess(channelId, discordUserId, githubUsername);
+      StatusLogger.info(`[GitHub Notification] Emitted connection success event for user ${discordUserId}`);
+    } else {
+      // Send failure notification directly
+      await sendGitHubConnectionNotification(channelId, discordUserId, githubUsername, false);
+    }
+    
+    return new Response('Notification processed', {
       status: 200,
       headers: setCorsHeaders()
     });
   } catch (error) {
-    StatusLogger.error(`[GitHub Notification] Błąd w handleGitHubNotification: ${error instanceof Error ? error.message : String(error)}`);
+    StatusLogger.error(`[GitHub Notification] Error in handleGitHubNotification: ${error instanceof Error ? error.message : String(error)}`);
     return new Response('Internal Server Error', {
       status: 500,
       headers: setCorsHeaders()
