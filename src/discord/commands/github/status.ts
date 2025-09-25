@@ -41,7 +41,7 @@ export async function githubStatus(
       const stateData = {
         userId: discordUserId,
         botId,
-        messageId: interaction.id,
+        messageId: null, // Will be updated after we get the reply message ID
         channelId: interaction.channelId
       }
       APILogger.info(`State data: ${JSON.stringify(stateData)}`)
@@ -79,10 +79,14 @@ export async function githubStatus(
         }
       ]
 
-      await interaction.editReply({
+      const reply = await interaction.editReply({
         components,
         flags: Discord.MessageFlags.IsComponentsV2
       })
+      
+      // Now that we have the actual message ID, store it for future reference
+      // This will help with debugging but won't affect the current flow
+      StatusLogger.info(`GitHub login message ID: ${reply.id}`)
       return
     }
 

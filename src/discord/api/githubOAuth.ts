@@ -74,8 +74,11 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
+    
+    StatusLogger.info(`[GitHub Callback] Otrzymano żądanie z parametrami: code=${code?.substring(0, 5)}..., state=${state?.substring(0, 10)}...`)
 
     if (!code || !state) {
+      StatusLogger.error(`[GitHub Callback] Brakujące parametry: code=${!!code}, state=${!!state}`)
       return new Response('Missing parameters: code or state', {
         status: 400,
         headers: setCorsHeaders()
@@ -119,24 +122,31 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     }
 
     // Exchange code for access token
+    StatusLogger.info(`[GitHub Callback] Wymiana kodu na token dostępu dla użytkownika ${discordUserId}`)
     const tokenResponse = await exchangeCodeForToken(code)
     if (!tokenResponse) {
+      StatusLogger.error(`[GitHub Callback] Nie udało się uzyskać tokenu dostępu dla użytkownika ${discordUserId}`)
       return new Response('Failed to obtain access token', {
         status: 500,
         headers: setCorsHeaders()
       })
     }
+    StatusLogger.info(`[GitHub Callback] Pomyślnie uzyskano token dostępu dla użytkownika ${discordUserId}`)
 
     // Get GitHub user data
+    StatusLogger.info(`[GitHub Callback] Pobieranie danych użytkownika GitHub dla ${discordUserId}`)
     const githubUser = await fetchGitHubUser(tokenResponse.access_token)
     if (!githubUser) {
+      StatusLogger.error(`[GitHub Callback] Nie udało się pobrać danych użytkownika GitHub dla ${discordUserId}`)
       return new Response('Failed to fetch GitHub user data', {
         status: 500,
         headers: setCorsHeaders()
       })
     }
+    StatusLogger.info(`[GitHub Callback] Pomyślnie pobrano dane użytkownika GitHub: ${githubUser.login} dla użytkownika Discord ${discordUserId}`)
 
     // Save Discord to GitHub account link
+    StatusLogger.info(`[GitHub Callback] Zapisywanie połączenia Discord-GitHub dla użytkownika ${discordUserId} z kontem GitHub ${githubUser.login}`)
     const saveResult = await createOrUpdateGitHubLink(
       botId,
       discordUserId,
@@ -144,33 +154,39 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     )
 
     if (!saveResult) {
-      StatusLogger.error(`Failed to save GitHub link for user ${discordUserId}`)
+      StatusLogger.error(`[GitHub Callback] Nie udało się zapisać połączenia GitHub dla użytkownika ${discordUserId}`)
       return new Response('Failed to save GitHub account link', {
         status: 500,
         headers: setCorsHeaders()
       })
     }
+    StatusLogger.info(`[GitHub Callback] Pomyślnie zapisano połączenie GitHub dla użytkownika ${discordUserId}`)
 
     // Update Discord message if messageId and channelId are provided
     if (messageId && channelId) {
+      StatusLogger.info(`[GitHub Callback] Próba aktualizacji wiadomości Discord: channelId=${channelId}, messageId=${messageId}`)
       try {
         const messageUpdated = await updateDiscordMessage(channelId, messageId, githubUser);
         if (messageUpdated) {
-          StatusLogger.info(`Discord message updated successfully for user ${discordUserId}`);
+          StatusLogger.info(`[GitHub Callback] Wiadomość Discord zaktualizowana pomyślnie dla użytkownika ${discordUserId}`);
         } else {
-          StatusLogger.warn(`Discord message update returned false for user ${discordUserId}`);
+          StatusLogger.warn(`[GitHub Callback] Aktualizacja wiadomości Discord zwróciła false dla użytkownika ${discordUserId}`);
           // Try to send a new message if update failed
+          StatusLogger.info(`[GitHub Callback] Próba wysłania nowej wiadomości dla użytkownika ${discordUserId}`);
           await sendSuccessMessage(channelId, discordUserId, githubUser);
         }
       } catch (error) {
-        StatusLogger.error(`Failed to update Discord message: ${error instanceof Error ? error.message : String(error)}`);
+        StatusLogger.error(`[GitHub Callback] Błąd aktualizacji wiadomości Discord: ${error instanceof Error ? error.message : String(error)}`);
         // Try to send a new message if update failed
         try {
+          StatusLogger.info(`[GitHub Callback] Próba wysłania nowej wiadomości po błędzie dla użytkownika ${discordUserId}`);
           await sendSuccessMessage(channelId, discordUserId, githubUser);
         } catch (msgError) {
-          StatusLogger.error(`Failed to send success message: ${msgError instanceof Error ? msgError.message : String(msgError)}`);
+          StatusLogger.error(`[GitHub Callback] Błąd wysyłania nowej wiadomości: ${msgError instanceof Error ? msgError.message : String(msgError)}`);
         }
       }
+    } else {
+      StatusLogger.warn(`[GitHub Callback] Brak messageId lub channelId, nie można zaktualizować wiadomości Discord: messageId=${messageId}, channelId=${channelId}`);
     }
 
     // Return minimal HTML page that immediately closes itself
@@ -216,13 +232,15 @@ export async function exchangeCodeForToken(code: string): Promise<{ access_token
     const githubClientSecret = process.env.GITHUB_SECRET_ID
 
     if (!githubClientId || !githubClientSecret) {
-      StatusLogger.error('Missing GITHUB_CLIENT_ID or GITHUB_SECRET_ID in environment variables')
+      StatusLogger.error('[GitHub OAuth] Brak GITHUB_CLIENT_ID lub GITHUB_SECRET_ID w zmiennych środowiskowych')
       return null
     }
 
     const tokenUrl = 'https://github.com/login/oauth/access_token'
     const redirectUri = `${process.env.API_BASE_URL}/github/v1/callback`
-
+    
+    StatusLogger.info(`[GitHub OAuth] Wysyłanie żądania o token do ${tokenUrl}`)
+    
     const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
@@ -238,18 +256,19 @@ export async function exchangeCodeForToken(code: string): Promise<{ access_token
     })
 
     if (!response.ok) {
-      StatusLogger.error(`Failed to exchange code for token: ${response.status} ${response.statusText}`)
+      StatusLogger.error(`[GitHub OAuth] Błąd wymiany kodu na token: ${response.status} ${response.statusText}`)
       const responseText = await response.text()
-      StatusLogger.error(`Response content: ${responseText}`)
+      StatusLogger.error(`[GitHub OAuth] Zawartość odpowiedzi: ${responseText}`)
       return null
     }
 
     const data = await response.json()
     if (!data.access_token) {
-      StatusLogger.error(`No access token in response: ${JSON.stringify(data)}`)
+      StatusLogger.error(`[GitHub OAuth] Brak tokenu dostępu w odpowiedzi: ${JSON.stringify(data)}`)
       return null
     }
-
+    
+    StatusLogger.info(`[GitHub OAuth] Pomyślnie uzyskano token dostępu`)
     return data
   } catch (error) {
     StatusLogger.error(`Error exchanging code for token: ${error instanceof Error ? error.message : String(error)}`)
@@ -262,6 +281,7 @@ export async function exchangeCodeForToken(code: string): Promise<{ access_token
  */
 export async function fetchGitHubUser(accessToken: string): Promise<{ login: string } | null> {
   try {
+    StatusLogger.info(`[GitHub OAuth] Pobieranie danych użytkownika GitHub`)
     const response = await fetch('https://api.github.com/user', {
       headers: {
         'Authorization': `token ${accessToken}`,
@@ -270,14 +290,15 @@ export async function fetchGitHubUser(accessToken: string): Promise<{ login: str
     })
 
     if (!response.ok) {
-      StatusLogger.error(`Failed to fetch GitHub user: ${response.status} ${response.statusText}`)
+      StatusLogger.error(`[GitHub OAuth] Błąd pobierania danych użytkownika GitHub: ${response.status} ${response.statusText}`)
       return null
     }
 
     const data = await response.json()
+    StatusLogger.info(`[GitHub OAuth] Pomyślnie pobrano dane użytkownika GitHub: ${data.login}`)
     return data
   } catch (error) {
-    StatusLogger.error(`Error fetching GitHub user: ${error instanceof Error ? error.message : String(error)}`)
+    StatusLogger.error(`[GitHub OAuth] Błąd podczas pobierania danych użytkownika GitHub: ${error instanceof Error ? error.message : String(error)}`)
     return null
   }
 }
@@ -291,7 +312,7 @@ export async function createOrUpdateGitHubLink(
   githubUsername: string
 ): Promise<boolean> {
   try {
-    StatusLogger.info(`Creating/updating GitHub link for Discord user ${discordUserId} with GitHub username ${githubUsername}`)
+    StatusLogger.info(`[GitHub OAuth] Tworzenie/aktualizacja połączenia GitHub dla użytkownika Discord ${discordUserId} z kontem GitHub ${githubUsername}`)
 
     // Check if link already exists
     const existingLinks = await db.select()
@@ -305,7 +326,7 @@ export async function createOrUpdateGitHubLink(
 
     if (existingLinks.length > 0) {
       // Update existing link
-      StatusLogger.info(`Updating existing GitHub link for Discord user ${discordUserId}`)
+      StatusLogger.info(`[GitHub OAuth] Aktualizacja istniejącego połączenia GitHub dla użytkownika Discord ${discordUserId}`)
       await db.update(githubDiscordLinks)
         .set({
           github_username: githubUsername,
@@ -319,7 +340,7 @@ export async function createOrUpdateGitHubLink(
         )
     } else {
       // Create new link
-      StatusLogger.info(`Creating new GitHub link for Discord user ${discordUserId}`)
+      StatusLogger.info(`[GitHub OAuth] Tworzenie nowego połączenia GitHub dla użytkownika Discord ${discordUserId}`)
       await db.insert(githubDiscordLinks)
         .values({
           bot_id: botId,
@@ -332,7 +353,7 @@ export async function createOrUpdateGitHubLink(
 
     return true
   } catch (error) {
-    StatusLogger.error(`Error creating/updating GitHub link: ${error instanceof Error ? error.message : String(error)}`)
+    StatusLogger.error(`[GitHub OAuth] Error creating/updating GitHub link: ${error instanceof Error ? error.message : String(error)}`)
     return false
   }
 }
