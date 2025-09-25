@@ -228,11 +228,12 @@ const commandMap: Record<string, commandStructure> = {
 			send_panel: sendPanel,
 		},
 	},
-	linkgithub: {
-		handler: commands.social.github,
-	},
 	github: {
-		handler: commands.social.github,
+		subcommands: {
+			connect: commands.github.connect,
+			status: commands.github.githubStatus,
+			disconnect: commands.github.disconnect,
+		},
 	},
 }
 

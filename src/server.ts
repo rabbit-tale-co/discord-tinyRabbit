@@ -274,7 +274,6 @@ client.once('ready', async (c) => {
 	setInterval(
 		async () => {
 			try {
-				StatusLogger.info('Periodically updating global bot stats...')
 				const base = await API.fetchAllStats(c.user.id, c)
 				const liveServers = c.guilds.cache.size
 				const liveUsers = c.guilds.cache.reduce(
@@ -295,8 +294,6 @@ client.once('ready', async (c) => {
 						'Error during periodic upsert of bot stats',
 						upsertError
 					)
-				} else {
-					StatusLogger.success('Global bot stats updated periodically.')
 				}
 			} catch (statsError) {
 				StatusLogger.error(

@@ -867,6 +867,16 @@ const commands = [
             type: 1, // SUB_COMMAND
             name: 'connect',
             description: 'Connect your account'
+        },
+        {
+            type: 1, // SUB_COMMAND
+            name: 'status',
+            description: 'Check your GitHub connection status'
+        },
+        {
+            type: 1, // SUB_COMMAND
+            name: 'disconnect',
+            description: 'Disconnect your GitHub account'
         }
     ],
     name_localizations: {

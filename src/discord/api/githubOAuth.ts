@@ -1,48 +1,47 @@
 import { StatusLogger } from '@/utils/bunnyLogger.js'
-import { setCorsHeaders } from '@/utils/cors.js'
 import { db } from '@/db/index.js'
 import { githubDiscordLinks } from '@/db/schema.js'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
+import { REST } from '@discordjs/rest'
+import { Routes } from 'discord-api-types/v10'
+import * as Discord from 'discord.js'
 
-// Interfaces for OAuth responses
-interface GitHubOAuthTokenResponse {
-  access_token: string
-  token_type: string
-  scope: string
-}
-
-interface GitHubUserResponse {
-  login: string
-  id: number
-  name: string
-  email: string
+/**
+ * Set CORS headers for API responses
+ */
+function setCorsHeaders(additionalHeaders = {}) {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    ...additionalHeaders
+  }
 }
 
 /**
- * Handle GitHub OAuth authorization request
- * Redirects the user to GitHub login page
+ * Handle GitHub OAuth
+ * Redirects user to GitHub authorization page
  */
 export async function handleGitHubOAuth(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url)
-    const discordUserId = url.searchParams.get('discord_user_id')
-    const botId = url.searchParams.get('bot_id')
+    const userId = url.searchParams.get('userId')
+    const botId = url.searchParams.get('botId')
 
-    if (!discordUserId || !botId) {
-      return new Response('Missing parameters: discord_user_id or bot_id', {
+    if (!userId || !botId) {
+      return new Response('Missing parameters: userId or botId', {
         status: 400,
         headers: setCorsHeaders()
       })
     }
 
-    // Save session state for verification in callback
-    const state = Buffer.from(JSON.stringify({ discordUserId, botId })).toString('base64')
+    // Create session state
+    const state = Buffer.from(JSON.stringify({ userId, botId })).toString('base64')
 
-    // Create GitHub authorization URL
+    // Get GitHub client ID from environment variables
     const githubClientId = process.env.GITHUB_CLIENT_ID
     if (!githubClientId) {
-      StatusLogger.error('Missing GITHUB_CLIENT_ID in environment variables')
-      return new Response('Server configuration error', {
+      return new Response('Missing GITHUB_CLIENT_ID in environment variables', {
         status: 500,
         headers: setCorsHeaders()
       })
@@ -84,11 +83,36 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     }
 
     // Decode session state
-    let stateData: { discordUserId: string, botId: string }
+    let stateData: { 
+      userId?: string, 
+      discordUserId?: string, 
+      botId: string,
+      messageId?: string,
+      channelId?: string
+    }
+    
     try {
-      stateData = JSON.parse(Buffer.from(state, 'base64').toString())
+      const decodedState = Buffer.from(state, 'base64').toString()
+      StatusLogger.info(`Decoded state: ${decodedState}`)
+      stateData = JSON.parse(decodedState)
+      StatusLogger.info(`Parsed state data: ${JSON.stringify(stateData)}`)
     } catch (error) {
+      StatusLogger.error(`Error decoding state: ${error instanceof Error ? error.message : String(error)}`)
       return new Response('Invalid state format', {
+        status: 400,
+        headers: setCorsHeaders()
+      })
+    }
+
+    // Handle different state formats
+    const discordUserId = stateData.discordUserId || stateData.userId;
+    const botId = stateData.botId;
+    const messageId = stateData.messageId;
+    const channelId = stateData.channelId;
+
+    if (!discordUserId || !botId) {
+      StatusLogger.error(`Missing user ID or bot ID in state data: ${JSON.stringify(stateData)}`)
+      return new Response('Invalid state data: missing user ID or bot ID', {
         status: 400,
         headers: setCorsHeaders()
       })
@@ -113,11 +137,30 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     }
 
     // Save Discord to GitHub account link
-    await createOrUpdateGitHubLink(
-      stateData.botId,
-      stateData.discordUserId,
+    const saveResult = await createOrUpdateGitHubLink(
+      botId,
+      discordUserId,
       githubUser.login
     )
+    
+    if (!saveResult) {
+      StatusLogger.error(`Failed to save GitHub link for user ${discordUserId}`)
+      return new Response('Failed to save GitHub account link', {
+        status: 500,
+        headers: setCorsHeaders()
+      })
+    }
+
+    // Aktualizuj wiadomość Discord, jeśli podano messageId i channelId
+    if (messageId && channelId) {
+      try {
+        await updateDiscordMessage(botId, channelId, messageId, discordUserId, githubUser);
+        StatusLogger.info(`Discord message updated successfully for user ${discordUserId}`);
+      } catch (error) {
+        StatusLogger.error(`Failed to update Discord message: ${error instanceof Error ? error.message : String(error)}`);
+        // Kontynuuj mimo błędu aktualizacji wiadomości
+      }
+    }
 
     // Return simple success message
     return new Response('GitHub account connected successfully. You can now close this window and return to Discord.', {
@@ -134,43 +177,49 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
 }
 
 /**
- * Exchanges authorization code for an access token
+ * Exchange authorization code for access token
  */
-async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenResponse | null> {
+export async function exchangeCodeForToken(code: string): Promise<{ access_token: string } | null> {
   try {
-    const clientId = process.env.GITHUB_CLIENT_ID
-    const clientSecret = process.env.GITHUB_SECRET_ID // Using GITHUB_SECRET_ID from .env
+    const githubClientId = process.env.GITHUB_CLIENT_ID
+    const githubClientSecret = process.env.GITHUB_SECRET_ID
 
-    if (!clientId || !clientSecret) {
+    if (!githubClientId || !githubClientSecret) {
       StatusLogger.error('Missing GITHUB_CLIENT_ID or GITHUB_SECRET_ID in environment variables')
       return null
     }
 
-    StatusLogger.info(`Exchanging code for token with client ID: ${clientId}`)
-    
-    const response = await fetch('https://github.com/login/oauth/access_token', {
+    const tokenUrl = 'https://github.com/login/oauth/access_token'
+    const redirectUri = `${process.env.API_BASE_URL}/github/v1/callback`
+
+    const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
       body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code: code,
-        redirect_uri: `${process.env.API_BASE_URL}/github/v1/callback`
+        client_id: githubClientId,
+        client_secret: githubClientSecret,
+        code,
+        redirect_uri: redirectUri
       })
     })
 
     if (!response.ok) {
-      const responseText = await response.text();
-      StatusLogger.error(`GitHub API error: ${response.status} ${response.statusText} - ${responseText}`)
+      StatusLogger.error(`Failed to exchange code for token: ${response.status} ${response.statusText}`)
+      const responseText = await response.text()
+      StatusLogger.error(`Response content: ${responseText}`)
       return null
     }
 
-    const data = await response.json();
-    StatusLogger.info('Successfully obtained GitHub access token');
-    return data;
+    const data = await response.json()
+    if (!data.access_token) {
+      StatusLogger.error(`No access token in response: ${JSON.stringify(data)}`)
+      return null
+    }
+
+    return data
   } catch (error) {
     StatusLogger.error(`Error exchanging code for token: ${error instanceof Error ? error.message : String(error)}`)
     return null
@@ -178,31 +227,32 @@ async function exchangeCodeForToken(code: string): Promise<GitHubOAuthTokenRespo
 }
 
 /**
- * Pobiera dane użytkownika GitHub za pomocą tokenu dostępu
+ * Fetch GitHub user data using access token
  */
-async function fetchGitHubUser(accessToken: string): Promise<GitHubUserResponse | null> {
+export async function fetchGitHubUser(accessToken: string): Promise<{ login: string } | null> {
   try {
     const response = await fetch('https://api.github.com/user', {
       headers: {
         'Authorization': `token ${accessToken}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'User-Agent': 'Discord-Bot'
       }
     })
 
     if (!response.ok) {
-      StatusLogger.error(`GitHub API error: ${response.status} ${response.statusText}`)
+      StatusLogger.error(`Failed to fetch GitHub user: ${response.status} ${response.statusText}`)
       return null
     }
 
-    return await response.json()
+    const data = await response.json()
+    return data
   } catch (error) {
-    StatusLogger.error(`Błąd podczas pobierania danych użytkownika GitHub: ${error instanceof Error ? error.message : String(error)}`)
+    StatusLogger.error(`Error fetching GitHub user: ${error instanceof Error ? error.message : String(error)}`)
     return null
   }
 }
 
 /**
- * Tworzy lub aktualizuje powiązanie konta Discord z GitHub
+ * Create or update GitHub link in database
  */
 export async function createOrUpdateGitHubLink(
   botId: string,
@@ -210,58 +260,152 @@ export async function createOrUpdateGitHubLink(
   githubUsername: string
 ): Promise<boolean> {
   try {
-    // Sprawdź, czy powiązanie już istnieje
+    StatusLogger.info(`Creating/updating GitHub link for Discord user ${discordUserId} with GitHub username ${githubUsername}`)
+
+    // Check if link already exists
     const existingLinks = await db.select()
       .from(githubDiscordLinks)
       .where(
-        eq(githubDiscordLinks.discord_user_id, discordUserId)
+        and(
+          eq(githubDiscordLinks.discord_user_id, discordUserId),
+          eq(githubDiscordLinks.bot_id, botId)
+        )
       )
 
     if (existingLinks.length > 0) {
-      // Aktualizuj istniejące powiązanie
+      // Update existing link
+      StatusLogger.info(`Updating existing GitHub link for Discord user ${discordUserId}`)
       await db.update(githubDiscordLinks)
         .set({
           github_username: githubUsername,
           updated_at: new Date()
         })
         .where(
-          eq(githubDiscordLinks.discord_user_id, discordUserId)
+          and(
+            eq(githubDiscordLinks.discord_user_id, discordUserId),
+            eq(githubDiscordLinks.bot_id, botId)
+          )
         )
     } else {
-      // Utwórz nowe powiązanie
+      // Create new link
+      StatusLogger.info(`Creating new GitHub link for Discord user ${discordUserId}`)
       await db.insert(githubDiscordLinks)
         .values({
           bot_id: botId,
           discord_user_id: discordUserId,
-          github_username: githubUsername
+          github_username: githubUsername,
+          created_at: new Date(),
+          updated_at: new Date()
         })
     }
 
     return true
   } catch (error) {
-    StatusLogger.error(`Błąd podczas zapisywania powiązania GitHub: ${error instanceof Error ? error.message : String(error)}`)
+    StatusLogger.error(`Error creating/updating GitHub link: ${error instanceof Error ? error.message : String(error)}`)
     return false
   }
 }
 
 /**
- * Znajduje powiązane konto Discord dla nazwy użytkownika GitHub
+ * Find linked Discord account for GitHub username
  */
-export async function findLinkedDiscordAccount(githubUsername: string): Promise<string | null> {
+export async function findLinkedDiscordAccount(
+  botId: string,
+  githubUsername: string
+): Promise<string | null> {
   try {
     const links = await db.select()
       .from(githubDiscordLinks)
       .where(
-        eq(githubDiscordLinks.github_username, githubUsername)
+        and(
+          eq(githubDiscordLinks.github_username, githubUsername),
+          eq(githubDiscordLinks.bot_id, botId)
+        )
       )
 
-    if (links.length > 0) {
-      return links[0].discord_user_id
+    if (links.length === 0) {
+      return null
     }
 
-    return null
+    return links[0].discord_user_id
   } catch (error) {
-    StatusLogger.error(`Błąd podczas wyszukiwania powiązanego konta Discord: ${error instanceof Error ? error.message : String(error)}`)
+    StatusLogger.error(`Error finding linked Discord account: ${error instanceof Error ? error.message : String(error)}`)
     return null
+  }
+}
+
+/**
+ * Aktualizuje wiadomość Discord po pomyślnym połączeniu konta GitHub
+ */
+export async function updateDiscordMessage(
+  botId: string,
+  channelId: string,
+  messageId: string,
+  discordUserId: string,
+  githubUser: any
+): Promise<boolean> {
+  try {
+    // Pobierz token bota z bazy danych lub zmiennych środowiskowych
+    const botToken = process.env.DISCORD_BOT_TOKEN;
+    
+    if (!botToken) {
+      StatusLogger.error('Missing DISCORD_BOT_TOKEN in environment variables');
+      return false;
+    }
+    
+    // Utwórz klienta REST API Discord
+    const rest = new REST({ version: '10' }).setToken(botToken);
+    
+    // Przygotuj komponenty wiadomości
+    const components = [
+      {
+        type: Discord.ComponentType.Section,
+        components: [
+          {
+            type: Discord.ComponentType.TextDisplay,
+            content: '## Status połączenia z GitHub'
+          },
+          {
+            type: Discord.ComponentType.TextDisplay,
+            content: `✅ **Połączono z kontem GitHub**\n\n**Nazwa użytkownika**: ${githubUser.login}\n**Imię**: ${githubUser.name || 'Nie podano'}\n**Profil**: [${githubUser.login}](${githubUser.html_url})`
+          }
+        ],
+        accessory: {
+          type: Discord.ComponentType.Thumbnail,
+          media: {
+            url: githubUser.avatar_url
+          }
+        }
+      },
+      {
+        type: Discord.ComponentType.Separator,
+        divider: true,
+        spacing: Discord.SeparatorSpacingSize.Large
+      },
+      {
+        type: Discord.ComponentType.ActionRow,
+        components: [
+          {
+            type: Discord.ComponentType.Button,
+            style: Discord.ButtonStyle.Danger,
+            label: 'Rozłącz konto',
+            custom_id: 'github_disconnect'
+          }
+        ]
+      }
+    ];
+    
+    // Aktualizuj wiadomość
+    await rest.patch(Routes.channelMessage(channelId, messageId), {
+      body: {
+        components,
+        flags: Discord.MessageFlags.IsComponentsV2
+      }
+    });
+    
+    return true;
+  } catch (error) {
+    StatusLogger.error(`Error updating Discord message: ${error instanceof Error ? error.message : String(error)}`);
+    return false;
   }
 }
