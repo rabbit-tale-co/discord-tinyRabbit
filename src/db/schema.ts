@@ -362,6 +362,23 @@ export const githubDiscordLinks = pgTable(
 	})
 )
 
+export const githubOAuthMessages = pgTable(
+	'github_oauth_messages',
+	{
+		id: serial('id').primaryKey(),
+		bot_id: text('bot_id').notNull(),
+		discord_user_id: text('discord_user_id').notNull(),
+		channel_id: text('channel_id').notNull(),
+		message_id: text('message_id').notNull(),
+		status: text('status', { enum: ['PENDING', 'SUCCESS', 'FAILURE'] }).notNull().default('PENDING'),
+		created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+		updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+	},
+	(table) => ({
+		unq: unique().on(table.bot_id, table.discord_user_id, table.message_id),
+	})
+)
+
 export type Starboards = InferSelectModel<typeof starboards>
 export type TempVoiceChannels = InferSelectModel<typeof tempVoiceChannels>
 export type Tickets = InferSelectModel<typeof tickets>
@@ -369,5 +386,6 @@ export type TrialServers = InferSelectModel<typeof trialServers>
 export type UserBalances = InferSelectModel<typeof userBalances>
 export type UserBdays = InferSelectModel<typeof userBdays>
 export type GithubDiscordLinks = InferSelectModel<typeof githubDiscordLinks>
+export type GithubOAuthMessages = InferSelectModel<typeof githubOAuthMessages>
 export type UserLevels = InferSelectModel<typeof userLevels>
 export type VerificationTokens = InferSelectModel<typeof verificationTokens>
