@@ -5,6 +5,8 @@ import { eq, and } from 'drizzle-orm'
 import { REST } from '@discordjs/rest'
 import { Routes } from 'discord-api-types/v10'
 import * as Discord from 'discord.js'
+import { createGitHubOAuthMessage, updateGitHubOAuthMessageStatus } from '@/db/queries'
+import { githubEvents, GitHubEventType } from '@/discord/events/githubEvents'
 
 /**
  * Set CORS headers for API responses
@@ -166,26 +168,27 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
     if (messageId && channelId) {
       StatusLogger.info(`[GitHub Callback] Attempting to update Discord message: channelId=${channelId}, messageId=${messageId}`)
       try {
-        const messageUpdated = await updateDiscordMessage(channelId, messageId, githubUser, discordUserId);
-        if (messageUpdated) {
-          StatusLogger.info(`[GitHub Callback] Discord message successfully updated for user ${discordUserId}`);
-        } else {
-          StatusLogger.warn(`[GitHub Callback] Discord message update failed for user ${discordUserId}`);
-          // Call notification endpoint
-          const notifyUrl = `${process.env.API_BASE_URL || 'https://api.rabbittale.co'}/github/v1/notify?channelId=${channelId}&userId=${discordUserId}&githubUsername=${encodeURIComponent(githubUser.login)}&success=true`;
-          StatusLogger.info(`[GitHub Callback] Calling notification endpoint: ${notifyUrl}`);
-          fetch(notifyUrl).catch(err => {
-            StatusLogger.error(`[GitHub Callback] Error calling notification endpoint: ${err instanceof Error ? err.message : String(err)}`);
-          });
-          StatusLogger.info(`[GitHub Callback] GitHub account ${githubUser.login} has been successfully connected to Discord account ${discordUserId}`);
-        }
+        // Store message info in database
+        await createGitHubOAuthMessage(botId, discordUserId, channelId, messageId);
+        
+        // Emit success event instead of directly updating message
+        githubEvents.emit(GitHubEventType.CONNECTION_SUCCESS, {
+          userId: discordUserId,
+          channelId: channelId,
+          messageId: messageId,
+          githubUsername: githubUser.login
+        });
+        
+        StatusLogger.info(`[GitHub Callback] GitHub connection success event emitted for user ${discordUserId}`);
       } catch (error) {
-        StatusLogger.error(`[GitHub Callback] Error updating Discord message: ${error instanceof Error ? error.message : String(error)}`);
-        // Call notification endpoint in case of error
-        const notifyUrl = `${process.env.API_BASE_URL || 'https://api.rabbittale.co'}/github/v1/notify?channelId=${channelId}&userId=${discordUserId}&githubUsername=${encodeURIComponent(githubUser.login)}&success=true`;
-        StatusLogger.info(`[GitHub Callback] Calling notification endpoint after error: ${notifyUrl}`);
-        fetch(notifyUrl).catch(err => {
-          StatusLogger.error(`[GitHub Callback] Error calling notification endpoint: ${err instanceof Error ? err.message : String(err)}`);
+        StatusLogger.error(`[GitHub Callback] Error handling GitHub connection: ${error instanceof Error ? error.message : String(error)}`);
+        
+        // Emit failure event
+        githubEvents.emit(GitHubEventType.CONNECTION_FAILURE, {
+          userId: discordUserId,
+          channelId: channelId,
+          messageId: messageId,
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     } else {

@@ -15,6 +15,8 @@ import {
 	tickets,
 	userBalances,
 	userLevels,
+	githubOAuthMessages,
+	type GithubOAuthMessages,
 } from './schema.js'
 
 // Bot Statistics Functions
@@ -359,5 +361,86 @@ export async function updateUserBalance(
 	} catch (error) {
 		console.error('Failed to update user balance:', error)
 		throw new Error('Failed to update user balance')
+	}
+}
+
+// GitHub OAuth Message Functions
+export async function createGitHubOAuthMessage(
+	botId: string,
+	discordUserId: string,
+	channelId: string,
+	messageId: string
+): Promise<GithubOAuthMessages> {
+	try {
+		const [message] = await db
+			.insert(githubOAuthMessages)
+			.values({
+				bot_id: botId,
+				discord_user_id: discordUserId,
+				channel_id: channelId,
+				message_id: messageId,
+				status: 'PENDING',
+				created_at: new Date(),
+				updated_at: new Date(),
+			})
+			.returning()
+
+		return message
+	} catch (error) {
+		console.error('Failed to create GitHub OAuth message:', error)
+		throw new Error('Failed to create GitHub OAuth message')
+	}
+}
+
+export async function updateGitHubOAuthMessageStatus(
+	botId: string,
+	discordUserId: string,
+	messageId: string,
+	status: 'SUCCESS' | 'FAILURE'
+): Promise<GithubOAuthMessages | null> {
+	try {
+		const [message] = await db
+			.update(githubOAuthMessages)
+			.set({
+				status,
+				updated_at: new Date(),
+			})
+			.where(
+				and(
+					eq(githubOAuthMessages.bot_id, botId),
+					eq(githubOAuthMessages.discord_user_id, discordUserId),
+					eq(githubOAuthMessages.message_id, messageId)
+				)
+			)
+			.returning()
+
+		return message ?? null
+	} catch (error) {
+		console.error('Failed to update GitHub OAuth message status:', error)
+		throw new Error('Failed to update GitHub OAuth message status')
+	}
+}
+
+export async function getGitHubOAuthMessageByUserId(
+	botId: string,
+	discordUserId: string
+): Promise<GithubOAuthMessages | null> {
+	try {
+		const [message] = await db
+			.select()
+			.from(githubOAuthMessages)
+			.where(
+				and(
+					eq(githubOAuthMessages.bot_id, botId),
+					eq(githubOAuthMessages.discord_user_id, discordUserId)
+				)
+			)
+			.orderBy(desc(githubOAuthMessages.created_at))
+			.limit(1)
+
+		return message ?? null
+	} catch (error) {
+		console.error('Failed to get GitHub OAuth message:', error)
+		throw new Error('Failed to get GitHub OAuth message')
 	}
 }
