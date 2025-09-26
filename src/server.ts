@@ -20,6 +20,7 @@ import * as Database from './db/initDatabase.js'
 import supabase from './db/supabase.js'
 import * as Birthday from './discord/commands/fun/birthday/index.js'
 import * as Tickets from './discord/commands/moderation/tickets/index.js'
+import { initGitHubEventListeners } from './discord/events/githubEvents.js'
 
 const PORT: number = Number.parseInt(env.PORT || '5001', 10)
 
@@ -331,9 +332,13 @@ client.once('ready', async (c) => {
 		)
 
 		// ========================================
-		// ✅ FINAL STARTUP SECTION
-		// ========================================
-		StatusLogger.success('All services initialized successfully')
+	// ✅ FINAL STARTUP SECTION
+	// ========================================
+	// Initialize GitHub event listeners
+	initGitHubEventListeners()
+	StatusLogger.info('GitHub event listeners initialized')
+	
+	StatusLogger.success('All services initialized successfully')
 	} catch (error) {
 		StatusLogger.error('Failed to initialize some services', error as Error)
 	}
