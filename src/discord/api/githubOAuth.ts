@@ -135,7 +135,7 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
 
     // Get GitHub user data
     StatusLogger.info(`[GitHub Callback] Retrieving GitHub user data for ${discordUserId}`)
-    const githubUser = await fetchGitHubUser(tokenResponse.access_token)
+    const githubUser = await fetchGitHubUser(tokenResponse)
     if (!githubUser) {
       StatusLogger.error(`[GitHub Callback] Failed to fetch GitHub user data for ${discordUserId}`)
       return new Response('Failed to fetch GitHub user data', {
@@ -476,7 +476,7 @@ export async function updateDiscordMessage(
         // If we get a Missing Access error, try to send a new message to the user via DM
         if (errorMessage.includes('Missing Access')) {
           StatusLogger.info(`[GitHub OAuth] Missing Access error - this is expected if the bot doesn't have permissions in the channel`);
-          
+
           // Próba wysłania nowej wiadomości do kanału
           try {
             const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN || '');
@@ -490,7 +490,7 @@ export async function updateDiscordMessage(
           } catch (msgError) {
             StatusLogger.error(`[GitHub OAuth] Nie udało się wysłać nowej wiadomości: ${msgError instanceof Error ? msgError.message : String(msgError)}`);
           }
-          
+
           // Just log the successful connection
           StatusLogger.info(`[GitHub OAuth] GitHub account ${githubUser.login} successfully connected to Discord user ${discordUserId}`);
         }
