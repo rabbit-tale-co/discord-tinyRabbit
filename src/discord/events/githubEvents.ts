@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { StatusLogger } from '@/utils/bunnyLogger';
 import * as Discord from 'discord.js';
 import { Routes } from 'discord.js';
-import { client } from '@/server';
+import { client } from '../../server';
 
 /**
  * Event emitter for GitHub-related events
