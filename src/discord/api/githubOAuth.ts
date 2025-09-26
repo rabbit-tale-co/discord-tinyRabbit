@@ -173,6 +173,7 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
 
         // Emit success event instead of directly updating message
         githubEvents.emit(GitHubEventType.CONNECTION_SUCCESS, {
+          botId: botId,
           userId: discordUserId,
           channelId: channelId,
           messageId: messageId,
@@ -185,6 +186,7 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
 
         // Emit failure event
         githubEvents.emit(GitHubEventType.CONNECTION_FAILURE, {
+          botId: botId,
           userId: discordUserId,
           channelId: channelId,
           messageId: messageId,

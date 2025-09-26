@@ -3,6 +3,8 @@ import { StatusLogger } from '@/utils/bunnyLogger';
 import * as Discord from 'discord.js';
 import { Routes } from 'discord.js';
 import { client } from '../../server';
+import { getBotTokenById } from './getBotToken';
+import { updateGitHubOAuthMessageStatus } from '@/db/queries.js';
 
 /**
  * Event emitter for GitHub-related events
@@ -59,16 +61,19 @@ export function emitGitHubConnectionFailure(
  */
 export function initGitHubEventListeners(): void {
   // Listen for GitHub connection success events
-  githubEvents.on(GitHubEventType.CONNECTION_SUCCESS, async ({ channelId, userId, githubUsername }) => {
+  githubEvents.on(GitHubEventType.CONNECTION_SUCCESS, async ({ botId, channelId, userId, messageId, githubUsername }) => {
     try {
       StatusLogger.info(`[GitHub Events] Handling connection success event for user ${userId}`);
       
-      // Get bot token from environment variables
-      const botToken = process.env.BOT_TOKEN;
+      // Get bot token based on botId from database or environment
+      const botToken = botId ? await getBotTokenById(botId) : process.env.BOT_TOKEN;
       if (!botToken) {
-        StatusLogger.error('[GitHub Events] Missing BOT_TOKEN in environment variables');
+        StatusLogger.error(`[GitHub Events] Missing token for bot ID ${botId}`);
         return;
       }
+
+      // Update message status in database
+      await updateGitHubOAuthMessageStatus(botId, userId, 'SUCCESS');
 
       // Create Discord REST API client
       const rest = new Discord.REST({ version: '10' }).setToken(botToken);
@@ -77,14 +82,14 @@ export function initGitHubEventListeners(): void {
       const content = `✅ GitHub account **${githubUsername}** has been successfully connected to your Discord account!`;
 
       try {
-        // Try to send message to the channel
+        // Try to send ephemeral message to the channel
         await rest.post(Routes.channelMessages(channelId), {
           body: {
             content,
-            flags: Discord.MessageFlags.SuppressEmbeds
+            flags: Discord.MessageFlags.SuppressEmbeds | Discord.MessageFlags.Ephemeral
           }
         });
-        StatusLogger.info(`[GitHub Events] Sent connection success message to channel ${channelId} for user ${userId}`);
+        StatusLogger.info(`[GitHub Events] Sent ephemeral connection success message to channel ${channelId} for user ${userId}`);
       } catch (channelError) {
         StatusLogger.error(`[GitHub Events] Error sending message to channel: ${channelError instanceof Error ? channelError.message : String(channelError)}`);
         
@@ -105,16 +110,19 @@ export function initGitHubEventListeners(): void {
   });
 
   // Listen for GitHub connection failure events
-  githubEvents.on(GitHubEventType.CONNECTION_FAILURE, async ({ channelId, userId, error }) => {
+  githubEvents.on(GitHubEventType.CONNECTION_FAILURE, async ({ botId, channelId, userId, messageId, error }) => {
     try {
       StatusLogger.info(`[GitHub Events] Handling connection failure event for user ${userId}`);
       
-      // Get bot token from environment variables
-      const botToken = process.env.BOT_TOKEN;
+      // Get bot token based on botId from database or environment
+      const botToken = botId ? await getBotTokenById(botId) : process.env.BOT_TOKEN;
       if (!botToken) {
-        StatusLogger.error('[GitHub Events] Missing BOT_TOKEN in environment variables');
+        StatusLogger.error(`[GitHub Events] Missing token for bot ID ${botId}`);
         return;
       }
+
+      // Update message status in database
+      await updateGitHubOAuthMessageStatus(botId, userId, 'FAILURE');
 
       // Create Discord REST API client
       const rest = new Discord.REST({ version: '10' }).setToken(botToken);
@@ -127,10 +135,10 @@ export function initGitHubEventListeners(): void {
         await rest.post(Routes.channelMessages(channelId), {
           body: {
             content,
-            flags: Discord.MessageFlags.SuppressEmbeds
+            flags: Discord.MessageFlags.SuppressEmbeds | Discord.MessageFlags.Ephemeral
           }
         });
-        StatusLogger.info(`[GitHub Events] Sent connection failure message to channel ${channelId} for user ${userId}`);
+        StatusLogger.info(`[GitHub Events] Sent ephemeral connection failure message to channel ${channelId} for user ${userId}`);
       } catch (channelError) {
         StatusLogger.error(`[GitHub Events] Error sending message to channel: ${channelError instanceof Error ? channelError.message : String(channelError)}`);
         
