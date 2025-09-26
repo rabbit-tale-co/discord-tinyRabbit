@@ -157,11 +157,12 @@ export async function githubStatus(
     const discordUserId = interaction.user.id
     const botId = interaction.client.user.id
 
-    // Check if the user has a connected GitHub account
+    // Check if the user has a connected GitHub account for this specific bot
     const links = await db.select()
       .from(githubDiscordLinks)
       .where(
-        eq(githubDiscordLinks.discord_user_id, discordUserId)
+        eq(githubDiscordLinks.discord_user_id, discordUserId),
+        eq(githubDiscordLinks.bot_id, botId)
       )
 
     if (links.length === 0) {
