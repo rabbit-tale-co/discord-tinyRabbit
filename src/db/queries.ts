@@ -1,4 +1,3 @@
-import 'server-only'
 import { and, asc, count, desc, eq, sum } from 'drizzle-orm'
 import { db } from './index.js'
 import {

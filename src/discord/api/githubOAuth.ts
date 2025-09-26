@@ -5,8 +5,8 @@ import { eq, and } from 'drizzle-orm'
 import { REST } from '@discordjs/rest'
 import { Routes } from 'discord-api-types/v10'
 import * as Discord from 'discord.js'
-import { createGitHubOAuthMessage, updateGitHubOAuthMessageStatus } from '@/db/queries'
-import { githubEvents, GitHubEventType } from '@/discord/events/githubEvents'
+import { createGitHubOAuthMessage } from '@/db/queries.js'
+import { githubEvents, GitHubEventType } from '@/discord/events/githubEvents.js'
 
 /**
  * Set CORS headers for API responses
@@ -170,7 +170,7 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
       try {
         // Store message info in database
         await createGitHubOAuthMessage(botId, discordUserId, channelId, messageId);
-        
+
         // Emit success event instead of directly updating message
         githubEvents.emit(GitHubEventType.CONNECTION_SUCCESS, {
           userId: discordUserId,
@@ -178,11 +178,11 @@ export async function handleGitHubOAuthCallback(req: Request): Promise<Response>
           messageId: messageId,
           githubUsername: githubUser.login
         });
-        
+
         StatusLogger.info(`[GitHub Callback] GitHub connection success event emitted for user ${discordUserId}`);
       } catch (error) {
         StatusLogger.error(`[GitHub Callback] Error handling GitHub connection: ${error instanceof Error ? error.message : String(error)}`);
-        
+
         // Emit failure event
         githubEvents.emit(GitHubEventType.CONNECTION_FAILURE, {
           userId: discordUserId,
